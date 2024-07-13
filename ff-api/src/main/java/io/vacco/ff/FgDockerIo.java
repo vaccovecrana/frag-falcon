@@ -14,7 +14,7 @@ public class FgDockerIo {
   private static final Logger log = LoggerFactory.getLogger(FgDockerIo.class);
 
   public static void expand(File in, File out) throws IOException {
-    log.info("Extracting layer [{}]", in.getAbsolutePath());
+    log.info("Expanding layer [{}]", in.getAbsolutePath());
     try (var fis = new FileInputStream(in);
          var gzis = new GZIPInputStream(new BufferedInputStream(fis));
          var fos = new FileOutputStream(out);
@@ -90,7 +90,13 @@ public class FgDockerIo {
     }
   }
 
-  public static void extract(String dockerImageUri, File outDir, BiConsumer<FgTarEntry, Exception> onError) throws IOException {
+  private static JsonObject getConfigJson(String registryUrl, String repository, String configDigest, String authToken) throws IOException {
+    var configUrl = registryUrl + repository + "/blobs/" + configDigest;
+    log.info("Retrieving config: {}", configUrl);
+    return getJsonResponse(configUrl, authToken);
+  }
+
+  public static FgDockerImage extract(String dockerImageUri, File outDir, BiConsumer<FgTarEntry, Exception> onError) throws IOException {
     var uriParts = dockerImageUri.split("/", 2);
     var registryUrl = "https://" + (uriParts[0].equals(dockerTld) ? "registry-1.docker.io" : uriParts[0]) + "/v2/";
     var repository = uriParts[1].contains("/") ? uriParts[1] : "library/" + uriParts[1];
@@ -107,16 +113,32 @@ public class FgDockerIo {
     log.info("Retrieving manifest: {}", manifestUrl);
 
     var manifest = getJsonResponse(manifestUrl, authToken);
+    var configDigest = manifest.getAsJsonObject("config").get("digest").getAsString();
+    var configJson = getConfigJson(registryUrl, repoName, configDigest, authToken);
+
+    String[] entryPoint = null;
+    if (configJson.getAsJsonObject("config").has("Entrypoint")) {
+      entryPoint = parseJsonArray(configJson.getAsJsonObject("config").getAsJsonArray("Entrypoint"));
+    }
+
+    String[] cmd = null;
+    if (configJson.getAsJsonObject("config").has("Cmd")) {
+      cmd = parseJsonArray(configJson.getAsJsonObject("config").getAsJsonArray("Cmd"));
+    }
+
     var layers = manifest.has("layers")
       ? manifest.getAsJsonArray("layers")
       : manifest.getAsJsonArray("fsLayers");
+
+    var downloadDir = new File(outDir, "blobs");
+    var extractedDir = new File(outDir, "unzipped");
+    var untarDir = new File(outDir, "extract");
 
     for (var layer : layers) {
       var layerObj = layer.getAsJsonObject();
       var blobSum = layerObj.has("digest")
         ? layerObj.get("digest").getAsString()
         : layerObj.get("blobSum").getAsString();
-      var downloadDir = new File(outDir, "blobs");
       var blobFile = new File(downloadDir, blobSum);
 
       downloadDir.mkdirs();
@@ -124,14 +146,20 @@ public class FgDockerIo {
         downloadBlob(registryUrl, repoName, blobSum, blobFile, authToken);
       }
 
-      var extractedDir = new File(outDir, "unzipped");
       var extractedFile = new File(extractedDir, blobFile.getName());
-
       extractedDir.mkdirs();
       expand(blobFile, extractedFile);
-
-      var untarDir = new File(outDir, "extract");
       FgTarIo.extract(extractedFile, untarDir, onError);
     }
+
+    return FgDockerImage.of(untarDir, entryPoint, cmd);
+  }
+
+  private static String[] parseJsonArray(JsonArray jsonArray) {
+    var array = new String[jsonArray.size()];
+    for (int i = 0; i < jsonArray.size(); i++) {
+      array[i] = jsonArray.get(i).getAsString();
+    }
+    return array;
   }
 }
