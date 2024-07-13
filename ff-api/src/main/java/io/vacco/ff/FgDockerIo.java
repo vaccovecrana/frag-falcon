@@ -1,15 +1,15 @@
 package io.vacco.ff;
 
 import com.google.gson.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.slf4j.*;
 import java.io.*;
 import java.net.*;
-import java.nio.file.FileAlreadyExistsException;
+import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
 public class FgDockerIo {
+
+  public static final String dockerTld = "docker.io";
 
   private static final Logger log = LoggerFactory.getLogger(FgDockerIo.class);
 
@@ -27,11 +27,21 @@ public class FgDockerIo {
     }
   }
 
-  private static JsonObject getJsonResponse(String urlString) throws IOException {
+  private static JsonObject getJsonResponse(String urlString, String authToken) throws IOException {
     var url = new URL(urlString);
     var connection = (HttpURLConnection) url.openConnection();
     connection.setRequestMethod("GET");
     connection.setRequestProperty("Accept", "application/vnd.docker.distribution.manifest.v2+json");
+    if (authToken != null) {
+      connection.setRequestProperty("Authorization", "Bearer " + authToken);
+    }
+    int responseCode = connection.getResponseCode();
+    if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+      throw new IOException("Unauthorized request. Check token.");
+    } else if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+      var newUrl = connection.getHeaderField("Location");
+      return getJsonResponse(newUrl, authToken);
+    }
     try (var is = connection.getInputStream()) {
       var responseBytes = is.readAllBytes();
       var response = new String(responseBytes);
@@ -39,12 +49,24 @@ public class FgDockerIo {
     }
   }
 
-  private static void downloadBlob(String registryUrl, String repository, String blobSum, File outputFile) throws IOException {
+  private static void downloadBlob(String registryUrl, String repository, String blobSum,
+                                   File outputFile, String authToken) throws IOException {
     var blobUrl = registryUrl + repository + "/blobs/" + blobSum;
     log.info("Downloading layer: {}", blobUrl);
     var url = new URL(blobUrl);
     var connection = (HttpURLConnection) url.openConnection();
     connection.setRequestMethod("GET");
+    if (authToken != null) {
+      connection.setRequestProperty("Authorization", "Bearer " + authToken);
+    }
+    int responseCode = connection.getResponseCode();
+    if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+      throw new IOException("Unauthorized request. Check token.");
+    } else if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+      var newUrl = connection.getHeaderField("Location");
+      downloadBlob(newUrl, repository, blobSum, outputFile, authToken);
+      return;
+    }
     try (var in = new BufferedInputStream(connection.getInputStream());
          var out = new FileOutputStream(outputFile)) {
       var buffer = new byte[1024];
@@ -55,18 +77,36 @@ public class FgDockerIo {
     }
   }
 
-  public static void extract(String dockerImageUri, File outDir) throws IOException {
+  private static String requestAuthToken(String repository) throws IOException {
+    var authUrl = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:" + repository + ":pull";
+    var url = new URL(authUrl);
+    var connection = (HttpURLConnection) url.openConnection();
+    connection.setRequestMethod("GET");
+    try (var is = connection.getInputStream()) {
+      var responseBytes = is.readAllBytes();
+      var response = new String(responseBytes);
+      var jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+      return jsonResponse.get("token").getAsString();
+    }
+  }
+
+  public static void extract(String dockerImageUri, File outDir, BiConsumer<FgTarEntry, Exception> onError) throws IOException {
     var uriParts = dockerImageUri.split("/", 2);
-    var registryUrl = "https://" + uriParts[0] + "/v2/";
-    var repository = uriParts[1];
+    var registryUrl = "https://" + (uriParts[0].equals(dockerTld) ? "registry-1.docker.io" : uriParts[0]) + "/v2/";
+    var repository = uriParts[1].contains("/") ? uriParts[1] : "library/" + uriParts[1];
     var repoParts = repository.split(":");
     var repoName = repoParts[0];
     var imageTag = repoParts.length > 1 ? repoParts[1] : "latest";
     var manifestUrl = registryUrl + repoName + "/manifests/" + imageTag;
 
+    String authToken = null;
+    if (registryUrl.contains(dockerTld)) {
+      authToken = requestAuthToken(repoName);
+    }
+
     log.info("Retrieving manifest: {}", manifestUrl);
 
-    var manifest = getJsonResponse(manifestUrl);
+    var manifest = getJsonResponse(manifestUrl, authToken);
     var layers = manifest.has("layers")
       ? manifest.getAsJsonArray("layers")
       : manifest.getAsJsonArray("fsLayers");
@@ -81,7 +121,7 @@ public class FgDockerIo {
 
       downloadDir.mkdirs();
       if (!blobFile.exists()) {
-        downloadBlob(registryUrl, repoName, blobSum, blobFile);
+        downloadBlob(registryUrl, repoName, blobSum, blobFile, authToken);
       }
 
       var extractedDir = new File(outDir, "unzipped");
@@ -91,14 +131,7 @@ public class FgDockerIo {
       expand(blobFile, extractedFile);
 
       var untarDir = new File(outDir, "extract");
-      FgTarIo.extract(extractedFile, untarDir, ((tarEntry, ex) -> {
-        if (ex instanceof FileAlreadyExistsException) {
-          log.info("File already exists: {}", tarEntry.name);
-        } else {
-          log.error("Unable to extract entry {}", tarEntry, ex);
-        }
-      }));
+      FgTarIo.extract(extractedFile, untarDir, onError);
     }
   }
-
 }
