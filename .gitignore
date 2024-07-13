@@ -1,0 +1,11 @@
+.DS_Store
+
+build/
+bin/
+
+.idea/
+.gradle/
+gradle/
+gradlew*
+
+node_modules/
