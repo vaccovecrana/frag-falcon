@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug with GDB",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder}/out/fg_test",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "print pretty",
+            "ignoreFailures": true
+          }
+        ],
+        "preLaunchTask": "build",
+        "miDebuggerPath": "/usr/bin/gdb",
+        "internalConsoleOptions": "openOnSessionStart"
+      }
+    ]
+  }
+  

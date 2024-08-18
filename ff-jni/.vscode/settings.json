@@ -1,0 +1,15 @@
+{
+  "files.associations": {
+    "jni.h": "c",
+    "if_packet.h": "c",
+    "types.h": "c",
+    "fg_tap.h": "c",
+    "cerrno": "c",
+    "string.h": "c",
+    "fcntl.h": "c",
+    "socket.h": "c",
+    "stdlib.h": "c",
+    "unistd.h": "c",
+    "signal.h": "c"
+  }
+}

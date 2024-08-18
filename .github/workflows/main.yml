@@ -1,0 +1,41 @@
+name: Gradle/Graal Build
+on: { push: { tags: null } }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull Docker Image
+        run: docker pull gradle:jdk21-graal-jammy
+      - name: Gradle Build
+        run: |
+          docker run --rm \
+            -e PLUGIN_ORGCONFIG=https://vacco-oss.s3.us-east-2.amazonaws.com/vacco-oss.json \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            gradle:jdk21-graal-jammy \
+            gradle clean build nativeCompile
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flc-binaries
+          path: ff-app/build/native/nativeCompile
+      - name: GitHub Release
+        id: create_release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ff-app/build/native/nativeCompile/flc-linux-amd64
+          asset_name: flc-linux-amd64
+          asset_content_type: application/octet-stream

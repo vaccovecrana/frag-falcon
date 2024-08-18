@@ -1,7 +1,18 @@
 .DS_Store
+.attach*
 
 build/
 bin/
+linux-6*
+linux-5*
+bzImage
+
+hs_err_*
+
+/fg_jni.so
+ff-test/fg_jni.so
+/**/out/fg_*.o
+/**/out/fg_test
 
 .idea/
 .gradle/
@@ -9,3 +20,5 @@ gradle/
 gradlew*
 
 node_modules/
+
+vm-test/
