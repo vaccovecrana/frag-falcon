@@ -14,6 +14,7 @@ jobs:
       - name: Gradle Build
         run: |
           docker run --rm \
+            $(env | grep -v '^_' | sed 's/^/-e /') \
             -e PLUGIN_ORGCONFIG=https://vacco-oss.s3.us-east-2.amazonaws.com/vacco-oss.json \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
