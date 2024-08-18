@@ -1,5 +1,10 @@
 name: Gradle/Graal Build
-on: { push: { tags: null } }
+on:
+  release:
+    types: [published]
+  push:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
