@@ -78,6 +78,23 @@ The test VM I am running is using the `hashicorp/http-echo:latest` image. So I c
 hello-world
 ```
 
+## Building/Development
+
+# Development
+
+Requires Gradle 7.1 or later.
+
+Besides the usual `gradle clean build`, create a file with the following content at `~/.gsOrgConfig.json`:
+
+```
+{
+  "orgId": "vacco-oss",
+  "orgConfigUrl": "https://vacco-oss.s3.us-east-2.amazonaws.com/vacco-oss.json"
+}
+```
+
+> Note: there's still a lot of tests with local paths I need to document/refactor.
+
 ## Resources/credits
 
 - [TinyUntar](https://github.com/dsoprea/TinyUntar)
