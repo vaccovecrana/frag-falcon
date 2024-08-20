@@ -1,6 +1,6 @@
 # frag-falcon
 
-Firecracker VM management.
+Firecracker VM management. Run Docker images as micro VMs.
 
 ## Quick start
 
