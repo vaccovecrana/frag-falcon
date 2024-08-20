@@ -80,9 +80,7 @@ hello-world
 
 ## Building/Development
 
-# Development
-
-Requires Gradle 7.1 or later.
+Requires Gradle 8 or later.
 
 Besides the usual `gradle clean build`, create a file with the following content at `~/.gsOrgConfig.json`:
 
