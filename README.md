@@ -24,7 +24,7 @@ localhost:~/flc# tree
 3 directories, 0 files 
 ```
 
-> Note: if you plan to run `flc` as a non-root user, you'll need to grant `setcap` capabilities to the `flc` binary to manage network interfaces. See wiki for details.
+> Note: if you plan to run `flc` as a non-root user, you'll need to `setcap` on the `flc` binary to grant network management capabilities. See [here](https://github.com/vaccovecrana/frag-falcon/blob/main/ff-test/README.md) for details.
 
 Start `flc`:
 
