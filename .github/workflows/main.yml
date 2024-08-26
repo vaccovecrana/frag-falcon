@@ -14,8 +14,8 @@ jobs:
       - name: Gradle Build
         run: |
           docker run --rm \
-            -e GITHUB_REF=${{ env.GITHUB_REF }} \
-            -e GITHUB_SHA=${{ env.GITHUB_SHA }} \
+            -e GITHUB_REF=${{ github.ref }} \
+            -e GITHUB_SHA=${{ github.sha }} \
             -e PLUGIN_ORGCONFIG=https://vacco-oss.s3.us-east-2.amazonaws.com/vacco-oss.json \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
