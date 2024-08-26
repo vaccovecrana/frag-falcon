@@ -178,4 +178,12 @@ public class FgIo {
     }
   }
 
+  public static String hostName() {
+    try {
+      return InetAddress.getLocalHost().getHostName();
+    } catch (UnknownHostException e) {
+      return "localhost";
+    }
+  }
+
 }

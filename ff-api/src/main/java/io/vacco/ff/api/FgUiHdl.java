@@ -5,7 +5,9 @@ import io.vacco.murmux.middleware.MxStatic;
 import java.io.File;
 import java.nio.file.*;
 
+import static java.lang.String.format;
 import static io.vacco.ff.api.FgRoute.*;
+import static io.vacco.ff.util.FgIo.hostName;
 
 public class FgUiHdl extends MxStatic {
 
@@ -24,7 +26,7 @@ public class FgUiHdl extends MxStatic {
     "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
     "  <link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\">",
     "  <link rel=\"stylesheet\" href=\"/index.css\" />",
-    "  <title>frag-falcon</title>",
+    format("  <title>%s</title>", hostName()),
     "</head>",
     "<body class=\"dark\">",
     "  <div id=\"root\"></div>",
