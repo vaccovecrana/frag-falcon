@@ -135,10 +135,14 @@ public class FgFirecracker {
     if (vm.config.networkinterfaces != null) {
       var netIf0 = vm.config.networkinterfaces.get(0); // TODO add support for multiple interfaces if there is demand.
       var ipConfig = netConfig.ipConfig;
-      bootArgs.append(" ").append(vmDhcpKernelParams(ipConfig, netIf0.iface_id));
-      for (int k = 0; k < ipConfig.dnsServers.size(); k++) {
-        var ns = ipConfig.dnsServers.get(k);
-        vm.image.env.add(FgEnvVar.of(format("FF_NS%d", k), ns));
+      if (ipConfig != null) {
+        if (netConfig.dhcp) {
+          bootArgs.append(" ").append(vmDhcpKernelParams(ipConfig, netIf0.iface_id));
+        }
+        for (int k = 0; k < ipConfig.dnsServers.size(); k++) {
+          var ns = ipConfig.dnsServers.get(k);
+          vm.image.env.add(FgEnvVar.of(format("FF_NS%d", k), ns));
+        }
       }
     }
     if (vm.image.env != null && !vm.image.env.isEmpty()) {
