@@ -29,8 +29,6 @@ func initDevNull() error {
 			log.Println(devPath, "already exists with correct permissions")
 		}
 		return nil
-	} else {
-		log.Println("Initializing", devPath)
 	}
 	if err := os.MkdirAll(filepath.Dir(devPath), 0755); err != nil {
 		return err
@@ -41,6 +39,50 @@ func initDevNull() error {
 	if err := os.Chmod(devPath, os.FileMode(mode)); err != nil {
 		return fmt.Errorf("failed to chmod %s after creation: %w", devPath, err)
 	}
+	return nil
+}
+
+func initDevMem() error {
+	major := uint32(1)
+	minor := uint32(1)
+	devNum := unix.Mkdev(major, minor)
+	mode := uint32(syscall.S_IFCHR | 0640)
+	if _, err := os.Stat("/dev/mem"); os.IsNotExist(err) {
+		if err := unix.Mknod("/dev/mem", mode, int(devNum)); err != nil {
+			return fmt.Errorf("failed to create /dev/mem: %v", err)
+		}
+		if err := os.Chown("/dev/mem", 0, unix.Getegid()); err != nil {
+			return fmt.Errorf("failed to set owner/group for /dev/mem: %v", err)
+		}
+	}
+	_, err := os.OpenFile("/dev/mem", os.O_RDWR, 0640)
+	if err != nil {
+		return fmt.Errorf("failed to open /dev/mem: %v", err)
+	}
+	return nil
+}
+
+func initMaxFileDescriptors() error {
+	maxFdStr := os.Getenv(FF_MAXFD)
+	if maxFdStr == "" {
+		return nil
+	}
+	maxFd, err := strconv.Atoi(maxFdStr)
+	if err != nil {
+		return fmt.Errorf("invalid file descriptor limit value: %v", err)
+	}
+	var rLimit syscall.Rlimit
+	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+		return fmt.Errorf("failed to get current file descriptor limit: %v", err)
+	}
+	rLimit.Cur = uint64(maxFd)
+	if rLimit.Max < uint64(maxFd) {
+		rLimit.Max = uint64(maxFd)
+	}
+	if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+		return fmt.Errorf("failed to set file descriptor limit: %v", err)
+	}
+	fmt.Printf("Set maximum file descriptors to %d\n", maxFd)
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/lorenzosaino/go-sysctl"
@@ -24,8 +25,15 @@ func initKernelParams() error {
 }
 
 func initDev() {
+	if err := initDevMem(); err != nil {
+		log.Println("Failed to create /dev/mem device", err)
+	}
 	if err := initDevNull(); err != nil {
 		log.Println("Failed to create /dev/null device", err)
+	}
+	if err := initMaxFileDescriptors(); err != nil {
+		fmt.Println(err)
+		return
 	}
 	log.Println("Enumerating existing devices...")
 	queue := make(chan crawler.Device)

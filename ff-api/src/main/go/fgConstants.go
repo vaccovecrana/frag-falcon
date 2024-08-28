@@ -20,3 +20,7 @@ const FF_MOUNT = "FF_MOUNT"
 // Numeric placeholders for nameservers
 // e.g. FF_NS_0=1.1.1.1
 const FF_NS = "FF_NS"
+
+// Max number of file descriptors
+// Typically used by databases or storage solutions
+const FF_MAXFD = "FF_MAXFD"
