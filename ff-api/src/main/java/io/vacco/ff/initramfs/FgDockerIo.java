@@ -19,8 +19,10 @@ import static io.vacco.ff.util.FgIo.*;
 public class FgDockerIo {
 
   public static final String
-    dockerTld = "docker.io",
+    dockerTld = "docker.io", dockerAuthTld = "auth.docker.io", dockerService = "registry.docker.io",
+    githubTld = "ghcr.io",
     mimeTypeOciManifestV1 = "application/vnd.oci.image.manifest.v1+json",
+    mimeTypeOciImageV1 = "application/vnd.oci.image.index.v1+json",
     mimeTypeOciConfigV1 = "application/vnd.oci.image.config.v1+json",
     mimeTypeDockerManifestV2 = "application/vnd.docker.distribution.manifest.v2+json";
 
@@ -112,10 +114,10 @@ public class FgDockerIo {
     }
   }
 
-  private static String requestAuthToken(String repository) {
+  private static String requestAuthToken(String registryTld, String ... args) {
     try {
-      var authUrl = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:" + repository + ":pull";
-      var url = url(authUrl);
+      var baseUrl = format("https://%s/token?%s", registryTld, join("&", args));
+      var url = url(baseUrl);
       var connection = (HttpURLConnection) url.openConnection();
       connection.setRequestMethod("GET");
       try (var is = connection.getInputStream()) {
@@ -125,7 +127,7 @@ public class FgDockerIo {
         return jsonResponse.get("token").getAsString();
       }
     } catch (IOException e) {
-      throw new IllegalStateException(format("Unable to request auth token: [%s]", repository), e);
+      throw new IllegalStateException(format("Unable to request auth token: [%s, %s]", registryTld, Arrays.toString(args)), e);
     }
   }
 
@@ -226,12 +228,21 @@ public class FgDockerIo {
 
     String authToken = null;
     if (registryUrl.contains(dockerTld)) {
-      authToken = requestAuthToken(repoName);
+      authToken = requestAuthToken(
+        dockerAuthTld,
+        format("service=%s", dockerService),
+        format("scope=repository:%s:pull", repoName)
+      );
+    } else if (registryUrl.contains(githubTld)) {
+      authToken = requestAuthToken(
+        githubTld,
+        format("scope=repository:%s:pull", repoName)
+      );
     }
 
     log.info("Retrieving manifest: {}", manifestUrl);
 
-    var manifest = getJsonResponse(manifestUrl, authToken, mimeTypeDockerManifestV2, mimeTypeOciManifestV1);
+    var manifest = getJsonResponse(manifestUrl, authToken, mimeTypeDockerManifestV2, mimeTypeOciManifestV1, mimeTypeOciImageV1);
 
     if (manifest.has("manifests")) {
       var oDigest = manifest.getAsJsonArray("manifests")

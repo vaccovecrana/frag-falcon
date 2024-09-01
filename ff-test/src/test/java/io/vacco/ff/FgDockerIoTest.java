@@ -19,6 +19,7 @@ public class FgDockerIoTest {
   public static File buildDir = new File("./build");
 
   private static final String[] images = new String[] {
+    "ghcr.io/siderolabs/installer:v1.4.0",
     "docker.io/hashicorp/http-echo:latest",
     "docker.io/louislam/uptime-kuma:latest",
     "quay.io/argoproj/argocd:latest",
