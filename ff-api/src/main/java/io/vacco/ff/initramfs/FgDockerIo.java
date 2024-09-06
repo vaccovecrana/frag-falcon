@@ -204,6 +204,23 @@ public class FgDockerIo {
         onError.accept(entry, e);
       }
     }
+    for (var entry : tarFiles) {
+      var entryName = entry.fsPath.getFileName().toString();
+      if (entryName.startsWith(".wh.")) {
+        var originalName = entry.fsPath.getFileName().toString().substring(4);
+        var originalFile = new File(entry.fsPath.getParent().toFile(), originalName);
+        if (originalFile.exists()) {
+          delete(originalFile, e -> onError(log, "Unable to delete whiteout entry [{}]", e, originalFile));
+        }
+      } else if (entryName.equals(".wh..wh..opq")) {
+        var dir = entry.fsPath.getParent().toFile();
+        for (var file : Objects.requireNonNull(dir.listFiles())) {
+          if (!file.getName().startsWith(".wh.")) {
+            delete(file, e -> onError(log, "Unable to delete whiteout opaque directory [{}]", e, file));
+          }
+        }
+      }
+    }
     delete(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
     delete(unzippedDir, e -> onError(log, "Unable to delete unzipped directory [{}]", e, unzippedDir));
 
