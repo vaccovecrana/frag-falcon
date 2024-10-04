@@ -31,6 +31,9 @@ func initDev() {
 	if err := initDevNull(); err != nil {
 		log.Println("Failed to create /dev/null device", err)
 	}
+	if err := initDevPts(); err != nil {
+		log.Println("Failed to create /dev/pts", err)
+	}
 	if err := initMaxFileDescriptors(); err != nil {
 		fmt.Println(err)
 		return

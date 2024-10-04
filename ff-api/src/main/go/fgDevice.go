@@ -62,6 +62,24 @@ func initDevMem() error {
 	return nil
 }
 
+func initDevPts() error {
+	devPtsPath := "/dev/pts"
+	if _, err := os.Stat(devPtsPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(devPtsPath, 0755); err != nil {
+			return fmt.Errorf("failed to create %s: %w", devPtsPath, err)
+		}
+	}
+	if err := unix.Mount("devpts", devPtsPath, "devpts", 0, ""); err != nil {
+		if err == unix.EBUSY {
+			log.Printf("%s is already mounted", devPtsPath)
+			return nil
+		}
+		return fmt.Errorf("failed to mount devpts on %s: %w", devPtsPath, err)
+	}
+	log.Println("Mounted devpts on", devPtsPath)
+	return nil
+}
+
 func initMaxFileDescriptors() error {
 	maxFdStr := os.Getenv(FF_MAXFD)
 	if maxFdStr == "" {
