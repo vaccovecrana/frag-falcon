@@ -16,7 +16,7 @@ jobs:
           docker run --rm \
             -e GITHUB_REF=${{ github.ref }} \
             -e GITHUB_SHA=${{ github.sha }} \
-            -e PLUGIN_ORGCONFIG=https://vacco-oss.s3.us-east-2.amazonaws.com/vacco-oss.json \
+            -e PLUGIN_ORGCONFIG=http://56db25d3f6c39937b48e-6eaf716421c53330be45fa9d36560381.r85.cf2.rackcdn.com/org-config/vacco.json \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             gradle:jdk21-graal-jammy \
