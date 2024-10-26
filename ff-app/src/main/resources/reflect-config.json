@@ -168,6 +168,12 @@
     "allDeclaredFields": true
   },
   {
+    "name": "io.vacco.ff.schema.FgRequest",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
     "name": "io.vacco.ff.schema.FgVm",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,

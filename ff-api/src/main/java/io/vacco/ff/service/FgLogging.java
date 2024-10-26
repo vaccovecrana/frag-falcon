@@ -14,9 +14,7 @@ public class FgLogging {
 
   public static String messageFor(Throwable t) {
     var x = rootCauseOf(t);
-    return x.getMessage() != null && !x.getMessage().isEmpty()
-      ? x.getMessage()
-      : x.getClass().getSimpleName();
+    return String.format("%s: %s", x.getClass().getSimpleName(), x.getMessage());
   }
 
   private static Object[] merge(boolean exceptionAsMessage, Exception e, Object ... args) {
