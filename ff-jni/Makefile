@@ -1,7 +1,7 @@
 CC = zig cc
 CFLAGS =	-Wall -I./include -g \
-					-I/home/jjzazuet/Applications/zulu17.42.21-ca-crac-jdk17.0.7-linux_x64/include \
-					-I/home/jjzazuet/Applications/zulu17.42.21-ca-crac-jdk17.0.7-linux_x64/include/linux
+			-I$(JAVA_HOME)/include \
+			-I$(JAVA_HOME)/include/linux
 
 $(shell mkdir -p ./out)
 
