@@ -1,12 +1,13 @@
 CC = zig cc
-CFLAGS =	-Wall
+CFLAGS = -Wall -Os -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections
+LDFLAGS = -s -Wl,--gc-sections
 
 $(shell mkdir -p ./out)
 
 all: compile
 
 compile:
-	$(CC) $(CFLAGS) -c ./src/main/c/ffrt.c -o ./out/ffrt.o
+	$(CC) $(CFLAGS) ./src/main/c/ffrt.c -o ./out/ffrt $(LDFLAGS) -target x86_64-linux-musl -static
 
 clean:
 	rm -rf ./out
