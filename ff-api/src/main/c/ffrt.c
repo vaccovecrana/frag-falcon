@@ -156,8 +156,8 @@ int init_kernel_params() {
         *eq = '\0';
         char *key = trim(line);
         char *val = trim(eq + 1);
-        char proc_path[256] = "/proc/sys/";
-        strcat(proc_path, key);
+        char proc_path[256];
+        snprintf(proc_path, sizeof(proc_path), "/proc/sys/%s", key);
         for (char *d = proc_path; *d; d++) if (*d == '.') *d = '/';
         int fd = open(proc_path, O_WRONLY);
         if (fd < 0) continue;
@@ -184,38 +184,24 @@ int init_resolv() {
     return 0;
 }
 
-char **parse_json_array(const char *json) {
-    if (!json || json[0] != '[') return NULL;
-    char *dup = strdup(json + 1);
-    char *p = dup;
+char **get_indexed_array(const char *prefix) {
+    char **arr = NULL;
+    int capacity = 0;
     int count = 0;
-    while (*p && *p != ']') {
-        if (*p == '"') {
-            p++;
-            while (*p && *p != '"') p++;
-            if (*p == '"') p++;
-            count++;
+    int i = 0;
+    while (1) {
+        char var[64];
+        snprintf(var, sizeof(var), "%s_%d", prefix, i);
+        char *val = getenv(var);
+        if (!val) break;
+        if (count >= capacity) {
+            capacity = capacity ? capacity * 2 : 8;
+            arr = realloc(arr, (capacity + 1) * sizeof(char *));
         }
-        if (*p == ',') p++;
+        arr[count++] = strdup(val);
+        i++;
     }
-    char **arr = malloc((count + 1) * sizeof(char *));
-    memset(arr, 0, (count + 1) * sizeof(char *));
-    p = dup;
-    int idx = 0;
-    while (*p && *p != ']') {
-        if (*p == '"') {
-            p++;
-            char *start = p;
-            while (*p && *p != '"') p++;
-            if (*p == '"') {
-                *p = '\0';
-                arr[idx++] = strdup(start);
-                p++;
-            }
-        }
-        if (*p == ',') p++;
-    }
-    free(dup);
+    if (arr) arr[count] = NULL;
     return arr;
 }
 
@@ -230,9 +216,10 @@ char **concat_arrays(char **a1, char **a2) {
     if (a1) while (a1[len1]) len1++;
     if (a2) while (a2[len2]) len2++;
     char **res = malloc((len1 + len2 + 1) * sizeof(char *));
-    if (a1) memcpy(res, a1, len1 * sizeof(char *));
-    if (a2) memcpy(res + len1, a2, len2 * sizeof(char *));
-    res[len1 + len2] = NULL;
+    int idx = 0;
+    if (a1) for (int i = 0; i < len1; i++) res[idx++] = a1[i]; // Note: transferring ownership, not strdup
+    if (a2) for (int i = 0; i < len2; i++) res[idx++] = a2[i];
+    res[idx] = NULL;
     return res;
 }
 
@@ -302,13 +289,10 @@ void monitor() {
 
     init_mounts();
 
-    char *ep_json = getenv(FF_ENTRYPOINT);
-    char **entrypoint = parse_json_array(ep_json);
-    char *cmd_json = getenv(FF_CMD);
-    char **cmdargs = parse_json_array(cmd_json);
+    char **entrypoint = get_indexed_array(FF_ENTRYPOINT);
+    char **cmdargs = get_indexed_array(FF_CMD);
     char **command = concat_arrays(entrypoint, cmdargs);
-    free_array(entrypoint);
-    free_array(cmdargs);
+    // Note: concat_arrays transfers ownership, so don't free entrypoint and cmdargs here
 
     if (!command || !command[0]) {
         fprintf(stderr, "No command to execute\n");
@@ -334,7 +318,7 @@ void monitor() {
                 break;
             }
         }
-        free_array(command);
+        free_array(command); // This will free the strings from entrypoint and cmdargs
         do_shutdown();
     } else {
         perror("fork");
