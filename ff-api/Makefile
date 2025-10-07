@@ -7,7 +7,7 @@ $(shell mkdir -p ./out)
 all: compile
 
 compile:
-	$(CC) $(CFLAGS) ./src/main/c/ffrt.c -o ./out/ffrt $(LDFLAGS) -target x86_64-linux-musl -static
+	$(CC) $(CFLAGS) ./src/main/c/ffrt.c -o ./src/main/c/ffrt $(LDFLAGS) -target x86_64-linux-musl -static
 
 clean:
 	rm -rf ./out
