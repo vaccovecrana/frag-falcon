@@ -19,7 +19,7 @@ dependencies {
   api("am.ik.yavi:yavi:0.14.1")
   api("io.vacco.ronove:rv-kit-murmux:1.2.6_2.2.5")
   api(project(":ff-jni"))
-  api(project(":ff-ui"))
+  // api(project(":ff-ui"))
 }
 
 val copyFfRt = tasks.register<Copy>("copyFfRt") {
