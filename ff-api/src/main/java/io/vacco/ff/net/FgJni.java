@@ -31,7 +31,6 @@ public class FgJni {
 
   // Process management
   public static native int fork(String vmId, String command, String[] args, int maxLines, String[] outShm);
-
   public static native int terminate(int pid);
 
   // Tap interface management

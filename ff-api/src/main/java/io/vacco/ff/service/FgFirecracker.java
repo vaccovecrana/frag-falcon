@@ -1,18 +1,13 @@
 package io.vacco.ff.service;
 
 import com.google.gson.Gson;
-import io.vacco.ff.firecracker.*;
-import io.vacco.ff.firecracker.instanceactioninfo.Action_type;
 import io.vacco.ff.schema.FgNetConfig;
 import io.vacco.ff.schema.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static io.vacco.ff.firecracker.InstanceActionInfo.instanceActionInfo;
 import static io.vacco.ff.initramfs.FgConstants.*;
 import static io.vacco.ff.util.FgIo.delete;
 import static io.vacco.ff.service.FgVmSvcDhcp.vmDhcpKernelParams;
@@ -24,11 +19,7 @@ import static io.vacco.murmux.http.MxStatus.*;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
-import static io.vacco.ff.firecracker.MachineConfiguration.machineConfiguration;
-
 public class FgFirecracker {
-
-  private static final Logger log = LoggerFactory.getLogger(FgVmSvcDhcp.class);
 
   public static final int ApiBufferSize = 4096;
   public static final int ApiTimeoutMs = 2000;

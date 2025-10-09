@@ -8,7 +8,6 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 
 import static io.vacco.ff.api.FgRoute.VmIdNew;
-import static io.vacco.ff.firecracker.NetworkInterface.networkInterface;
 import static io.vacco.ff.initramfs.FgConstants.*;
 import static io.vacco.ff.initramfs.FgCpio.archive;
 import static io.vacco.ff.initramfs.FgDockerIo.extract;

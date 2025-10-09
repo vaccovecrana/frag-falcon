@@ -13,7 +13,7 @@ public class FgUiHdl extends MxStatic {
 
   private static final File pkgJson = new File("../ff-ui/package.json");
   private static final Origin contentOrigin = pkgJson.exists() ? Origin.FileSystem : Origin.Classpath;
-  private static final Path contentRoot = pkgJson.exists()
+  private static final Path contentRoot = pkgJson.exists() // TODO fix this
     ? Paths.get("../ff-ui/build/resources/main/ui")
     : Paths.get("/ui");
 
