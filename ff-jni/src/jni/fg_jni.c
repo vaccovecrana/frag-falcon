@@ -12,14 +12,9 @@
 //              Process  management               //
 ////////////////////////////////////////////////////
 
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_fork(JNIEnv *env, jclass cls, jstring vmId, jstring command, jobjectArray args, jstring logPath) {
+JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_fork(JNIEnv *env, jclass cls, jstring vmId, jstring command, jobjectArray args, jint maxLines, jobjectArray outShm) {
     const char *vm_id = (*env)->GetStringUTFChars(env, vmId, 0);
     const char *cmd = (*env)->GetStringUTFChars(env, command, 0);
-
-    const char *log_path = NULL;
-    if (logPath != NULL) {
-        log_path = (*env)->GetStringUTFChars(env, logPath, 0);
-    }
 
     jsize arg_len = (*env)->GetArrayLength(env, args);
     char *argv[arg_len + 2]; // +2 for command and NULL terminator
@@ -32,16 +27,20 @@ JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_fork(JNIEnv *env, jclass cls, 
     }
     argv[arg_len + 1] = NULL;
 
-    jint result = spawn_process(vm_id, cmd, argv, log_path);
+    char shm_name[64] = {0};
+    jint result = spawn_process(vm_id, cmd, argv, maxLines, shm_name);
     (*env)->ReleaseStringUTFChars(env, vmId, vm_id);
     (*env)->ReleaseStringUTFChars(env, command, cmd);
 
-    if (logPath != NULL) {
-        (*env)->ReleaseStringUTFChars(env, logPath, log_path);
-    }
     for (int i = 0; i <= arg_len; ++i) {
         free(argv[i]);
     }
+
+    if (maxLines > 0 && strlen(shm_name) > 0) {
+        jstring shmStr = (*env)->NewStringUTF(env, shm_name);
+        (*env)->SetObjectArrayElement(env, outShm, 0, shmStr);
+    }
+
     return result;
 }
 
