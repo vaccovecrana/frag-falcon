@@ -93,44 +93,12 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv, int max_lines
         close(name_pipe[0]); close(name_pipe[1]);
         return -1;
     } else if (pid == 0) {
-        // Child process
+        // Child process (logger)
         close(pid_pipe[0]);
         close(name_pipe[0]);
 
         if (setsid() == -1) {
             perror("setsid");
-            exit(EXIT_FAILURE);
-        }
-
-        int use_buffer = (max_lines > 0);
-        if (!use_buffer) {
-            // No buffer
-            int null_fd = open("/dev/null", O_RDONLY);
-            if (null_fd == -1) {
-                perror("open /dev/null");
-                exit(EXIT_FAILURE);
-            }
-            dup2(null_fd, STDIN_FILENO);
-            close(null_fd);
-
-            struct rlimit rlim;
-            if (getrlimit(RLIMIT_NOFILE, &rlim) == 0) {
-                for (int fd = 3; fd < rlim.rlim_max; fd++) {
-                    close(fd);
-                }
-            }
-
-            char env_var[256];
-            snprintf(env_var, sizeof(env_var), "FF_VMID=%s", vm_id);
-            putenv(env_var);
-
-            pid_t self_pid = getpid();
-            write(pid_pipe[1], &self_pid, sizeof(self_pid));
-            close(pid_pipe[1]);
-            close(name_pipe[1]);
-
-            execve(cmd, argv, environ);
-            perror("execve");
             exit(EXIT_FAILURE);
         }
 
@@ -140,7 +108,7 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv, int max_lines
 
         // Create unique shm name
         char shm_name[64];
-        snprintf(shm_name, sizeof(shm_name), "%s%s_%d", SHM_PREFIX, vm_id, (int)getpid());
+        snprintf(shm_name, sizeof(shm_name), "%s%s_%d", SHM_PREFIX, vm_id, (int) getpid());
 
         int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0600);
         if (shm_fd == -1) {
@@ -176,7 +144,7 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv, int max_lines
             perror("fork vm");
             exit(EXIT_FAILURE);
         } else if (vm_pid == 0) {
-            // Grandchild
+            // Grandchild (VM process)
             close(output_pipe[0]);
             close(pid_pipe[1]);
             close(shm_fd);
@@ -209,7 +177,7 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv, int max_lines
             exit(EXIT_FAILURE);
         }
 
-        // Logger
+        // Logger process
         close(output_pipe[1]);
         int input_fd = output_pipe[0];
 
@@ -265,7 +233,7 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv, int max_lines
         waitpid(vm_pid, NULL, 0);
         exit(EXIT_SUCCESS);
     } else {
-        // Parent
+        // Parent process
         close(pid_pipe[1]);
         close(name_pipe[1]);
 
@@ -278,17 +246,13 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv, int max_lines
         }
         close(pid_pipe[0]);
 
-        if (max_lines > 0) {
-            ssize_t name_len = read(name_pipe[0], out_shm_name, PATH_MAX - 1);
-            if (name_len <= 0) {
-                perror("read shm_name");
-                close(name_pipe[0]);
-                return -1;
-            }
-            out_shm_name[name_len] = '\0';
-        } else {
-            out_shm_name[0] = '\0';
+        ssize_t name_len = read(name_pipe[0], out_shm_name, PATH_MAX - 1);
+        if (name_len <= 0) {
+            perror("read shm_name");
+            close(name_pipe[0]);
+            return -1;
         }
+        out_shm_name[name_len] = '\0';
         close(name_pipe[0]);
 
         return returned_pid;
