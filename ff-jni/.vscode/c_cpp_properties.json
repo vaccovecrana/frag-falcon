@@ -6,12 +6,14 @@
                 "${workspaceFolder}/src/**/*.h",
                 "${env:JAVA_HOME}/include",
                 "${env:JAVA_HOME}/include/linux",
-                "/usr/include",
-                "/usr/local/include",
                 "/usr/include/linux",
-                "/usr/include/net"
+                "/usr/include"
             ],
-            "defines": [],
+            "defines": [
+                "NULL=((void *)0)", "_GNU_SOURCE=1",
+                "errno=(__errno_location())", "size_t=unsigned long int",
+                "STDIN_FILENO=0", "STDOUT_FILENO=1", "STDERR_FILENO=2"
+            ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "intelliSenseMode": "gcc-x64"
