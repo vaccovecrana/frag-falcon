@@ -1,5 +1,8 @@
 CC = zig cc
-CFLAGS = -Wall -I./include -g -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
+CFLAGS = -Wall -Os \
+	-I./include -g -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux \
+	-fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables \
+	-ffunction-sections -fdata-sections
 
 $(shell mkdir -p ./out)
 
@@ -14,8 +17,8 @@ compile:
 
 jni:
 	$(CC) $(CFLAGS) -fPIC -c ./src/jni/fg_jni.c -o ./out/fg_jni.o
-	$(CC) -shared -o ./out/fg_jni.so ./out/fg_jni.o \
-		./out/fg_tap.o ./out/fg_raw.o ./out/fg_proc.o ./out/fg_unix.o ./out/fg_vsock.o
+	$(CC) -shared -o ./fg_jni.so \
+		./out/fg_jni.o ./out/fg_tap.o ./out/fg_raw.o ./out/fg_proc.o ./out/fg_unix.o ./out/fg_vsock.o
 
 tests: all
 	$(CC) $(CFLAGS) -c ./src/test/fg_tap_test.c -o ./out/fg_tap_test.o

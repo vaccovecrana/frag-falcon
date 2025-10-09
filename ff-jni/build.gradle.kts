@@ -3,7 +3,7 @@ configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
 }
 
 val copyFfJni = tasks.register<Copy>("copyFfJni") {
-  from("./out/fg_jni.so")
+  from("./fg_jni.so")
   into("./build/resources/main/io/vacco/ff")
 }
 
