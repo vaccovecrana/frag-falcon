@@ -1,11 +1,9 @@
 package io.vacco.ff.compose;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-public class ComposeFile {
+public class ComposeFile { // TODO clean these up
   public String version;
   public String name;
   public Map<String, Service> services = new HashMap<>();
