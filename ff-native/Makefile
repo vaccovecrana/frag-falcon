@@ -3,12 +3,16 @@ CFLAGS = -Wall -Os \
 	-I./include -g -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux \
 	-fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables \
 	-ffunction-sections -fdata-sections
+LDFLAGS = -s -Wl,--gc-sections
 
 $(shell mkdir -p ./out)
 
-all: compile jni
+all: init native jni
 
-compile:
+init:
+	$(CC) $(CFLAGS) ./src/init/fg_init.c -o ./ffrt $(LDFLAGS) -target x86_64-linux-musl -static
+
+native:
 	$(CC) $(CFLAGS) -c ./src/fg/fg_tap.c -o ./out/fg_tap.o
 	$(CC) $(CFLAGS) -c ./src/fg/fg_raw.c -o ./out/fg_raw.o
 	$(CC) $(CFLAGS) -c ./src/fg/fg_proc.c -o ./out/fg_proc.o

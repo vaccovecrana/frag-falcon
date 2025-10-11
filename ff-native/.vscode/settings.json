@@ -14,6 +14,14 @@
     "cstdlib": "c",
     "stddef.h": "c",
     "if.h": "c",
-    "inet.h": "c"
+    "inet.h": "c",
+    "exception": "c",
+    "memory_resource": "c",
+    "iosfwd": "c",
+    "new": "c",
+    "ostream": "c",
+    "streambuf": "c",
+    "format": "c",
+    "errno.h": "c"
   }
 }

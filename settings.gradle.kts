@@ -6,7 +6,7 @@ pluginManagement {
 }
 
 include(
-  "ff-jni", "ff-api",
+  "ff-native", "ff-api",
   // "ff-ui",
   "ff-app", "ff-test"
 )

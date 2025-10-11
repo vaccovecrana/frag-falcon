@@ -33,8 +33,8 @@ void send_dummy_udp_packet(int tap_fd) {
     iph->ttl = 255;
     iph->protocol = IPPROTO_UDP;
     iph->check = 0; // Set to 0 before calculating checksum
-    iph->saddr = inet_addr("192.168.1.2");
-    iph->daddr = inet_addr("192.168.1.1");
+    iph->saddr = inet_addr("192.168.122.2");
+    iph->daddr = inet_addr("192.168.122.1");
 
     // Fill in the UDP Header
     udph->source = htons(12345);
@@ -54,12 +54,12 @@ void test_tap_device_lifecycle(const char *tap_name, const char *bridge_name) {
     int result;
 
     printf("Creating TAP device %s\n", tap_name);
-    int tap_fd = create_tap_device(tap_name, 1);
+    int tap_fd = create_tap_device(tap_name);
     if (tap_fd < 0) {
         fprintf(stderr, "Failed to create TAP device %s: %d\n", tap_name, tap_fd);
         exit(EXIT_FAILURE);
     }
-    printf("Created TAP device %s\n", tap_name);
+    printf("Created TAP device %s (%d)\n", tap_name, tap_fd);
 
     printf("Attaching TAP device %s to bridge %s\n", tap_name, bridge_name);
     result = attach_tap_to_bridge(tap_name, bridge_name);
@@ -97,7 +97,7 @@ void test_tap_device_lifecycle(const char *tap_name, const char *bridge_name) {
 
 int main() {
     const char *tap_name = "tap04";
-    const char *bridge_name = "br0";
+    const char *bridge_name = "virbr0";
 
     test_tap_device_lifecycle(tap_name, bridge_name);
 
