@@ -1,5 +1,14 @@
 # Development/Debugging
 
+## Dependencies
+
+The following linux packages are needed:
+
+```
+sudo apt install socat nmap
+sudo apt install qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+```
+
 The following commands are needed in order to run machine local tests.
 
 TAP interfaces:
@@ -18,6 +27,8 @@ TAP interfaces:
 
     # Send arp requests
     nping --arp --arp-target-mac f2:70:47:a5:39:5a --arp-target-ip 192.168.1.10 --interface eth0 192.168.1.255
+
+Alternatively, use the `virbr0` bridge from virt-manager.
 
 Capture layer 2 traffic:
 
@@ -63,27 +74,8 @@ Send a test payload:
 
 Machine definition with volume mounts:
 
+TODO write an example
+
 ```yaml
-vm:
-  tag:
-    label: uptime-kuma
-    description: Uptime Kuma
-  image:
-    source: docker.io/louislam/uptime-kuma:latest
-    envUsr:
-    - key: FF_MOUNT_0
-      val: '"{"Device": "/dev/vda", "Path": "/app/data", "Sync": true, "ReadOnly": false}"'
-  config:
-    bootsource:
-      kernel_image_path: /home/jjzazuet/code/frag-falcon/ff-test/./src/test/resources/kernel/vmlinux-6.1.98
-    machineconfig:
-      mem_size_mib: 2048
-      vcpu_count: 1
-    drives:
-    - drive_id: rootfs
-      path_on_host: /home/jjzazuet/code/frag-falcon/ff-test/src/test/resources/disk.img
-      is_root_device: false
-network:
-  brIf: br0
-  dhcp: true
+
 ```

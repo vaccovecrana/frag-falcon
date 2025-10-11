@@ -14,6 +14,14 @@ import static io.vacco.ff.util.FgIo.mkDirs;
 @DefinedOrder
 @RunWith(J8SpecRunner.class)
 public class FgContextTest {
+
+  public static UnsafeBlock localTest(UnsafeBlock test) {
+    if (!GraphicsEnvironment.isHeadless()) {
+      return test;
+    }
+    return () -> System.out.println("CI/CD, nothing to do");
+  }
+
   static {
     it("Starts a test app context", localTest(() -> {
       FgOptions.setFrom(new String[]{
