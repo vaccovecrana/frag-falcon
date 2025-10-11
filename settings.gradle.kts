@@ -6,9 +6,9 @@ pluginManagement {
 }
 
 include(
-  "ff-native", "ff-api",
-  // "ff-ui",
-  "ff-app", "ff-test"
+  "ff-native", "ff-archive",
+  "ff-api", // "ff-ui",
+  "ff-app"
 )
 
 project(":ff-app").name = "flc-${System.getProperty("os.name").lowercase()}-${System.getProperty("os.arch")}"
