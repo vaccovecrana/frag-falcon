@@ -12,7 +12,6 @@ import static org.junit.Assert.*;
 import static io.vacco.ff.net.FgJni.*;
 import static io.vacco.ff.util.FgIo.*;
 import static io.vacco.ff.FgTest.localTest;
-import static io.vacco.ff.service.FgFirecracker.fcMachineConfigOf;
 
 @DefinedOrder
 @RunWith(J8SpecRunner.class)

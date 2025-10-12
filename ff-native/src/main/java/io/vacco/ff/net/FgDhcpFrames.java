@@ -83,7 +83,7 @@ public class FgDhcpFrames {
     );
   }
 
-  public static FgDhcpDiscover dhcpDiscoverFrame(byte[] macAddress, boolean bootPBroadcast) {
+  public static FgDhcpFrame dhcpDiscoverFrame(byte[] macAddress, boolean bootPBroadcast) {
     var buffer = new byte[300]; // Typical minimum DHCP packet size
     fill(buffer, (byte) 0);
     buffer[0] = 0x01; // Message type: 1 for request
@@ -125,14 +125,14 @@ public class FgDhcpFrames {
     // End Option
     buffer[243] = (byte) 255;
 
-    var req = new FgDhcpDiscover();
+    var req = new FgDhcpFrame();
     req.packet = buffer;
 
     return req;
   }
 
-  public static FgDhcpDiscover dhcpRequestFrame(byte[] macAddress, byte[] transactionId,
-                                                String requestedIp, String serverIp) {
+  public static FgDhcpFrame dhcpRequestFrame(byte[] macAddress, byte[] transactionId,
+                                             String requestedIp, String serverIp) {
     var msg = dhcpDiscoverFrame(macAddress, true); // Start with a basic DHCP Discover message template
     var buffer = msg.packet;
     // Set the transaction ID passed from the previous stage
@@ -179,7 +179,7 @@ public class FgDhcpFrames {
     return buffer;
   }
 
-  public static FgDhcpDiscover dhcpRenewFrame(byte[] macAddress, byte[] txId, String yourIp, String serverIp, boolean bootPBroadcast) {
+  public static FgDhcpFrame dhcpRenewFrame(byte[] macAddress, byte[] txId, String yourIp, String serverIp, boolean bootPBroadcast) {
     var msg = dhcpDiscoverFrame(macAddress, bootPBroadcast); // Reuse the discover message template
     var buffer = msg.packet;
     arraycopy(txId, 0, buffer, 4, 4); // Transaction ID

@@ -13,4 +13,7 @@ subprojects {
   configure<io.vacco.cphell.ChPluginExtension> {
     resourceExclusions.add("module-info.class")
   }
+
+  project.ext.set("shax", "io.vacco.shax:shax:2.0.17.2")
+
 }

@@ -2,7 +2,7 @@ package io.vacco.ff.net;
 
 import static java.lang.System.arraycopy;
 
-public class FgDhcpDiscover {
+public class FgDhcpFrame {
 
   public byte[] packet;
 
