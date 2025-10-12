@@ -1,5 +1,6 @@
 package io.vacco.ff.schema;
 
+import io.vacco.ff.net.FgIpConfig;
 import java.util.Objects;
 
 public class FgNetConfig {

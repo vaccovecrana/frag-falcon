@@ -1,6 +1,5 @@
 package io.vacco.ff.net;
 
-import io.vacco.ff.schema.FgIpConfig;
 import java.util.*;
 
 import static io.vacco.ff.net.FgJni.parseIpAddress;

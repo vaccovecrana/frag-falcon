@@ -3,7 +3,7 @@ package io.vacco.ff.service;
 import am.ik.yavi.builder.ValidatorBuilder;
 import am.ik.yavi.constraint.*;
 import am.ik.yavi.core.*;
-import io.vacco.ff.firecracker.*;
+import io.vacco.ff.net.FgIpConfig;
 import io.vacco.ff.schema.*;
 import java.util.*;
 

@@ -2,6 +2,7 @@ package io.vacco.ff.service;
 
 import com.google.gson.*;
 import io.vacco.ff.firecracker.NetworkInterface;
+import io.vacco.ff.net.FgIpConfig;
 import io.vacco.ff.schema.*;
 import java.util.*;
 import java.util.concurrent.*;

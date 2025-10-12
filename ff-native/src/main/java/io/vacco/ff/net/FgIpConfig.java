@@ -1,4 +1,4 @@
-package io.vacco.ff.schema;
+package io.vacco.ff.net;
 
 import java.util.Arrays;
 import java.util.List;

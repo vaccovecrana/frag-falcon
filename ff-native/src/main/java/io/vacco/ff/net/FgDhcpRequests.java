@@ -1,6 +1,5 @@
 package io.vacco.ff.net;
 
-import io.vacco.ff.schema.FgIpConfig;
 import org.slf4j.*;
 import java.util.*;
 
