@@ -1,6 +1,6 @@
 package io.vacco.ff.compose;
 
-public class Network {
+public class FgNetwork {
   public String driver = "bridge";
   public boolean external;
 }

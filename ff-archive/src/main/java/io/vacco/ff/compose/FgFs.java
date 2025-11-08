@@ -1,6 +1,6 @@
 package io.vacco.ff.compose;
 
-public class Fs {
+public class FgFs {
   public String tag;
   public String socket;
   public int num_queues = 1;

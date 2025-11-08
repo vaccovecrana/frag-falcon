@@ -6,7 +6,7 @@ pluginManagement {
 }
 
 include(
-  "ff-native", "ff-archive", "ff-docker"
+  "ff-native", "ff-archive"
   // "ff-api", // "ff-ui",
   // "ff-app"
 )

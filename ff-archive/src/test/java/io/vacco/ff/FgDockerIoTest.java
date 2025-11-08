@@ -9,8 +9,8 @@ import java.nio.file.FileAlreadyExistsException;
 import static j8spec.J8Spec.*;
 import static io.vacco.ff.FgTest.*;
 import static io.vacco.ff.util.FgIo.mkDirs;
-import static io.vacco.ff.initramfs.FgDockerIo.extract;
-import static io.vacco.ff.initramfs.FgCpio.archive;
+import static io.vacco.ff.FgDockerIo.extract;
+import static io.vacco.ff.archive.FgCpio.archive;
 
 @DefinedOrder
 @RunWith(J8SpecRunner.class)

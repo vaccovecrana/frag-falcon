@@ -5,17 +5,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Service {
+public class FgService {
   public String image;
   public List<String> command = new ArrayList<>();
   public Map<String, String> environment = new HashMap<>();
-  public List<Port> ports = new ArrayList<>();
-  public List<VolumeMount> volumes = new ArrayList<>();
+  public List<FgPort> ports = new ArrayList<>();
+  public List<FgVolumeMount> volumes = new ArrayList<>();
   public List<String> networks = new ArrayList<>();
-  public Ulimits ulimits = new Ulimits();
+  public FgUlimits ulimits = new FgUlimits();
   public List<String> depends_on = new ArrayList<>();
   public String restart;
-  public VmConfig vm = new VmConfig();
+  public FgVmConfig vm = new FgVmConfig();
   public List<String> models = new ArrayList<>();
   public int cpu_count = 1;
   public String mem_limit = "1g";

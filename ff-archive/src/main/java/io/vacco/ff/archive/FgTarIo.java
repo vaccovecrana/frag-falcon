@@ -1,4 +1,4 @@
-package io.vacco.ff.initramfs;
+package io.vacco.ff.archive;
 
 import java.io.*;
 import java.nio.ByteBuffer;

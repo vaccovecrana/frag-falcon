@@ -2,14 +2,19 @@ package io.vacco.ff.net;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
+import static java.nio.file.Files.*;
 
 public class FgJni {
 
+  private static final Pattern numeric = Pattern.compile("\\d+");
   private static final Random rng = new Random();
 
   public static final byte[] BroadcastMac = new byte[] {
@@ -238,6 +243,54 @@ public class FgJni {
       return bridges;
     } catch (IOException e) {
       throw new IllegalStateException("Unable to list Linux bridges", e);
+    }
+  }
+
+  private static boolean contains(Path[] paths, String vmId) {
+    var environPath = paths[0];
+    if (Files.exists(environPath)) {
+      try {
+        var environment = readString(environPath);
+        if (environment.contains("FF_VMID=" + vmId + '\0')) {
+          return true;
+        }
+      } catch (IOException ignore) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  public static int pidOf(String procDir, String vmId) {
+    try (var paths = list(Path.of(procDir))) {
+      return paths
+        .filter(path -> isDirectory(path) && numeric.matcher(path.getFileName().toString()).matches())
+        .filter(path -> parseInt(path.getFileName().toString()) != 1) // Skip init process
+        .map(path -> new Path[] { path.resolve("environ"), path })
+        .filter(pathsArray -> contains(pathsArray, vmId))
+        .findFirst()
+        .map(pathArray -> Integer.parseInt(pathArray[1].getFileName().toString()))
+        .orElse(-1);
+    } catch (IOException e) {
+      return -1;
+    }
+  }
+
+  public static void delete(File f, Consumer<Exception> onError) {
+    try {
+      Files.walkFileTree(f.toPath(), new SimpleFileVisitor<>() {
+        @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+          Files.delete(file);
+          return FileVisitResult.CONTINUE;
+        }
+        @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+          if (exc != null) throw exc;
+          Files.delete(dir);
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } catch (IOException e) {
+      onError.accept(e);
     }
   }
 

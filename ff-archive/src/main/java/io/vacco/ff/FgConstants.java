@@ -1,4 +1,4 @@
-package io.vacco.ff.initramfs;
+package io.vacco.ff;
 
 public class FgConstants {
 

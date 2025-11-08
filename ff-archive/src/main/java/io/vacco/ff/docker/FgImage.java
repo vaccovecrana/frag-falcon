@@ -1,0 +1,10 @@
+package io.vacco.ff.docker;
+
+public class FgImage {
+  public String architecture;
+  public String os;
+  public String created;
+  public FgMain config;
+  public FgRootFs rootfs;
+}
+

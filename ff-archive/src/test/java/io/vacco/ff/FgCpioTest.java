@@ -1,6 +1,6 @@
 package io.vacco.ff;
 
-import io.vacco.ff.initramfs.FgCpio;
+import io.vacco.ff.archive.FgCpio;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
 import org.junit.runner.RunWith;
