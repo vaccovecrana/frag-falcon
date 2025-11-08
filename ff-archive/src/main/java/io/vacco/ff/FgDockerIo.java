@@ -9,6 +9,7 @@ import java.io.*;
 import java.net.*;
 import java.net.http.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
@@ -32,6 +33,9 @@ public class FgDockerIo {
   private static final Logger log = LoggerFactory.getLogger(FgDockerIo.class);
   private static final HttpClient client = HttpClient.newHttpClient();
   private static final Gson gson = new Gson();
+  private static final ExecutorService downloadExecutor = Executors.newFixedThreadPool(
+    Runtime.getRuntime().availableProcessors() * 2
+  );
 
   public static void expand(File in, File out) {
     try {
@@ -158,23 +162,39 @@ public class FgDockerIo {
     }
 
     var layers = !manifest.layers.isEmpty() ? manifest.layers : manifest.fsLayers;
-
     var blobDir = new File(outDir, pBlobs);
     var unzippedDir = new File(outDir, pUnzipped);
     var untarDir = new File(outDir, pExtract);
     var tarFiles = new TreeSet<FgTarEntry>();
 
+    mkDirs(blobDir);
+    mkDirs(unzippedDir);
+
+    var downloadFutures = new ArrayList<CompletableFuture<FgLayer>>();
     for (var layer : layers) {
       var blobSum = layer.digest != null ? layer.digest : layer.blobSum;
       var blobFile = new File(blobDir, blobSum);
+      var future = CompletableFuture.supplyAsync(() -> {
+        if (!blobFile.exists()) {
+          downloadBlob(registryUrl, repoName, blobSum, blobFile, authToken);
+        }
+        return layer;
+      }, downloadExecutor);
+      downloadFutures.add(future);
+    }
 
-      mkDirs(blobDir);
-      if (!blobFile.exists()) {
-        downloadBlob(registryUrl, repoName, blobSum, blobFile, authToken);
-      }
+    try {
+      CompletableFuture.allOf(downloadFutures.toArray(new CompletableFuture<?>[0])).join();
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to download one or more blobs", e);
+    }
 
+    // Process extraction serially (layer by layer)
+    for (var layer : layers) {
+      var blobSum = layer.digest != null ? layer.digest : layer.blobSum;
+      var blobFile = new File(blobDir, blobSum);
       var extractedFile = new File(unzippedDir, blobFile.getName());
-      mkDirs(unzippedDir);
+      
       expand(blobFile, extractedFile);
       tarFiles.addAll(FgTarIo.extract(extractedFile, untarDir, onError));
     }
