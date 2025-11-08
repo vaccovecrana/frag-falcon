@@ -1,7 +1,5 @@
 package io.vacco.ff.util;
 
-import com.google.gson.Gson;
-
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -73,22 +71,6 @@ public class FgIo {
       });
     } catch (IOException e) {
       onError.accept(e);
-    }
-  }
-
-  public static <T> T fromJson(File in, Class<T> clazz, Gson g) {
-    try (var fr = new FileReader(in)) {
-      return g.fromJson(fr, clazz);
-    } catch (IOException e) {
-      throw new IllegalStateException(format("Unable to read JSON data from [%s]", in), e);
-    }
-  }
-
-  public static void toJson(Object obj, File out, Gson g) {
-    try (var fw = new FileWriter(out)) {
-      g.toJson(obj, fw);
-    } catch (IOException e) {
-      throw new IllegalStateException(format("Unable to write JSON data to [%s]", out), e);
     }
   }
 

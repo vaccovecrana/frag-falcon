@@ -1,7 +1,6 @@
 package io.vacco.ff.initramfs;
 
 import com.google.gson.*;
-import io.vacco.ff.schema.*;
 import org.slf4j.*;
 import java.io.*;
 import java.net.*;
@@ -10,11 +9,11 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
-import static io.vacco.ff.service.FgLogging.onError;
-import static java.lang.String.*;
+import static io.vacco.ff.util.FgLog.onError;
 import static java.nio.file.Files.setPosixFilePermissions;
 import static io.vacco.ff.initramfs.FgConstants.*;
 import static io.vacco.ff.util.FgIo.*;
+import static java.lang.String.format;
 
 public class FgDockerIo {
 

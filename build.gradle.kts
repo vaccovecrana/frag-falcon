@@ -1,6 +1,7 @@
 plugins { id("io.vacco.oss.gitflow") version "1.8.3" apply(false) }
 
 subprojects {
+
   apply(plugin = "io.vacco.oss.gitflow")
 
   group = "io.vacco.ff"
@@ -15,5 +16,6 @@ subprojects {
   }
 
   project.ext.set("shax", "io.vacco.shax:shax:2.0.17.2")
+  project.ext.set("slf4j", "org.slf4j:slf4j-api:2.0.17")
 
 }

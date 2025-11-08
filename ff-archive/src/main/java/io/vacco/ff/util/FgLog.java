@@ -1,8 +1,8 @@
-package io.vacco.ff.service;
+package io.vacco.ff.util;
 
 import org.slf4j.Logger;
 
-public class FgLogging {
+public class FgLog {
 
   public static Throwable rootCauseOf(Throwable t){
     var root = t;
