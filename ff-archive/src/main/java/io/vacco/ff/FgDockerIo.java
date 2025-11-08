@@ -141,26 +141,19 @@ public class FgDockerIo {
     var configDigest = manifest.config.digest;
     var configJson = getConfigJson(registryUrl, repoName, configDigest, authToken);
 
-    String[] entryPoint = null;
-    if (configJson.config != null && configJson.config.Entrypoint != null && !configJson.config.Entrypoint.isEmpty()) {
-      entryPoint = configJson.config.Entrypoint.toArray(new String[0]);
-    }
-
-    String workingDir = null;
-    if (configJson.config != null && configJson.config.WorkingDir != null) {
-      workingDir = configJson.config.WorkingDir;
-    }
-
-    String[] cmd = null;
-    if (configJson.config != null && configJson.config.Cmd != null && !configJson.config.Cmd.isEmpty()) {
-      cmd = configJson.config.Cmd.toArray(new String[0]);
-    }
-
-    var env = new ArrayList<FgEnvVar>();
-    if (configJson.config != null && configJson.config.Env != null && !configJson.config.Env.isEmpty()) {
-      for (var e : configJson.config.Env) {
-        var entry = e.split("=", 2);
-        env.add(FgEnvVar.of(entry[0], entry.length == 2 ? entry[1] : null));
+    var result = new FgMain();
+    if (configJson.config != null) {
+      if (configJson.config.Entrypoint != null && !configJson.config.Entrypoint.isEmpty()) {
+        result.Entrypoint = configJson.config.Entrypoint;
+      }
+      if (configJson.config.Cmd != null && !configJson.config.Cmd.isEmpty()) {
+        result.Cmd = configJson.config.Cmd;
+      }
+      if (configJson.config.Env != null && !configJson.config.Env.isEmpty()) {
+        result.Env = configJson.config.Env;
+      }
+      if (configJson.config.WorkingDir != null) {
+        result.WorkingDir = configJson.config.WorkingDir;
       }
     }
 
@@ -212,7 +205,9 @@ public class FgDockerIo {
     delete(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
     delete(unzippedDir, e -> onError(log, "Unable to delete unzipped directory [{}]", e, unzippedDir));
 
-    return FgMain.of(untarDir.getAbsolutePath(), entryPoint, cmd, env, workingDir);
+    result.rootDir = untarDir.getAbsolutePath();
+
+    return result;
   }
 
   public static FgMain extract(String dockerImageUri, File outDir,

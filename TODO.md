@@ -15,6 +15,7 @@ it("Sends an API request to a Firecracker UNIX socket", localTest(() -> {
   assertEquals(200, cfg.statusCode);
   terminate(pid);
 }));
+
 it("Sends a raw message to a VSOCK socket", localTest(() -> {
   var args = new String[] { "vsock-listen:1234,fork", "EXEC:'/bin/cat'" };
   var pid = fork("vSockTest", "/usr/bin/socat", args, "./build/vSockTest.log");
@@ -27,5 +28,20 @@ it("Sends a raw message to a VSOCK socket", localTest(() -> {
   var data = new String(buff).trim();
   System.out.println(data);
   terminate(pid);
+}));
+
+it("Requests a dhcp lease for a mac address, then renews, then releases", localTest(() -> {
+  var vmMac = newMacAddress();
+  var vmMacStr = macToString(vmMac);
+  log.info(">> Discover + Request");
+  var lease0 = vmDhcpConfigure(br0, vmMacStr, null);
+  log.info(">> Awaiting active time, then renew");
+  var lease1 = vmDhcpConfigure(br0, vmMacStr, lease0);
+  log.info(">> Release");
+  assertNotNull(lease1);
+  withPromiscIf(br0, () -> withRawSocket(br0, sock -> {
+    dhcpRelease(sock, vmMac, lease1);
+    return null;
+  }));
 }));
 ```

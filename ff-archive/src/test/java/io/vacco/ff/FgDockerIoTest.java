@@ -1,5 +1,6 @@
 package io.vacco.ff;
 
+import io.vacco.ff.util.FgLog;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
 import org.junit.runner.RunWith;
@@ -7,7 +8,6 @@ import java.io.File;
 import java.nio.file.FileAlreadyExistsException;
 
 import static j8spec.J8Spec.*;
-import static io.vacco.ff.FgTest.*;
 import static io.vacco.ff.util.FgIo.mkDirs;
 import static io.vacco.ff.FgDockerIo.extract;
 import static io.vacco.ff.archive.FgCpio.archive;
@@ -19,11 +19,12 @@ public class FgDockerIoTest {
   public static File buildDir = new File("./build");
 
   private static final String[] images = new String[] {
-    "ghcr.io/siderolabs/installer:v1.4.0",
+//    "ghcr.io/siderolabs/installer:v1.4.0",
     "docker.io/hashicorp/http-echo:latest",
-    "docker.io/louislam/uptime-kuma:latest",
-    "quay.io/argoproj/argocd:latest",
-    "docker.io/nats:latest",
+//    "docker.io/louislam/uptime-kuma:latest",
+//    "quay.io/argoproj/argocd:latest",
+    "quay.io/vwbusguy/cowsay:latest",
+    //"docker.io/nats:latest",
     "docker.io/postgres:latest",
     "docker.io/cockroachdb/cockroach",
     "docker.io/busybox:latest",
@@ -31,7 +32,7 @@ public class FgDockerIoTest {
   };
 
   static {
-    initLog();
+    FgLog.devMode();
     it("Extracts remote Docker images", () -> {
       for (var image : images) {
         var imgId = Integer.toHexString(image.hashCode());

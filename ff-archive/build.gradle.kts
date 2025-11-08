@@ -1,5 +1,6 @@
 configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
   sharedLibrary(false, false)
+  addJ8Spec()
 }
 
 val api by configurations

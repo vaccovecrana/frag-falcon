@@ -2,6 +2,7 @@ package io.vacco.ff.docker;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class FgMain {
   // Docker config fields
@@ -13,18 +14,21 @@ public class FgMain {
   // Result image fields
   public String source;
   public String rootDir;
-  public String[] entryPoint;
-  public String[] cmd;
-  public List<FgEnvVar> env = new ArrayList<>();
   public List<FgEnvVar> envUsr = new ArrayList<>();
 
-  public static FgMain of(String rootDir, String[] entryPoint, String[] cmd, List<FgEnvVar> env, String workingDir) {
+  public static FgMain of(String rootDir, List<String> entrypoint, List<String> cmd, List<FgEnvVar> env, String workingDir) {
     var img = new FgMain();
     img.rootDir = rootDir;
-    img.entryPoint = entryPoint;
-    img.cmd = cmd;
+    if (entrypoint != null) {
+      img.Entrypoint = entrypoint;
+    }
+    if (cmd != null) {
+      img.Cmd = cmd;
+    }
     if (env != null) {
-      img.env = env;
+      img.Env = env.stream()
+        .map(e -> e.val != null ? e.key + "=" + e.val : e.key)
+        .collect(Collectors.toList());
     }
     img.WorkingDir = workingDir;
     return img;
@@ -40,6 +44,15 @@ public class FgMain {
       this.envUsr = envUsr;
     }
     return this;
+  }
+
+  public List<FgEnvVar> getEnvAsFgEnvVar() {
+    return Env.stream()
+      .map(e -> {
+        var parts = e.split("=", 2);
+        return FgEnvVar.of(parts[0], parts.length == 2 ? parts[1] : null);
+      })
+      .collect(Collectors.toList());
   }
 }
 

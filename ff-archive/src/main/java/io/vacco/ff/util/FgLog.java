@@ -1,8 +1,14 @@
 package io.vacco.ff.util;
 
+import io.vacco.shax.logging.ShOption;
 import org.slf4j.Logger;
 
 public class FgLog {
+
+  public static void devMode() {
+    ShOption.setSysProp(ShOption.IO_VACCO_SHAX_DEVMODE, "true");
+    ShOption.setSysProp(ShOption.IO_VACCO_SHAX_PRETTYPRINT, "true");
+  }
 
   public static Throwable rootCauseOf(Throwable t){
     var root = t;
