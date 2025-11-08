@@ -5,7 +5,7 @@ public class FgImage {
   public String architecture;
   public String os;
   public String created;
-  public FgMain config;
+  public FgConfig config;
   public FgRootFs rootfs;
 
 }

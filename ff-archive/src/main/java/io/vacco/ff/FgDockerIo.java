@@ -127,33 +127,33 @@ public class FgDockerIo {
     }
   }
 
-  private static io.vacco.ff.docker.FgImage getConfigJson(String registryUrl, String repository,
-                                          String configDigest, String authToken) {
+  private static io.vacco.ff.docker.FgImage getImageMetadata(String registryUrl, String repository,
+                                                             String configDigest, String authToken) {
     var configUrl = registryUrl + repository + "/blobs/" + configDigest;
     log.info("Retrieving config: {}", configUrl);
     var jsonString = getJsonResponseString(configUrl, authToken, mimeTypeOciConfigV1);
     return gson.fromJson(jsonString, io.vacco.ff.docker.FgImage.class);
   }
 
-  private static FgMain processManifest(FgManifest manifest, String registryUrl,
-                                         String repoName, String authToken, File outDir,
-                                         BiConsumer<FgTarEntry, Exception> onError) {
-    var configDigest = manifest.config.digest;
-    var configJson = getConfigJson(registryUrl, repoName, configDigest, authToken);
+  private static FgConfig processManifest(FgManifest manifest, String registryUrl,
+                                          String repoName, String authToken, File outDir,
+                                          BiConsumer<FgTarEntry, Exception> onError) {
+    var imgDigest = manifest.config.digest;
+    var imgMeta = getImageMetadata(registryUrl, repoName, imgDigest, authToken);
 
-    var result = new FgMain();
-    if (configJson.config != null) {
-      if (configJson.config.Entrypoint != null && !configJson.config.Entrypoint.isEmpty()) {
-        result.Entrypoint = configJson.config.Entrypoint;
+    var cfg = new FgConfig();
+    if (imgMeta.config != null) {
+      if (imgMeta.config.Entrypoint != null && !imgMeta.config.Entrypoint.isEmpty()) {
+        cfg.Entrypoint = imgMeta.config.Entrypoint;
       }
-      if (configJson.config.Cmd != null && !configJson.config.Cmd.isEmpty()) {
-        result.Cmd = configJson.config.Cmd;
+      if (imgMeta.config.Cmd != null && !imgMeta.config.Cmd.isEmpty()) {
+        cfg.Cmd = imgMeta.config.Cmd;
       }
-      if (configJson.config.Env != null && !configJson.config.Env.isEmpty()) {
-        result.Env = configJson.config.Env;
+      if (imgMeta.config.Env != null && !imgMeta.config.Env.isEmpty()) {
+        cfg.Env = imgMeta.config.Env;
       }
-      if (configJson.config.WorkingDir != null) {
-        result.WorkingDir = configJson.config.WorkingDir;
+      if (imgMeta.config.WorkingDir != null) {
+        cfg.WorkingDir = imgMeta.config.WorkingDir;
       }
     }
 
@@ -178,6 +178,7 @@ public class FgDockerIo {
       expand(blobFile, extractedFile);
       tarFiles.addAll(FgTarIo.extract(extractedFile, untarDir, onError));
     }
+
     for (var entry : tarFiles) {
       try {
         setPosixFilePermissions(entry.fsPath, entry.permissions);
@@ -185,6 +186,7 @@ public class FgDockerIo {
         onError.accept(entry, e);
       }
     }
+
     for (var entry : tarFiles) {
       var entryName = entry.fsPath.getFileName().toString();
       if (entryName.startsWith(".wh.")) {
@@ -202,17 +204,17 @@ public class FgDockerIo {
         }
       }
     }
+
     delete(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
     delete(unzippedDir, e -> onError(log, "Unable to delete unzipped directory [{}]", e, unzippedDir));
+    cfg.rootDir = untarDir.getAbsolutePath();
 
-    result.rootDir = untarDir.getAbsolutePath();
-
-    return result;
+    return cfg;
   }
 
-  public static FgMain extract(String dockerImageUri, File outDir,
-                                String architecture, String os,
-                                BiConsumer<FgTarEntry, Exception> onError) {
+  public static FgConfig extract(String dockerImageUri, File outDir,
+                                 String architecture, String os,
+                                 BiConsumer<FgTarEntry, Exception> onError) {
     var uriParts = dockerImageUri.split("/", 2);
     var registryUrl = "https://" + (uriParts[0].equals(dockerTld) ? "registry-1.docker.io" : uriParts[0]) + "/v2/";
 
