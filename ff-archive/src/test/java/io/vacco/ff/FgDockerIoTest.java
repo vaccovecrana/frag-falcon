@@ -23,7 +23,7 @@ public class FgDockerIoTest {
     "docker.io/hashicorp/http-echo:latest",
 //    "docker.io/louislam/uptime-kuma:latest",
 //    "quay.io/argoproj/argocd:latest",
-    "quay.io/vwbusguy/cowsay:latest",
+    "quay.io/jetstack/cert-manager-controller:v1.19.1",
     //"docker.io/nats:latest",
     "docker.io/postgres:latest",
     "docker.io/cockroachdb/cockroach",
