@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 public class FgService {
+
   public String image;
   public List<String> command = new ArrayList<>();
   public Map<String, String> environment = new HashMap<>();
@@ -19,4 +20,5 @@ public class FgService {
   public List<String> models = new ArrayList<>();
   public int cpu_count = 1;
   public String mem_limit = "1g";
+
 }

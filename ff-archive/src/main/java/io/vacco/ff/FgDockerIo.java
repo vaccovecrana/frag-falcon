@@ -3,6 +3,7 @@ package io.vacco.ff;
 import com.google.gson.*;
 import io.vacco.ff.archive.FgTarEntry;
 import io.vacco.ff.archive.FgTarIo;
+import io.vacco.ff.docker.*;
 import org.slf4j.*;
 import java.io.*;
 import java.net.*;
@@ -16,7 +17,7 @@ import static java.nio.file.Files.setPosixFilePermissions;
 import static io.vacco.ff.FgConstants.*;
 import static io.vacco.ff.util.FgIo.*;
 import static io.vacco.ff.net.FgJni.*;
-import static java.lang.String.format;
+import static java.lang.String.*;
 
 public class FgDockerIo {
 
@@ -30,6 +31,7 @@ public class FgDockerIo {
 
   private static final Logger log = LoggerFactory.getLogger(FgDockerIo.class);
   private static final HttpClient client = HttpClient.newHttpClient();
+  private static final Gson gson = new Gson();
 
   public static void expand(File in, File out) {
     try {
@@ -49,7 +51,7 @@ public class FgDockerIo {
     }
   }
 
-  private static JsonObject getJsonResponse(String urlString, String authToken, String... acceptHeaders) {
+  private static String getJsonResponseString(String urlString, String authToken, String... acceptHeaders) {
     try {
       var requestBuilder = HttpRequest.newBuilder()
         .uri(URI.create(urlString))
@@ -65,23 +67,15 @@ public class FgDockerIo {
       } else if (statusCode == 302 || statusCode == 301 || statusCode == 307) {
         var newUrl = response.headers().firstValue("Location").orElseThrow(() ->
           new IOException("Redirected but no Location header found."));
-        return getJsonResponse(newUrl, authToken, acceptHeaders);
+        return getJsonResponseString(newUrl, authToken, acceptHeaders);
       }
-      var raw = response.body();
-      return JsonParser.parseString(raw).getAsJsonObject();
+      return response.body();
     } catch (IOException | InterruptedException e) {
       Thread.currentThread().interrupt();  // Restore interrupted status
       throw new IllegalStateException(String.format("Unable to load JSON content: [%s]", urlString), e);
     }
   }
 
-  private static String[] parseJsonArray(JsonArray jsonArray) {
-    var array = new String[jsonArray.size()];
-    for (int i = 0; i < jsonArray.size(); i++) {
-      array[i] = jsonArray.get(i).getAsString();
-    }
-    return array;
-  }
 
   private static void downloadBlob(String registryUrl, String repository, String blobSum,
                                    File outputFile, String authToken) {
@@ -125,57 +119,52 @@ public class FgDockerIo {
       try (var is = connection.getInputStream()) {
         var responseBytes = is.readAllBytes();
         var response = new String(responseBytes);
-        var jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-        return jsonResponse.get("token").getAsString();
+        var authResponse = gson.fromJson(response, FgAuthTokenResponse.class);
+        return authResponse.token;
       }
     } catch (IOException e) {
       throw new IllegalStateException(format("Unable to request auth token: [%s, %s]", registryTld, Arrays.toString(args)), e);
     }
   }
 
-  private static JsonObject getConfigJson(String registryUrl, String repository,
+  private static io.vacco.ff.docker.FgImage getConfigJson(String registryUrl, String repository,
                                           String configDigest, String authToken) {
     var configUrl = registryUrl + repository + "/blobs/" + configDigest;
     log.info("Retrieving config: {}", configUrl);
-    return getJsonResponse(configUrl, authToken, mimeTypeOciConfigV1);
+    var jsonString = getJsonResponseString(configUrl, authToken, mimeTypeOciConfigV1);
+    return gson.fromJson(jsonString, io.vacco.ff.docker.FgImage.class);
   }
 
-  private static FgImage processManifest(JsonObject manifest, String registryUrl,
+  private static FgMain processManifest(FgManifest manifest, String registryUrl,
                                          String repoName, String authToken, File outDir,
                                          BiConsumer<FgTarEntry, Exception> onError) {
-    var configDigest = manifest.getAsJsonObject("config").get("digest").getAsString();
+    var configDigest = manifest.config.digest;
     var configJson = getConfigJson(registryUrl, repoName, configDigest, authToken);
 
     String[] entryPoint = null;
-    var entryPointJson = configJson.getAsJsonObject("config").get("Entrypoint");
-    if (entryPointJson != null && !(entryPointJson instanceof JsonNull)) {
-      entryPoint = parseJsonArray(configJson.getAsJsonObject("config").getAsJsonArray("Entrypoint"));
+    if (configJson.config != null && configJson.config.Entrypoint != null && !configJson.config.Entrypoint.isEmpty()) {
+      entryPoint = configJson.config.Entrypoint.toArray(new String[0]);
     }
 
     String workingDir = null;
-    var workingDirJson = configJson.getAsJsonObject("config").get("WorkingDir");
-    if (workingDirJson != null && !(workingDirJson instanceof JsonNull)) {
-      workingDir = workingDirJson.getAsString();
+    if (configJson.config != null && configJson.config.WorkingDir != null) {
+      workingDir = configJson.config.WorkingDir;
     }
 
     String[] cmd = null;
-    var cmdJson = configJson.getAsJsonObject("config").get("Cmd");
-    if (cmdJson != null && !(cmdJson instanceof JsonNull)) {
-      cmd = parseJsonArray(configJson.getAsJsonObject("config").getAsJsonArray("Cmd"));
+    if (configJson.config != null && configJson.config.Cmd != null && !configJson.config.Cmd.isEmpty()) {
+      cmd = configJson.config.Cmd.toArray(new String[0]);
     }
 
     var env = new ArrayList<FgEnvVar>();
-    if (configJson.getAsJsonObject("config").has("Env")) {
-      var envArr = parseJsonArray(configJson.getAsJsonObject("config").getAsJsonArray("Env"));
-      for (var e : envArr) {
-        var entry = e.split("=");
+    if (configJson.config != null && configJson.config.Env != null && !configJson.config.Env.isEmpty()) {
+      for (var e : configJson.config.Env) {
+        var entry = e.split("=", 2);
         env.add(FgEnvVar.of(entry[0], entry.length == 2 ? entry[1] : null));
       }
     }
 
-    var layers = manifest.has("layers")
-      ? manifest.getAsJsonArray("layers")
-      : manifest.getAsJsonArray("fsLayers");
+    var layers = !manifest.layers.isEmpty() ? manifest.layers : manifest.fsLayers;
 
     var blobDir = new File(outDir, pBlobs);
     var unzippedDir = new File(outDir, pUnzipped);
@@ -183,10 +172,7 @@ public class FgDockerIo {
     var tarFiles = new TreeSet<FgTarEntry>();
 
     for (var layer : layers) {
-      var layerObj = layer.getAsJsonObject();
-      var blobSum = layerObj.has("digest")
-        ? layerObj.get("digest").getAsString()
-        : layerObj.get("blobSum").getAsString();
+      var blobSum = layer.digest != null ? layer.digest : layer.blobSum;
       var blobFile = new File(blobDir, blobSum);
 
       mkDirs(blobDir);
@@ -226,10 +212,10 @@ public class FgDockerIo {
     delete(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
     delete(unzippedDir, e -> onError(log, "Unable to delete unzipped directory [{}]", e, unzippedDir));
 
-    return FgImage.of(untarDir.getAbsolutePath(), entryPoint, cmd, env, workingDir);
+    return FgMain.of(untarDir.getAbsolutePath(), entryPoint, cmd, env, workingDir);
   }
 
-  public static FgImage extract(String dockerImageUri, File outDir,
+  public static FgMain extract(String dockerImageUri, File outDir,
                                 String architecture, String os,
                                 BiConsumer<FgTarEntry, Exception> onError) {
     var uriParts = dockerImageUri.split("/", 2);
@@ -261,23 +247,22 @@ public class FgDockerIo {
 
     log.info("Retrieving manifest: {}", manifestUrl);
 
-    var manifest = getJsonResponse(manifestUrl, authToken, mimeTypeDockerManifestV2, mimeTypeOciManifestV1, mimeTypeOciImageV1);
-
-    if (manifest.has("manifests")) {
-      var oDigest = manifest.getAsJsonArray("manifests")
-        .asList().stream()
-        .map(JsonElement::getAsJsonObject)
-        .filter(obj -> {
-          var platform = obj.getAsJsonObject("platform");
-          var arch = platform.getAsJsonPrimitive("architecture").getAsString();
-          var osp = platform.getAsJsonPrimitive("os").getAsString();
-          return arch.equals(architecture) && osp.equals(os);
-        })
-        .map(obj -> obj.getAsJsonPrimitive("digest").getAsString())
+    var manifestJson = getJsonResponseString(manifestUrl, authToken, mimeTypeDockerManifestV2, mimeTypeOciManifestV1, mimeTypeOciImageV1);
+    
+    // Check if it's an OCI image index (multi-arch manifest)
+    var jsonObj = JsonParser.parseString(manifestJson).getAsJsonObject();
+    if (jsonObj.has("manifests")) {
+      var index = gson.fromJson(manifestJson, FgOciImageIndex.class);
+      var oDigest = index.manifests.stream()
+        .filter(desc -> desc.platform != null 
+          && architecture.equals(desc.platform.architecture) 
+          && os.equals(desc.platform.os))
+        .map(desc -> desc.digest)
         .findFirst();
       if (oDigest.isPresent()) {
         var digestUrl = String.format("%s%s/manifests/%s", registryUrl, repoName, oDigest.get());
-        var manifest0 = getJsonResponse(digestUrl, authToken, "application/vnd.oci.image.manifest.v1+json");
+        var manifestJson0 = getJsonResponseString(digestUrl, authToken, mimeTypeOciManifestV1);
+        var manifest0 = gson.fromJson(manifestJson0, FgManifest.class);
         return processManifest(manifest0, registryUrl, repoName, authToken, outDir, onError).withSource(dockerImageUri);
       }
       throw new IllegalStateException(String.format(
@@ -285,6 +270,9 @@ public class FgDockerIo {
         dockerImageUri, architecture, os
       ));
     }
+    
+    // Regular manifest
+    var manifest = gson.fromJson(manifestJson, FgManifest.class);
     return processManifest(manifest, registryUrl, repoName, authToken, outDir, onError).withSource(dockerImageUri);
   }
 
