@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.util.Arrays;
-import java.util.function.Consumer;
+import java.util.zip.GZIPInputStream;
 
 import static java.lang.String.format;
 import static java.nio.file.Files.*;
@@ -105,6 +105,23 @@ public class FgIo {
       throw new IllegalStateException(
         format("Unable to truncate file [%s]", in), e
       );
+    }
+  }
+
+  public static void expandGzip(File in, File out) {
+    try {
+      try (var fis = new FileInputStream(in);
+           var zis = new GZIPInputStream(new BufferedInputStream(fis));
+           var fos = new FileOutputStream(out);
+           var bos = new BufferedOutputStream(fos)) {
+        var buffer = new byte[1024];
+        int len;
+        while ((len = zis.read(buffer)) > 0) {
+          bos.write(buffer, 0, len);
+        }
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException(format("Unable to expand [%s -> %s]", in, out), e);
     }
   }
 

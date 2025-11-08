@@ -19,12 +19,12 @@ public class FgDockerIoTest {
   public static File buildDir = new File("./build");
 
   private static final String[] images = new String[] {
-//    "ghcr.io/siderolabs/installer:v1.4.0",
+    "ghcr.io/siderolabs/installer:v1.4.0",
     "docker.io/hashicorp/http-echo:latest",
-//    "docker.io/louislam/uptime-kuma:latest",
-//    "quay.io/argoproj/argocd:latest",
+    "docker.io/louislam/uptime-kuma:latest",
+    "quay.io/argoproj/argocd:latest",
     "quay.io/jetstack/cert-manager-controller:v1.19.1",
-    //"docker.io/nats:latest",
+    "docker.io/nats:latest",
     "docker.io/postgres:latest",
     "docker.io/cockroachdb/cockroach",
     "docker.io/busybox:latest",
