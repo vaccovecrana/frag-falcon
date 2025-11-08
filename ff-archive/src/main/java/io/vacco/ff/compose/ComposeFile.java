@@ -9,6 +9,5 @@ public class ComposeFile { // TODO clean these up
   public Map<String, Service> services = new HashMap<>();
   public Map<String, Network> networks = new HashMap<>();
   public Map<String, Volume> volumes = new HashMap<>();
-  public Map<String, Model> models = new HashMap<>();
 }
 
