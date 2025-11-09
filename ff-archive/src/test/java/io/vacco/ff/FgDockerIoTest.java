@@ -35,15 +35,13 @@ public class FgDockerIoTest {
       for (var image : images) {
         var imgId = Integer.toHexString(image.hashCode());
         var imgDir = new File(buildDir, imgId);
+        var imgConfig = FgDockerIo.pull(image, imgDir, "amd64", "linux", (ent, e) -> {
+          System.out.printf("Docker tar file entry error: %s %s", ent, e.getMessage());
+        });
+
         var imgCpioDir = new File(imgDir, "cpio");
         var imgCpio = new File(imgCpioDir, String.format("%s.cpio", imgId));
         mkDirs(imgCpioDir);
-        
-        var blobCacheDir = new File(imgDir, "blobs");
-        mkDirs(blobCacheDir);
-        var metadata = FgDockerImageFactory.getImageMetadata(image, "amd64", "linux", blobCacheDir);
-
-        System.out.println("now what?");
       }
       System.out.println("done");
     });
