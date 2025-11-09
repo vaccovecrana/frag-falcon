@@ -10,8 +10,6 @@ import java.util.*;
  */
 public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
 
-  public static final String[] rwx = {"r", "w", "x"};
-
   private static final String PAX_PATH = "path";
   private static final String PAX_LINK_PATH = "linkpath";
   private static final String PAX_MTIME = "mtime";
@@ -32,9 +30,9 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
 
   public final Set<PosixFilePermission> permissions;
   public final int size;
-  private final FileTime lastModifiedTime;
-  private final FileTime lastAccessTime;
-  private final FileTime creationTime;
+  private final long lastModifiedMillis;
+  private final long lastAccessMillis;
+  private final long creationMillis;
   public String digest;
 
   public FgTarEntry(byte[] header, Map<String, String> paxHeaders) {
@@ -63,9 +61,9 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
     this.size = parseSize(header, headers);
 
     long fallbackMtime = parseOctal(header, 136, 12);
-    this.lastModifiedTime = resolveFileTime(headers.get(PAX_MTIME), fallbackMtime);
-    this.lastAccessTime = resolveFileTime(headers.get(PAX_ATIME), fallbackMtime);
-    this.creationTime = resolveFileTime(headers.get(PAX_CTIME), fallbackMtime);
+    this.lastModifiedMillis = resolveFileTimeMillis(headers.get(PAX_MTIME), fallbackMtime);
+    this.lastAccessMillis = resolveFileTimeMillis(headers.get(PAX_ATIME), fallbackMtime);
+    this.creationMillis = resolveFileTimeMillis(headers.get(PAX_CTIME), fallbackMtime);
   }
 
   public boolean isFile() {
@@ -126,7 +124,7 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
     return (int) size;
   }
 
-  private static FileTime resolveFileTime(String paxValue, long fallbackSeconds) {
+  private static long resolveFileTimeMillis(String paxValue, long fallbackSeconds) {
     if (paxValue != null) {
       try {
         String value = paxValue.trim();
@@ -148,13 +146,12 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
         } else {
           seconds = Long.parseLong(value);
         }
-        return FileTime.from(Instant.ofEpochSecond(seconds, nanos));
+        return Instant.ofEpochSecond(seconds, nanos).toEpochMilli();
       } catch (Exception ignored) {
         // fall back to header value
       }
     }
-    long millis = Math.max(fallbackSeconds, 0) * 1000L;
-    return FileTime.fromMillis(millis);
+    return Math.max(fallbackSeconds, 0) * 1000L;
   }
 
   public static String modeToPosixString(int mode) {
@@ -191,17 +188,17 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
 
   @Override
   public FileTime lastModifiedTime() {
-    return lastModifiedTime;
+    return FileTime.fromMillis(lastModifiedMillis);
   }
 
   @Override
   public FileTime lastAccessTime() {
-    return lastAccessTime;
+    return FileTime.fromMillis(lastAccessMillis);
   }
 
   @Override
   public FileTime creationTime() {
-    return creationTime;
+    return FileTime.fromMillis(creationMillis);
   }
 
   @Override

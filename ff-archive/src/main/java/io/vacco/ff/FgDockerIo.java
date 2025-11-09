@@ -7,6 +7,7 @@ import org.slf4j.*;
 import java.io.*;
 import java.net.*;
 import java.net.http.*;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
@@ -236,22 +237,17 @@ public class FgDockerIo {
       tarFiles.addAll(FgTarIo.extract(extractedFile, untarDir, onError));
     }
 
+    var stagedRefCounts = new HashMap<Path, Integer>();
     for (var entry : tarFiles) {
-      var entryName = entry.fsPath.getFileName().toString();
-      if (entryName.startsWith(".wh.")) {
-        var originalName = entry.fsPath.getFileName().toString().substring(4);
-        var originalFile = new File(entry.fsPath.getParent().toFile(), originalName);
-        if (originalFile.exists()) {
-          deleteRecursively(originalFile, e -> onError(log, "Unable to delete whiteout entry [{}]", e, originalFile));
-        }
-      } else if (entryName.equals(".wh..wh..opq")) {
-        var dir = entry.fsPath.getParent().toFile();
-        for (var file : Objects.requireNonNull(dir.listFiles())) {
-          if (!file.getName().startsWith(".wh.")) {
-            deleteRecursively(file, e -> onError(log, "Unable to delete whiteout opaque directory [{}]", e, file));
-          }
-        }
+      if (entry.fsPath != null) {
+        stagedRefCounts.merge(entry.fsPath, 1, Integer::sum);
       }
+    }
+
+    var stagedToDelete = applyWhiteouts(tarFiles, stagedRefCounts);
+
+    for (var staged : stagedToDelete) {
+      deleteRecursively(staged.toFile(), e -> onError(log, "Unable to delete staged whiteout file [{}]", e, staged));
     }
 
     deleteRecursively(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
@@ -261,6 +257,92 @@ public class FgDockerIo {
     cfg.files = tarFiles;
 
     return cfg;
+  }
+
+  static Set<Path> applyWhiteouts(TreeSet<FgTarEntry> tarFiles, Map<Path, Integer> stagedRefCounts) {
+    var entriesToRemove = new ArrayList<FgTarEntry>();
+    var stagedToDelete = new HashSet<Path>();
+
+    for (var entry : tarFiles) {
+      var fileName = entry.name != null ? entry.name : null;
+      if (fileName == null) {
+        continue;
+      }
+
+      if (fileName.equals(".wh..wh..opq") || fileName.endsWith("/.wh..wh..opq")) {
+        var dirPrefix = fileName.equals(".wh..wh..opq") ? "" : fileName.substring(0, fileName.length() - ".wh..wh..opq".length());
+        removeDirectoryEntries(tarFiles, stagedRefCounts, stagedToDelete, entriesToRemove, dirPrefix, entry);
+        removeEntryCandidate(stagedRefCounts, stagedToDelete, entriesToRemove, entry);
+      } else if (fileName.contains("/.wh.") || fileName.startsWith(".wh.")) {
+        var originalPath = resolveWhiteoutTarget(fileName);
+        removeEntriesForPath(tarFiles, stagedRefCounts, stagedToDelete, entriesToRemove, originalPath);
+        removeEntryCandidate(stagedRefCounts, stagedToDelete, entriesToRemove, entry);
+      }
+    }
+
+    tarFiles.removeAll(entriesToRemove);
+    return stagedToDelete;
+  }
+
+  static String resolveWhiteoutTarget(String whiteoutPath) {
+    var idx = whiteoutPath.lastIndexOf('/') + 1;
+    var parent = idx > 0 ? whiteoutPath.substring(0, idx) : "";
+    var markerIndex = whiteoutPath.indexOf(".wh.", idx >= 0 ? idx : 0);
+    var targetName = whiteoutPath.substring(markerIndex + 4);
+    return parent + targetName;
+  }
+
+  private static void removeEntriesForPath(Collection<FgTarEntry> entries,
+                                           Map<Path, Integer> stagedRefCounts,
+                                           Set<Path> stagedToDelete,
+                                           List<FgTarEntry> entriesToRemove,
+                                           String targetPath) {
+    for (var candidate : entries) {
+      if (Objects.equals(candidate.name, targetPath)) {
+        removeEntryCandidate(stagedRefCounts, stagedToDelete, entriesToRemove, candidate);
+        break;
+      }
+    }
+  }
+
+  private static void removeDirectoryEntries(Collection<FgTarEntry> entries,
+                                             Map<Path, Integer> stagedRefCounts,
+                                             Set<Path> stagedToDelete,
+                                             List<FgTarEntry> entriesToRemove,
+                                             String dirPrefix,
+                                             FgTarEntry whiteoutEntry) {
+    var normalizedPrefix = dirPrefix.isEmpty() ? "" : (dirPrefix.endsWith("/") ? dirPrefix : dirPrefix + "/");
+    var baseDir = normalizedPrefix.isEmpty() ? dirPrefix : normalizedPrefix.substring(0, normalizedPrefix.length() - 1);
+    for (var candidate : entries) {
+      if (candidate == whiteoutEntry) {
+        continue;
+      }
+      if (candidate.name != null && (candidate.name.startsWith(normalizedPrefix) || candidate.name.equals(baseDir))
+        && !candidate.name.contains("/.wh.")) {
+        removeEntryCandidate(stagedRefCounts, stagedToDelete, entriesToRemove, candidate);
+      }
+    }
+  }
+
+  private static void removeEntryCandidate(Map<Path, Integer> stagedRefCounts,
+                                           Set<Path> stagedToDelete,
+                                           List<FgTarEntry> entriesToRemove,
+                                           FgTarEntry candidate) {
+    if (!entriesToRemove.contains(candidate)) {
+      entriesToRemove.add(candidate);
+    }
+    if (candidate.isFile() && candidate.fsPath != null) {
+      var remaining = stagedRefCounts.getOrDefault(candidate.fsPath, 0);
+      if (remaining > 0) {
+        remaining--;
+        if (remaining == 0) {
+          stagedToDelete.add(candidate.fsPath);
+          stagedRefCounts.remove(candidate.fsPath);
+        } else {
+          stagedRefCounts.put(candidate.fsPath, remaining);
+        }
+      }
+    }
   }
 
   public static FgConfig pull(String dockerImageUri, File outDir,
