@@ -1,14 +1,9 @@
 package io.vacco.ff.archive;
 
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
-import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.*;
 import java.time.Instant;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Blind dogma is why creativity and innovation die.
@@ -40,10 +35,7 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
   private final FileTime lastModifiedTime;
   private final FileTime lastAccessTime;
   private final FileTime creationTime;
-
-  public FgTarEntry(byte[] header) {
-    this(header, Map.of());
-  }
+  public String digest;
 
   public FgTarEntry(byte[] header, Map<String, String> paxHeaders) {
     Map<String, String> headers = paxHeaders == null ? Map.of() : paxHeaders;
@@ -82,6 +74,11 @@ public class FgTarEntry implements Comparable<FgTarEntry>, BasicFileAttributes {
 
   public FgTarEntry withFsPath(Path fsPath) {
     this.fsPath = Objects.requireNonNull(fsPath);
+    return this;
+  }
+
+  public FgTarEntry withDigest(String digest) {
+    this.digest = Objects.requireNonNull(digest);
     return this;
   }
 
