@@ -1,6 +1,6 @@
 package io.vacco.ff;
 
-import io.vacco.ff.docker.FgDockerImageFactory;
+import io.vacco.ff.archive.FgCpio;
 import io.vacco.ff.util.FgLog;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
@@ -42,8 +42,10 @@ public class FgDockerIoTest {
         var imgCpioDir = new File(imgDir, "cpio");
         var imgCpio = new File(imgCpioDir, String.format("%s.cpio", imgId));
         mkDirs(imgCpioDir);
+        FgCpio.archive(imgConfig.files, imgCpio, (path, e) -> {
+          System.out.printf("Docker cpio file entry error: %s %s", path, e.getMessage());
+        });
       }
-      System.out.println("done");
     });
   }
 }
