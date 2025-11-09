@@ -1,9 +1,20 @@
 package io.vacco.ff.archive;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import static java.nio.file.Files.*;
@@ -12,16 +23,7 @@ public class FgTarIo {
 
   private static final int TAR_BLOCK_SIZE = 512;
 
-  private static void afterEntry(FgTarEntry entry, BufferedInputStream bis) {
-    try {
-      long skipBytes = TAR_BLOCK_SIZE - (entry.size % TAR_BLOCK_SIZE);
-      if (skipBytes < TAR_BLOCK_SIZE) {
-        bis.skip(skipBytes);
-      }
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-  }
+  private static final char PAX_EXTENDED_HEADER = 'x';
 
   private static void copy(FgTarEntry entry, BufferedInputStream bis, byte[] buffer,
                            File outputFile, byte[] tempBuffer) throws IOException {
@@ -46,21 +48,80 @@ public class FgTarIo {
     }
   }
 
-  public static boolean hasCommonPathPrefix(String entryName1, String entryName2) {
-    var pathComponents1 = entryName1.split("/");
-    var pathComponents2 = entryName2.split("/");
-    int minLength = Math.min(pathComponents1.length, pathComponents2.length);
-    for (int i = 0; i < minLength; i++) {
-      if (!pathComponents1[i].equals(pathComponents2[i])) {
-        return i > 0; // Return true if we matched at least one component
+  private static void skipPadding(long size, BufferedInputStream bis) {
+    try {
+      long remainder = size % TAR_BLOCK_SIZE;
+      if (remainder > 0) {
+        long skipBytes = TAR_BLOCK_SIZE - remainder;
+        while (skipBytes > 0) {
+          long skipped = bis.skip(skipBytes);
+          if (skipped <= 0) {
+            break;
+          }
+          skipBytes -= skipped;
+        }
       }
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
     }
-    return minLength > 0;
+  }
+
+  private static long parseOctal(byte[] header, int offset, int length) {
+    return FgTarEntry.parseOctal(header, offset, length);
+  }
+
+  private static Map<String, String> readPaxHeaders(BufferedInputStream bis, int size) throws IOException {
+    var data = new byte[size];
+    int read = 0;
+    while (read < size) {
+      int len = bis.read(data, read, size - read);
+      if (len == -1) {
+        throw new IOException("Unexpected end of stream while reading PAX headers");
+      }
+      read += len;
+    }
+    var headers = new HashMap<String, String>();
+    int offset = 0;
+    while (offset < read) {
+      int lenStart = offset;
+      int recordLen = 0;
+      while (offset < read && data[offset] != ' ') {
+        recordLen = recordLen * 10 + (data[offset] - '0');
+        offset++;
+      }
+      if (offset >= read || data[offset] != ' ') {
+        break;
+      }
+      offset++; // skip space
+      int recordStart = lenStart;
+      int limit = Math.min(recordLen, read - recordStart);
+      if (limit <= 0) {
+        break;
+      }
+      var record = new String(data, recordStart, limit, StandardCharsets.UTF_8);
+      int keyStart = record.indexOf(' ') + 1;
+      if (keyStart <= 0) {
+        offset = recordStart + recordLen;
+        continue;
+      }
+      int equalsIdx = record.indexOf('=', keyStart);
+      if (equalsIdx == -1) {
+        offset = recordStart + recordLen;
+        continue;
+      }
+      String key = record.substring(keyStart, equalsIdx);
+      String value = record.substring(equalsIdx + 1);
+      if (value.endsWith("\n")) {
+        value = value.substring(0, value.length() - 1);
+      }
+      headers.put(key, value);
+      offset = recordStart + recordLen;
+    }
+    return headers;
   }
 
   public static List<FgTarEntry> extract(File tar, File outDir, BiConsumer<FgTarEntry, Exception> onError) {
     var entriesWithPermissions = new ArrayList<FgTarEntry>();
-    var lastDirectory = "";
     byte[] tempBuffer = new byte[8192]; // 8 KB buffer for bulk writes
 
     try (var fis = new FileInputStream(tar);
@@ -68,28 +129,33 @@ public class FgTarIo {
       var buffer = new byte[TAR_BLOCK_SIZE];
       while (true) {
         FgTarEntry entry = null;
+        Map<String, String> paxHeaders = Collections.emptyMap();
         try {
           int bytesRead = bis.read(buffer);
           if (bytesRead == -1 || buffer[0] == 0) {
             break;
           }
-          entry = new FgTarEntry(buffer);
-          if (entry.name.isEmpty()) {
-            continue;
+
+          char typeFlag = (char) buffer[156];
+          if (typeFlag == PAX_EXTENDED_HEADER) {
+            int paxSize = (int) parseOctal(buffer, 124, 12);
+            paxHeaders = readPaxHeaders(bis, paxSize);
+            skipPadding(paxSize, bis);
+            int nextHeaderBytes = bis.read(buffer);
+            if (nextHeaderBytes == -1 || buffer[0] == 0) {
+              break;
+            }
+            typeFlag = (char) buffer[156];
           }
 
-          if (!entry.isSymlink && !entry.isHardlink && !entry.name.startsWith(lastDirectory)) {
-            var common = hasCommonPathPrefix(lastDirectory, entry.name);
-            var combined = lastDirectory + entry.name;
-            if (!common && combined.length() >= 100) { // Kludge! Tar entry name limit
-              entry.name = combined;
-            }
+          entry = new FgTarEntry(buffer, paxHeaders);
+          if (entry.name.isEmpty()) {
+            continue;
           }
 
           var outputFile = new File(outDir, entry.name).getCanonicalFile();
           if (entry.isDirectory) {
             createDirectories(outputFile.toPath());
-            lastDirectory = entry.name;
           } else {
             createDirectories(outputFile.getParentFile().toPath());
             if (entry.isSymlink) {
@@ -116,6 +182,10 @@ public class FgTarIo {
       onError.accept(null, e);
     }
     return entriesWithPermissions;
+  }
+
+  private static void afterEntry(FgTarEntry entry, BufferedInputStream bis) {
+    skipPadding(entry.size, bis);
   }
 
 }

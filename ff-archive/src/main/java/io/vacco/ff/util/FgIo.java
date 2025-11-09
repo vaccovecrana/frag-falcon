@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.util.Arrays;
+import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
 import static java.lang.String.format;
@@ -49,6 +50,26 @@ public class FgIo {
         var msg = format("Unable to create directories: [%s]", f);
         throw new IllegalStateException(msg);
       }
+    }
+  }
+
+  public static void deleteRecursively(File file, Consumer<Exception> onError) {
+    try {
+      if (file.exists()) {
+        if (file.isDirectory()) {
+          var children = file.listFiles();
+          if (children != null) {
+            for (var child : children) {
+              deleteRecursively(child, onError);
+            }
+          }
+        }
+        if (!file.delete()) {
+          onError.accept(new IOException("Failed to delete: " + file));
+        }
+      }
+    } catch (Exception e) {
+      onError.accept(e);
     }
   }
 
