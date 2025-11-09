@@ -1,11 +1,10 @@
 package io.vacco.ff.docker;
 
-import java.util.ArrayList;
-import java.util.List;
+import io.vacco.ff.archive.FgTarEntry;
+import java.util.*;
 
 public class FgConfig {
 
-  // Docker config fields
   public List<String> Entrypoint = new ArrayList<>();
   public List<String> Cmd = new ArrayList<>();
   public List<String> Env = new ArrayList<>();
@@ -14,6 +13,7 @@ public class FgConfig {
   // Result image fields
   public String source;
   public String rootDir;
+  public Set<FgTarEntry> files;
 
   public FgConfig withSource(String source) {
     this.source = source;

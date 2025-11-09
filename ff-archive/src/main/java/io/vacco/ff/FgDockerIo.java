@@ -1,8 +1,7 @@
 package io.vacco.ff;
 
 import com.google.gson.*;
-import io.vacco.ff.archive.FgTarEntry;
-import io.vacco.ff.archive.FgTarIo;
+import io.vacco.ff.archive.*;
 import io.vacco.ff.docker.*;
 import org.slf4j.*;
 import java.io.*;
@@ -13,10 +12,8 @@ import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 
 import static io.vacco.ff.util.FgLog.onError;
-import static java.nio.file.Files.setPosixFilePermissions;
 import static io.vacco.ff.FgConstants.*;
 import static io.vacco.ff.util.FgIo.*;
-import static io.vacco.ff.net.FgJni.*;
 import static java.lang.String.*;
 
 public class FgDockerIo {
@@ -240,41 +237,35 @@ public class FgDockerIo {
     }
 
     for (var entry : tarFiles) {
-      try {
-        setPosixFilePermissions(entry.fsPath, entry.permissions);
-      } catch (UnsupportedOperationException | IOException e) {
-        onError.accept(entry, e);
-      }
-    }
-
-    for (var entry : tarFiles) {
       var entryName = entry.fsPath.getFileName().toString();
       if (entryName.startsWith(".wh.")) {
         var originalName = entry.fsPath.getFileName().toString().substring(4);
         var originalFile = new File(entry.fsPath.getParent().toFile(), originalName);
         if (originalFile.exists()) {
-          delete(originalFile, e -> onError(log, "Unable to delete whiteout entry [{}]", e, originalFile));
+          deleteRecursively(originalFile, e -> onError(log, "Unable to delete whiteout entry [{}]", e, originalFile));
         }
       } else if (entryName.equals(".wh..wh..opq")) {
         var dir = entry.fsPath.getParent().toFile();
         for (var file : Objects.requireNonNull(dir.listFiles())) {
           if (!file.getName().startsWith(".wh.")) {
-            delete(file, e -> onError(log, "Unable to delete whiteout opaque directory [{}]", e, file));
+            deleteRecursively(file, e -> onError(log, "Unable to delete whiteout opaque directory [{}]", e, file));
           }
         }
       }
     }
 
-    delete(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
-    delete(unzippedDir, e -> onError(log, "Unable to delete unzipped directory [{}]", e, unzippedDir));
+    deleteRecursively(blobDir, e -> onError(log, "Unable to delete blob directory [{}]", e, blobDir));
+    deleteRecursively(unzippedDir, e -> onError(log, "Unable to delete unzipped directory [{}]", e, unzippedDir));
+
     cfg.rootDir = untarDir.getAbsolutePath();
+    cfg.files = tarFiles;
 
     return cfg;
   }
 
-  public static FgConfig extract(String dockerImageUri, File outDir,
-                                 String architecture, String os,
-                                 BiConsumer<FgTarEntry, Exception> onError) {
+  public static FgConfig pull(String dockerImageUri, File outDir,
+                              String architecture, String os,
+                              BiConsumer<FgTarEntry, Exception> onError) {
     var uriParts = dockerImageUri.split("/", 2);
     var registryUrl = "https://" + (uriParts[0].equals(dockerTld) ? "registry-1.docker.io" : uriParts[0]) + "/v2/";
 

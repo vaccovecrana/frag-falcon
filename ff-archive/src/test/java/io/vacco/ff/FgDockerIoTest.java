@@ -31,7 +31,7 @@ public class FgDockerIoTest {
 
   static {
     FgLog.devMode();
-    it("Extracts remote Docker images to CPIO", () -> {
+    it("Extracts remote Docker images to CPIO archives", () -> {
       for (var image : images) {
         var imgId = Integer.toHexString(image.hashCode());
         var imgDir = new File(buildDir, imgId);
@@ -39,7 +39,6 @@ public class FgDockerIoTest {
         var imgCpio = new File(imgCpioDir, String.format("%s.cpio", imgId));
         mkDirs(imgCpioDir);
         
-        // Get image metadata (downloads blobs to cache)
         var blobCacheDir = new File(imgDir, "blobs");
         mkDirs(blobCacheDir);
         var metadata = FgDockerImageFactory.getImageMetadata(image, "amd64", "linux", blobCacheDir);
