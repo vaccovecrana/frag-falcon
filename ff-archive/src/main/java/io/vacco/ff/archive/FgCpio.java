@@ -1,14 +1,13 @@
 package io.vacco.ff.archive;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.nio.file.attribute.*;
 import java.util.*;
 import java.util.function.BiConsumer;
 
 import static java.nio.file.Files.*;
 import static java.lang.String.format;
-import static io.vacco.ff.util.FgIo.*;
 
 public class FgCpio {
 
@@ -25,121 +24,127 @@ public class FgCpio {
     }
   }
 
-  private static void writeHeader(DataOutputStream dos, Path path, Path baseDir) throws IOException {
-    var attrs = readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-    var posixAttrs = readAttributes(path, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-    var mtime = attrs.lastModifiedTime().toMillis() / 1000;
-    long size = isSymbolicLink(path)
-      ? readSymbolicLink(path).toString().length()
-      : attrs.isDirectory()
-      ? 0
-      : attrs.size();
-    var name = baseDir.relativize(path).toString().replace(File.separator, "/");
+  private static long dataSize(FgTarEntry entry) throws IOException {
+    if (entry.isDirectory()) {
+      return 0;
+    }
+    if (entry.isSymbolicLink()) {
+      return entry.linkName != null ? entry.linkName.getBytes(StandardCharsets.UTF_8).length : 0;
+    }
+    if (entry.isFile()) {
+      if (entry.fsPath != null) {
+        return size(entry.fsPath);
+      }
+      return entry.size;
+    }
+    return 0;
+  }
 
-    int mode = 0;
-    if (attrs.isDirectory()) {
+  private static int computeMode(FgTarEntry entry) {
+    int mode = entry.mode;
+    if (entry.isDirectory()) {
       mode |= 0040000;
-    } else if (isSymbolicLink(path)) {
+    } else if (entry.isSymbolicLink()) {
       mode |= 0120000;
     } else {
       mode |= 0100000;
     }
+    return mode;
+  }
 
-    for (var perm : posixAttrs.permissions()) {
-      switch (perm) {
-        case OWNER_READ:      mode |= 0400; break;
-        case OWNER_WRITE:     mode |= 0200; break;
-        case OWNER_EXECUTE:   mode |= 0100; break;
-        case GROUP_READ:      mode |= 0040; break;
-        case GROUP_WRITE:     mode |= 0020; break;
-        case GROUP_EXECUTE:   mode |= 0010; break;
-        case OTHERS_READ:     mode |= 0004; break;
-        case OTHERS_WRITE:    mode |= 0002; break;
-        case OTHERS_EXECUTE:  mode |= 0001; break;
-      }
-    }
+  private static void writeHeaderFromEntry(DataOutputStream dos, FgTarEntry entry) throws IOException {
+    var name = entry.name != null ? entry.name : "";
+    long fileSize = dataSize(entry);
+    long mtimeSeconds = entry.lastModifiedTime().toMillis() / 1000;
 
-    dos.writeBytes("070701");                   // Magic
-    writeHex(dos, 0);                           // Inode
-    writeHex(dos, mode);                        // Mode
-    writeHex(dos, 0);                           // UID
-    writeHex(dos, 0);                           // GID
-    writeHex(dos, attrs.isDirectory() ? 2 : 1); // NLink
-    writeHex(dos, mtime);                       // Mtime
-    writeHex(dos, size);                        // Filesize
-    writeHex(dos, 0);                           // Dev major
-    writeHex(dos, 0);                           // Dev minor
-    writeHex(dos, 0);                           // Rdev major
-    writeHex(dos, 0);                           // Rdev minor
-    writeHex(dos, name.length() + 1);           // Namesize
-    writeHex(dos, 0);                           // Checksum (ignored)
+    dos.writeBytes("070701");                 // Magic
+    writeHex(dos, 0);                          // Inode (unused)
+    writeHex(dos, computeMode(entry));         // Mode
+    writeHex(dos, 0);                          // UID
+    writeHex(dos, 0);                          // GID
+    writeHex(dos, entry.isDirectory() ? 2 : 1);// Nlink
+    writeHex(dos, mtimeSeconds);               // Mtime
+    writeHex(dos, fileSize);                   // Filesize
+    writeHex(dos, 0);                          // Dev major
+    writeHex(dos, 0);                          // Dev minor
+    writeHex(dos, 0);                          // Rdev major
+    writeHex(dos, 0);                          // Rdev minor
+    writeHex(dos, name.length() + 1L);         // Namesize (include null)
+    writeHex(dos, 0);                          // Checksum (ignored)
     dos.writeBytes(name);
-    dos.writeByte(0);                           // Null terminator for name
+    dos.writeByte(0);
     padTo4Bytes(dos);
+  }
+
+  private static void writeDataFromEntry(DataOutputStream dos, FgTarEntry entry) throws IOException {
+    if (entry.isDirectory()) {
+      padTo4Bytes(dos);
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      var bytes = entry.linkName != null ? entry.linkName.getBytes(StandardCharsets.UTF_8) : new byte[0];
+      dos.write(bytes);
+      padTo4Bytes(dos);
+      return;
+    }
+    if (entry.isFile()) {
+      if (entry.fsPath == null) {
+        throw new IllegalStateException(format("Missing staged content for entry [%s]", entry.name));
+      }
+      try (var is = newInputStream(entry.fsPath)) {
+        var buffer = new byte[8192];
+        int len;
+        while ((len = is.read(buffer)) != -1) {
+          dos.write(buffer, 0, len);
+        }
+      }
+      padTo4Bytes(dos);
+    } else {
+      padTo4Bytes(dos);
+    }
   }
 
   private static void writeTrailer(DataOutputStream dos) throws IOException {
     dos.writeBytes("070701");                 // Magic
-    writeHex(dos, 0);                         // Inode
-    writeHex(dos, 0);                         // Mode
-    writeHex(dos, 0);                         // UID - root
-    writeHex(dos, 0);                         // GID - root
-    writeHex(dos, 0);                         // NLink
-    writeHex(dos, 0);                         // Mtime
-    writeHex(dos, 0);                         // Filesize
-    writeHex(dos, 0);                         // Dev major
-    writeHex(dos, 0);                         // Dev minor
-    writeHex(dos, 0);                         // Rdev major
-    writeHex(dos, 0);                         // Rdev minor
-    writeHex(dos, CPIO_TRAILER.length() + 1); // Namesize
-    writeHex(dos, 0);                         // Checksum (ignored)
+    writeHex(dos, 0);                          // Inode
+    writeHex(dos, 0);                          // Mode
+    writeHex(dos, 0);                          // UID
+    writeHex(dos, 0);                          // GID
+    writeHex(dos, 0);                          // NLink
+    writeHex(dos, 0);                          // Mtime
+    writeHex(dos, 0);                          // Filesize
+    writeHex(dos, 0);                          // Dev major
+    writeHex(dos, 0);                          // Dev minor
+    writeHex(dos, 0);                          // Rdev major
+    writeHex(dos, 0);                          // Rdev minor
+    writeHex(dos, CPIO_TRAILER.length() + 1);  // Namesize
+    writeHex(dos, 0);                          // Checksum
     dos.writeBytes(CPIO_TRAILER);
-    dos.writeByte(0);                         // Null terminator for name
+    dos.writeByte(0);
     padTo4Bytes(dos);
   }
 
-  private static void writeData(DataOutputStream dos, Path path) {
-    try {
-      if (isSymbolicLink(path)) {
-        var target = readSymbolicLink(path).toString();
-        var bytes = target.getBytes();
-        dos.write(bytes);
-      } else if (isRegularFile(path)) {
-        if (!isReadable(path)) {
-          addPermissions(path, PosixFilePermission.OWNER_READ);
-        }
-        try (var is = newInputStream(path)) {
-          var buffer = new byte[4096];
-          int len;
-          while ((len = is.read(buffer)) > 0) {
-            dos.write(buffer, 0, len);
-          }
-        }
-      }
-      padTo4Bytes(dos);
-    } catch (IOException e) {
-      throw new IllegalStateException(format("Unable to write path data: [%s]", path), e);
-    }
-  }
-
-  public static void archive(File inputDir, File outputFile, BiConsumer<Path, Exception> onError) {
-    try (var fos = new FileOutputStream(outputFile);
+  public static void archive(Set<FgTarEntry> files, File outputCpioFile, BiConsumer<Path, Exception> onError) {
+    try (var fos = new FileOutputStream(outputCpioFile);
          var bos = new BufferedOutputStream(fos);
          var dos = new DataOutputStream(bos)) {
-      var fileList = new ArrayList<Path>();
-      walk(inputDir.toPath()).forEach(fileList::add);
-      for (var path : fileList) {
+
+      var sortedEntries = new ArrayList<>(files);
+      sortedEntries.sort(Comparator.comparing(e -> e.name));
+
+      for (var entry : sortedEntries) {
         try {
-          writeHeader(dos, path, inputDir.toPath());
-          writeData(dos, path);
+          writeHeaderFromEntry(dos, entry);
+          writeDataFromEntry(dos, entry);
         } catch (Exception e) {
+          var path = entry.fsPath != null ? entry.fsPath : Path.of(entry.name != null ? entry.name : "");
           onError.accept(path, e);
         }
       }
+
       writeTrailer(dos);
     } catch (Exception e) {
       onError.accept(null, e);
     }
   }
-
 }
