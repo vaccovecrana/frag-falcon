@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -154,21 +155,22 @@ public class FgTarIo {
           }
 
           var outputFile = new File(outDir, entry.name).getCanonicalFile();
+          Path outputPath = outputFile.toPath();
           if (entry.isDirectory) {
-            createDirectories(outputFile.toPath());
+            createDirectories(outputPath);
           } else {
             createDirectories(outputFile.getParentFile().toPath());
             if (entry.isSymlink) {
-              createSymbolicLink(outputFile.toPath(), Paths.get(entry.linkName));
+              createSymbolicLink(outputPath, Paths.get(entry.linkName));
             } else if (entry.isHardlink) {
               var linkFile = new File(outDir, entry.linkName).getCanonicalFile();
-              createLink(outputFile.toPath(), linkFile.toPath());
+              createLink(outputPath, linkFile.toPath());
             } else if (entry.isFile()) {
               copy(entry, bis, buffer, outputFile, tempBuffer);
             }
           }
-          if (entry.isFile() || entry.isDirectory) {
-            entriesWithPermissions.add(entry.withFsPath(outputFile.toPath()));
+          if (entry.isFile() || entry.isDirectory || entry.isSymlink) {
+            entriesWithPermissions.add(entry.withFsPath(outputPath));
           }
         } catch (Exception e) {
           onError.accept(entry, e);

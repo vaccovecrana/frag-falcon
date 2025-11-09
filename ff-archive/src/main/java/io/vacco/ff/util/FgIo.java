@@ -5,6 +5,7 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
+import java.nio.file.*;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
@@ -54,21 +55,42 @@ public class FgIo {
   }
 
   public static void deleteRecursively(File file, Consumer<Exception> onError) {
+    if (file == null || !file.exists()) {
+      return;
+    }
+    Path root = file.toPath();
     try {
-      if (file.exists()) {
-        if (file.isDirectory()) {
-          var children = file.listFiles();
-          if (children != null) {
-            for (var child : children) {
-              deleteRecursively(child, onError);
-            }
+      Files.walkFileTree(root, new SimpleFileVisitor<>() {
+        @Override
+        public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
+          try {
+            Files.deleteIfExists(path);
+          } catch (IOException e) {
+            onError.accept(e);
           }
+          return FileVisitResult.CONTINUE;
         }
-        if (!file.delete()) {
-          onError.accept(new IOException("Failed to delete: " + file));
+
+        @Override
+        public FileVisitResult visitFileFailed(Path path, IOException exc) {
+          onError.accept(exc);
+          return FileVisitResult.CONTINUE;
         }
-      }
-    } catch (Exception e) {
+
+        @Override
+        public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+          if (exc != null) {
+            onError.accept(exc);
+          }
+          try {
+            Files.deleteIfExists(dir);
+          } catch (IOException e) {
+            onError.accept(e);
+          }
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } catch (IOException e) {
       onError.accept(e);
     }
   }

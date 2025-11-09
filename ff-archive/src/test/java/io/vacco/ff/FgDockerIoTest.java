@@ -1,6 +1,5 @@
 package io.vacco.ff;
 
-import io.vacco.ff.docker.FgDockerImageExtractor;
 import io.vacco.ff.docker.FgDockerImageFactory;
 import io.vacco.ff.util.FgLog;
 import j8spec.annotation.DefinedOrder;
@@ -45,7 +44,7 @@ public class FgDockerIoTest {
         mkDirs(blobCacheDir);
         var metadata = FgDockerImageFactory.getImageMetadata(image, "amd64", "linux", blobCacheDir);
 
-        System.out.println("lel?");
+        System.out.println("now what?");
       }
       System.out.println("done");
     });
