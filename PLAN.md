@@ -11,6 +11,45 @@ provides, and track progress with the milestones below.
 
 ---
 
+## 0. Progress
+
+| Milestone | Status | Notes |
+|-----------|--------|-------|
+| M0 — Branch & skeleton | ✅ Done | Branch emptied; Gradle 9.2.1 / Java 25 toolchain; `ff-krun` module + vendored libs; smoke test green. |
+| M1 — "Hello VM" | ✅ Done | Merged into M2: FFM builder bindings validated against `jextract`; `FgKrunVm` fluent wrapper. |
+| M2 — Container as microVM | ✅ Done | `ff-oci` (persistent cache) + `ff-vmm` child process; Alpine boots and prints to console. |
+| M3 — Host volumes | 🔜 Next | `FgKrunVm.volume(...)` and `--volume HOST:GUEST[:ro]` already plumbed; need a boot test. |
+| M4 — Networking (TAP + bridge) | ⬜ | |
+| M5 — Supervisor + REST API | ⬜ | process-per-VM + `/proc` re-discovery. |
+| M6 — dockge-structured UI | ⬜ | |
+| M7 — Packaging, tests, docs | ⬜ | |
+
+### Progress log
+
+- **M0** (`f3dd0d0`): repo skeleton, `FgKrun`/`FgKrunLib`, vendored `libkrun.so.2` /
+  `libkrun_init.so` / `libkrunfw.so.5`, smoke test.
+- **Naming convention** (`6584993`): all Java classes use the `Fg` prefix.
+- **M1/M2** (`8ce215c`): `ff-oci`, `ff-krun` builder bindings + `FgKrunVm`,
+  `ff-vmm`, centralized `ff-test`, Alpine boot integration test.
+
+### Key discoveries (folded into implementation)
+
+- **`krun_vmm_run` never returns.** libkrun calls `libc::_exit(exit_code)` when the
+  guest shuts down (`src/libkrun/src/vmm/mod.rs:409`, `api/vmm_builder.rs:282`).
+  This makes process-per-VM (D1) **mandatory**; a VM must never share the
+  hypervisor's (or a test runner's) JVM. `ff-test` forks `ff-vmm` accordingly.
+- **init symbol resolution.** `krun_init_config_apply` resolves libkrun symbols via
+  weak `dlsym(RTLD_DEFAULT)`, so `libkrun.so.2` must be `dlopen`'d
+  `RTLD_NOW | RTLD_GLOBAL` (`System.load` is `RTLD_LOCAL` → `APPLY_SYMBOL_NOT_FOUND`).
+- **Console wiring.** Guest workload stdio only reaches the host through ports named
+  exactly `krun-stdin` / `krun-stdout` / `krun-stderr`, created by
+  `krun_console_builder_add_default_console`.
+- **`jextract` as oracle.** The curated FFM bindings were validated against a
+  throwaway `jextract 25` run (hybrid approach C). `KrunStr`/`KrunBytes` are passed
+  **by value** via `StructLayout`, not as pointers.
+
+---
+
 ## 1. Architecture shift
 
 The old framework treated Firecracker as an external daemon: `fork` a binary, talk
@@ -74,17 +113,22 @@ Consequences:
 ## 4. Target module layout
 
 ```
-ff-krun   Java 25 FFM bindings to libkrun 2.0 + libkrun_init.
+ff-krun   ✅ Java 25 FFM bindings to libkrun 2.0 + libkrun_init.
           Vendors libkrun.so.2, libkrun_init.so, libkrunfw.so.5 as resources.
-ff-vmm    Runnable per-VM launcher (main class). Builds + run()s exactly one VM
-          using ff-krun; writes vm.json/net.json/vm.pid/vm.log; tagged in /proc.
-ff-host   Retained host primitives (TAP/raw/proc fork) — kept on JNI initially,
+ff-oci    ✅ OCI registry client + tar extraction to a host rootfs, with a
+          persistent content-addressable blob cache. (gson + slf4j-api)
+ff-vmm    ✅ Runnable per-VM launcher (main class). Builds + run()s exactly one VM
+          using ff-krun; tagged in /proc; writes vm.json/net.json/vm.pid/vm.log.
+ff-host   ⬜ Retained host primitives (TAP/raw/proc fork) — kept on JNI initially,
           FFM-ified later if desired. (was ff-jni)
-ff-api    New domain model, lifecycle services, OCI→rootfs, murmux/ronove REST, shax.
-ff-app    Hypervisor main (FgMain): owns the REST API, forks/supervises ff-vmm.
-ff-ui     Preact SPA, dockge-structured, vf-* styled.
-ff-test   j8spec integration tests.
+ff-api    ⬜ New domain model, lifecycle services, murmux/ronove REST, shax.
+ff-app    ⬜ Hypervisor main (FgMain): owns the REST API, forks/supervises ff-vmm.
+ff-ui     ⬜ Preact SPA, dockge-structured, vf-* styled.
+ff-test   ✅ Centralized j8spec tests (depends on ff-krun, ff-oci, ff-vmm).
 ```
+
+Dependency direction: `ff-oci` and `ff-krun` are standalone; `ff-vmm` → `ff-krun`;
+`ff-test` → all three. `ff-host`/`ff-api`/`ff-app` are not started yet.
 
 ---
 
@@ -92,8 +136,9 @@ ff-test   j8spec integration tests.
 
 - **Fork:** `FgMain` starts one detached `ff-vmm` child per VM (Java `ProcessBuilder`
   with a custom environment, stdout/stderr redirected to `vmDir/<id>/vm.log`, wrapped
-  in `setsid`). Guarded by root. The child builds the libkrun VMM and blocks in
-  `krun_vmm_run`.
+  in `setsid`). Guarded by root. The child builds the libkrun VMM and calls
+  `krun_vmm_run`, which **never returns** — libkrun `_exit()`s the process when the
+  guest exits (see §0 discoveries).
 - **Metadata:** the child env carries `FF_VMID=<id>`, `FF_VM_DIR`, `FF_KIND=libkrun`,
   `FF_LOG`. Env is visible at `/proc/<pid>/environ` (root-readable) — the old
   tagging mechanism, retained deliberately.
@@ -193,8 +238,9 @@ No boot source, no drives, no kernel path, no socket path.
 
 ## 8. Risks & gotchas
 
-1. `krun_vmm_run` blocks forever and there is **no clean stop on Linux** — hence
-   process-per-VM; plan for SIGKILL.
+1. `krun_vmm_run` **never returns**: libkrun `_exit()`s its host process on guest
+   shutdown, so there is no in-process stop. This is why VMs run process-per-VM;
+   plan for SIGKILL.
 2. `libkrunfw.so.5` is `dlopen`'d **by soname** inside libkrun (no env override) —
    preload it by absolute path.
 3. libkrun_init's OCI parser reads only `args/env/cwd/mounts` (rlimits are injected
