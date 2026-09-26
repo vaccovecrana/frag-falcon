@@ -9,28 +9,28 @@ import static org.junit.Assert.*;
 
 @DefinedOrder
 @RunWith(J8SpecRunner.class)
-public class KrunSmokeTest {
+public class FgKrunSmokeTest {
 
   static {
     it("loads the vendored libkrun libraries", () -> {
-      assertNotNull(KrunLib.libDir());
-      assertTrue(KrunLib.libDir().toFile().isDirectory());
+      assertNotNull(FgKrunLib.libDir());
+      assertTrue(FgKrunLib.libDir().toFile().isDirectory());
     });
 
     it("resolves and calls krun_check_nested_virt", () -> {
-      var nested = Krun.checkNestedVirt();
+      var nested = FgKrun.checkNestedVirt();
       System.out.printf("libkrun: nested virtualization = %s%n", nested);
     });
 
     it("initializes libkrun logging", () -> {
-      var result = Krun.initLog(
+      var result = FgKrun.initLog(
           1,
-          Krun.KRUN_LOG_LEVEL_INFO,
-          Krun.KRUN_LOG_STYLE_ALWAYS,
+          FgKrun.KRUN_LOG_LEVEL_INFO,
+          FgKrun.KRUN_LOG_STYLE_ALWAYS,
           0
       );
-      System.out.printf("libkrun: krun_init_log -> %d (%s)%n", result, Krun.resultName(result));
-      assertEquals(Krun.KRUN_RESULT_SUCCESS, result);
+      System.out.printf("libkrun: krun_init_log -> %d (%s)%n", result, FgKrun.resultName(result));
+      assertEquals(FgKrun.KRUN_RESULT_SUCCESS, result);
     });
   }
 }

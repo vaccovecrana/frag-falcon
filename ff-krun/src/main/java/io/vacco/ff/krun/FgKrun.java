@@ -14,7 +14,7 @@ import java.lang.invoke.MethodHandle;
  * <p>This first pass covers the smoke-test surface only; the builder API is
  * layered on top of this class as the migration progresses.
  */
-public class Krun {
+public class FgKrun {
 
   public static final long KRUN_RESULT_SUCCESS = 0L;
 
@@ -32,7 +32,7 @@ public class Krun {
   public static final int KRUN_LOG_STYLE_NEVER = 2;
 
   private static final Linker LINKER = Linker.nativeLinker();
-  private static final SymbolLookup LOOKUP = KrunLib.krun();
+  private static final SymbolLookup LOOKUP = FgKrunLib.krun();
 
   private static MethodHandle downcall(String name, FunctionDescriptor d) {
     var symbol = LOOKUP.find(name)

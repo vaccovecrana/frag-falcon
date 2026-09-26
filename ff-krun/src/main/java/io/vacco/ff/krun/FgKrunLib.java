@@ -1,7 +1,6 @@
 package io.vacco.ff.krun;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.FileNotFoundException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.SymbolLookup;
@@ -17,7 +16,7 @@ import java.util.List;
  * by soname, so the firmware library is registered first via an absolute
  * {@link System#load(String)}.
  */
-public class KrunLib {
+public class FgKrunLib {
 
   private static final List<String> LIBS = List.of(
       "libkrunfw.so.5",
@@ -44,7 +43,7 @@ public class KrunLib {
     dir.toFile().deleteOnExit();
     for (var lib : LIBS) {
       var res = "/io/vacco/ff/krun/" + lib;
-      try (InputStream in = KrunLib.class.getResourceAsStream(res)) {
+      try (var in = FgKrunLib.class.getResourceAsStream(res)) {
         if (in == null) {
           throw new FileNotFoundException(res);
         }
