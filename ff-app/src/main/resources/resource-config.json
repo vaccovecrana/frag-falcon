@@ -1,7 +1,0 @@
-{
-  "resources": {
-    "includes": [
-      {"pattern": "ui/.*"},
-      {"pattern": "io/vacco/ff/.*"}]
-  }
-}
