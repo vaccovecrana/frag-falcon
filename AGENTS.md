@@ -55,6 +55,9 @@ Dependency direction: `ff-oci` and `ff-krun` are standalone; `ff-vmm → ff-krun
 
 ## Conventions
 
+- **Code commits**: *never* commit code automatically. Human review is a crucial step
+  to code quality. This is achieved by having the human reviewer go through the code
+  diff, asking for changes, or agreeing to commit.
 - **Class naming: every Java class MUST use the `Fg` prefix** (e.g. `FgKrun`,
   `FgKrunVm`, `FgKrunLib`, `FgVmmMain`, `FgDockerIo`). This mirrors the old codebase.
 - **Tests live in `ff-test`**, not in the modules under test. Move/centralize any
