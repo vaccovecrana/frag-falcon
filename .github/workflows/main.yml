@@ -1,0 +1,30 @@
+name: Native Build
+on:
+  release:
+    types: [created]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Display release tag
+        run: echo ${{ github.event.release.tag_name }}
+      - name: Pull Docker Image
+        run: docker pull gradle:jdk21-graal-jammy
+      - name: Gradle Build
+        run: |
+          docker run --rm \
+            -e GITHUB_REF=${{ github.ref }} \
+            -e GITHUB_SHA=${{ github.sha }} \
+            -e PLUGIN_ORGCONFIG=http://56db25d3f6c39937b48e-6eaf716421c53330be45fa9d36560381.r85.cf2.rackcdn.com/org-config/vacco.json \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            gradle:jdk21-graal-jammy \
+            gradle clean build nativeCompile
+      - name: Upload binaries
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: ff-app/build/native/nativeCompile/flc-*
+          file_glob: true

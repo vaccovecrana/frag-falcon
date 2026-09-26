@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "module": "ES2022",
+    "target": "ES2022",
+    "lib": ["dom", "ES2020"],
+    "moduleResolution": "Node",
+    "jsx": "react",
+    "resolveJsonModule": true,
+    "typeRoots": ["node_modules/@types"],
+    "allowJs": false,
+    "baseUrl": "."
+  },
+  "exclude": ["./build"]
+}

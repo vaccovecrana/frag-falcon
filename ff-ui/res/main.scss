@@ -1,0 +1,98 @@
+:root {
+  --fonts-proportional: -apple-system,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial;
+}
+
+html, body, #root, #app { height: 100%; }
+
+body {
+  font-family: var(--fonts-proportional);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0px;
+}
+
+.mxw42 { max-width:  42px; }
+.mxh42 { max-height: 42px; }
+
+.txc { text-align: center; }
+.txl { text-align: left;   }
+.txr { text-align: right;  }
+
+.p8  { padding: 8px; }
+.p16 { padding: 16px; }
+
+.pt8  { padding-top: 8px; }
+
+.pl16 { padding-left: 16px; }
+
+.m8   { margin: 8px; }
+.mt8  { margin-top: 8px; }
+.mt16 { margin-top: 16px; }
+.mh4  { margin-left: 4px; margin-right: 4px; }
+
+.small { font-size: 11px; }
+
+.borderRound {
+  border: 2px solid var(--nord1);
+  border-radius: 0.3em;
+}
+
+.frame {
+  border: 2px solid var(--nord1);
+  border-radius: 0.3em;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+textarea.editor {
+  font-size: 12px;
+  width: 100%;
+  resize: none;
+  overflow-y: scroll;
+  color: var(--nord4);
+  background-color: var(--nord0);
+  border-color: var(--nord3);
+  border: 1px solid var(--nord1-pale);
+  border-radius: 3px;
+  padding: 8px;
+  outline: none;
+  transition: 0.3s;
+  transition-property: border-color, background-color;
+}
+
+.pill {
+  font-size: 11px;
+  color: var(--nord6);
+  padding: 2px 12px;
+  text-align: center;
+  border-radius: 16px;
+}
+
+.pill-pale { background-color: var(--nord10-pale); }
+.pill-green { background-color: var(--nord14); }
+.pill-red { background-color: var(--nord11); }
+.pill-orange { background-color: var(--nord12); }
+
+.ptr { cursor: pointer; }
+
+.toast {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 20px 30px;
+  border-radius: 5px;
+  z-index: 1000;
+  transition: transform 0.5s;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(20px);
+}
+
+.version {
+  color: var(--nord5-pale);
+}

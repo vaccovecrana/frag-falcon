@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/src/**/*.h",
+                "/home/jjzazuet/Applications/zulu17.42.21-ca-crac-jdk17.0.7-linux_x64/include",
+                "/home/jjzazuet/Applications/zulu17.42.21-ca-crac-jdk17.0.7-linux_x64/include/linux",
+                "/usr/include",
+                "/usr/local/include",
+                "/usr/include/linux",
+                "/usr/include/net"
+            ],
+            "defines": [],
+            "compilerPath": "/home/jjzazuet/Applications/zig-linux-x86_64-0.13.0/zig",
+            "cStandard": "c11",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
