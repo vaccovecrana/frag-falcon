@@ -5,4 +5,4 @@ pluginManagement {
   }
 }
 
-include("ff-krun", "ff-oci", "ff-vmm", "ff-test")
+include("ff-jni", "ff-oci", "ff-test")

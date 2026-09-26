@@ -13,6 +13,7 @@ hs_err_*
 ff-test/fg_jni.so
 /**/out/fg_*.o
 /**/out/fg_test
+ff-jni/out/
 
 .idea/
 .gradle/

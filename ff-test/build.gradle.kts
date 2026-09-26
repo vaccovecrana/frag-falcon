@@ -3,9 +3,8 @@ configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
 }
 
 dependencies {
-  implementation(project(":ff-krun"))
+  implementation(project(":ff-jni"))
   implementation(project(":ff-oci"))
-  implementation(project(":ff-vmm"))
 }
 
 tasks.withType<Test> {

@@ -25,7 +25,7 @@ wrapper is committed (Gradle is invoked as `gradle`).
 
 ```bash
 gradle build                 # compile + j8spec tests, all modules
-gradle :ff-krun:compileJava  # fast compile of one module
+gradle :ff-jni:compileJava    # fast compile of one module
 gradle :ff-test:test         # integration tests
 gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
 ```
@@ -33,33 +33,37 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
 - Tests use **j8spec**: annotate classes with `@DefinedOrder` +
   `@RunWith(J8SpecRunner.class)` and declare examples in a `static { it("...", () -> {...}); }` block.
 - The Alpine boot test requires **`/dev/kvm`** access and **network** (it pulls the image).
-- Native-access warning: test JVMs pass `--enable-native-access=ALL-UNNAMED` (already configured in `ff-test`/`ff-krun`).
+  Volume tests need a mount namespace: root on the hypervisor, or unprivileged user
+  namespaces for local runs.
+- `ff-jni`'s native code is built by `make` (invoked from Gradle's `nativeBuild` task);
+  it needs `cc` and `JAVA_HOME` (set). Rebuild directly with `make -C ff-jni`.
 - CI/GitHub Actions is intentionally **out of scope for now** — do not build it out yet.
 
 ## Module layout
 
 ```
-ff-krun   Java 25 FFM bindings to libkrun 2.0 + libkrun_init; vendors the .so files.
+ff-jni    Host primitives (JNI) + the native C VM launcher; vendors the libkrun
+          shared objects. Built by a Makefile (invoked from Gradle) with `cc`.
 ff-oci    OCI registry client + tar extraction to a rootfs dir, with a persistent
           content-addressable blob cache (gson + slf4j-api).
-ff-vmm    Per-VM launcher process (main class).
 ff-test   Centralized tests for all modules.
-ff-host   (planned) TAP/raw/proc + DHCP host primitives.
 ff-api    (planned) domain model, lifecycle services, murmux/ronove REST, shax.
-ff-app    (planned) hypervisor main: REST API, forks/supervises ff-vmm.
+ff-app    (planned) hypervisor main: REST API, spawns/supervises ff-jni launchers.
 ff-ui     (planned) Preact SPA.
 ```
 
-Dependency direction: `ff-oci` and `ff-krun` are standalone; `ff-vmm → ff-krun`;
-`ff-test → ff-krun, ff-oci, ff-vmm`. Do not introduce cycles.
+Dependency direction: `ff-oci` is standalone; `ff-test → ff-jni, ff-oci`. Do not
+introduce cycles. `ff-krun` and `ff-vmm` were retired in M3 (the C launcher owns
+libkrun).
 
 ## Conventions
 
 - **Code commits**: *never* commit code automatically. Human review is a crucial step
   to code quality. This is achieved by having the human reviewer go through the code
   diff, asking for changes, or agreeing to commit.
-- **Class naming: every Java class MUST use the `Fg` prefix** (e.g. `FgKrun`,
-  `FgKrunVm`, `FgKrunLib`, `FgVmmMain`, `FgDockerIo`). This mirrors the old codebase.
+- **Class naming: every Java class MUST use the `Fg` prefix** (e.g. `FgJni`,
+  `FgProc`, `FgDockerIo`, `FgVmBootTest`). C files use the `fg_` prefix
+  (e.g. `fg_proc.c`, `fg_vmm.c`). This mirrors the old codebase.
 - **Tests live in `ff-test`**, not in the modules under test. Move/centralize any
   test code there.
 - **Incremental migration**: keep what is still useful, drop what libkrun now
@@ -72,17 +76,22 @@ Dependency direction: `ff-oci` and `ff-krun` are standalone; `ff-vmm → ff-krun
 1. **Process-per-VM is mandatory.** libkrun calls `libc::_exit()` when the guest
    exits, so `krun_vmm_run` never returns and terminates its host process. Never
    host a VM (or call `krun_vmm_run`) in the hypervisor's JVM or a JUnit test JVM.
-   `ff-test` forks `ff-vmm` via `ProcessBuilder` and asserts on its console.
-2. **Load libkrun `RTLD_GLOBAL`.** `krun_init_config_apply` resolves libkrun symbols
-   via weak `dlsym(RTLD_DEFAULT)`. `FgKrunLib` uses `dlopen(RTLD_NOW | RTLD_GLOBAL)`;
-   `System.load` (RTLD_LOCAL) causes `APPLY_SYMBOL_NOT_FOUND`.
+   The native launcher `ff-jni/src/vmm/fg_vmm.c` is one process per VM; `FgProc`
+   spawns it and `ff-test` waits on it.
+2. **Volumes are host-side bind mounts.** The launcher `unshare`s a mount namespace
+   (`CLONE_NEWNS` as root, `CLONE_NEWUSER|CLONE_NEWNS` unprivileged) and bind-mounts
+   each host dir into the rootfs dir at its guest path; libkrun's virtiofs follows
+   submounts, so the guest needs no mount step. libkrun's built-in init only applies
+   `tmpfs` mounts — do not expect it to mount virtiofs devices.
 3. **Console ports must be named** `krun-stdin` / `krun-stdout` / `krun-stderr` —
    use `krun_console_builder_add_default_console`. Custom-named inout ports yield no
    workload stdout.
-4. **`krun_init_log` is once-per-process** (repeat calls return a VMM `Internal`
-   error); it is guarded in `FgKrun`.
+4. **Keep the launcher's `LD_LIBRARY_PATH`** pointing at the extracted libkrun libs;
+   libkrun `dlopen`s `libkrunfw.so.5` by soname (no env override inside libkrun).
 5. **OCI extraction must be idempotent**: clear the rootfs dir before extraction and
    delete existing entries before recreating symlinks/hardlinks.
+6. **Close the extraction `OutputStream` before `execve`** — an unclosed stream makes
+   the launcher fail with `ETXTBSY` ("Text file busy").
 
 ## Technology choices
 
@@ -91,9 +100,11 @@ Dependency direction: `ff-oci` and `ff-krun` are standalone; `ff-vmm → ff-krun
   `io.vacco.ronove:rv-kit-murmux:3.0.0` (includes murmux and building blocks).
 - Build plugin: **`io.vacco.oss.gitflow` 1.9.0** (org config `vacco-oss-java-25`).
 - Logging: `io.vacco.shax:shax:2.0.18.1`; JSON: `com.google.code.gson:gson:2.11.0`.
-- FFM bindings are **hand-written & curated**, validated against `jextract 25`
-  (installed on PATH). `jextract` output is a throwaway oracle — never commit it.
-  `KrunStr`/`KrunBytes` are passed **by value** via `StructLayout`.
+- FFM bindings are **not used** (retired in M3). libkrun is driven from C by the
+  native launcher `ff-jni/src/vmm/fg_vmm.c`, compiled by `ff-jni/Makefile` with `cc`
+  and linked against the vendored libs via `-l:libkrun.so.2 -l:libkrun_init.so`.
+  Host primitives (TAP/raw/proc) are exposed through the JNI shim `fg_jni.c` +
+  `FgJni.java`.
 
 ## UI direction (when the UI milestone starts)
 
