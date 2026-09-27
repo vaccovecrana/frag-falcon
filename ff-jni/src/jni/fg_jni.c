@@ -6,6 +6,8 @@
 
 #include "../fg/fg_raw.h"
 #include "../fg/fg_proc.h"
+#include "../fg/fg_root.h"
+#include "../fg/fg_extract.h"
 
 ////////////////////////////////////////////////////
 //              Process management                //
@@ -81,6 +83,30 @@ JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_reapChildren(JNIEnv *env, jcla
     (void) env;
     (void) cls;
     return reap_children();
+}
+
+JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_extractTar(
+        JNIEnv *env, jclass cls, jstring tarPath, jstring rootDir) {
+    (void) cls;
+    const char *tar_path = (*env)->GetStringUTFChars(env, tarPath, 0);
+    const char *root_dir = (*env)->GetStringUTFChars(env, rootDir, 0);
+    long root_fd = fg_root_open(root_dir);
+    int result;
+    if (root_fd < 0) {
+        result = (int) root_fd;
+    } else {
+        result = fg_extract_tar((int) root_fd, tar_path);
+        close((int) root_fd);
+    }
+    (*env)->ReleaseStringUTFChars(env, tarPath, tar_path);
+    (*env)->ReleaseStringUTFChars(env, rootDir, root_dir);
+    return result;
+}
+
+JNIEXPORT jstring JNICALL Java_io_vacco_ff_net_FgJni_strerror(JNIEnv *env, jclass cls, jint err) {
+    (void) cls;
+    const char *msg = strerror((int) err);
+    return (*env)->NewStringUTF(env, msg != NULL ? msg : "unknown error");
 }
 
 ////////////////////////////////////////////////////

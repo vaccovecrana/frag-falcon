@@ -18,6 +18,7 @@
 #include <libkrun_init.h>
 
 #include "../fg/fg_tap.h"
+#include "../fg/fg_root.h"
 
 #define MAX_ITEMS 4096
 
@@ -77,32 +78,6 @@ static void check_handle(void *handle, const char *what) {
     }
 }
 
-static void mkdir_p(const char *path) {
-    char tmp[4096];
-    size_t len = strlen(path);
-    if (len == 0 || len >= sizeof(tmp)) {
-        die("invalid path");
-    }
-    memcpy(tmp, path, len + 1);
-    if (tmp[len - 1] == '/') {
-        tmp[len - 1] = '\0';
-    }
-    for (char *p = tmp + 1; *p; p++) {
-        if (*p == '/') {
-            *p = '\0';
-            if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
-                fprintf(stderr, "[fg-vmm] mkdir %s: %s\n", tmp, strerror(errno));
-                exit(125);
-            }
-            *p = '/';
-        }
-    }
-    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
-        fprintf(stderr, "[fg-vmm] mkdir %s: %s\n", tmp, strerror(errno));
-        exit(125);
-    }
-}
-
 static void write_file(const char *path, const char *data) {
     int fd = open(path, O_WRONLY);
     if (fd >= 0) {
@@ -137,12 +112,30 @@ static void setup_volumes(void) {
         fprintf(stderr, "[fg-vmm] make / private: %s\n", strerror(errno));
         exit(125);
     }
+
+    long root_fd = fg_root_open(rootfs_dir);
+    if (root_fd < 0) {
+        fprintf(stderr, "[fg-vmm] open rootfs %s: %s\n", rootfs_dir, strerror((int) -root_fd));
+        exit(125);
+    }
     for (int i = 0; i < volume_count; i++) {
         const volume_t *v = &volumes[i];
-        char dest[8192];
-        snprintf(dest, sizeof(dest), "%s%s%s", rootfs_dir,
-                 v->guest[0] == '/' ? "" : "/", v->guest);
-        mkdir_p(dest);
+        char rel[4096];
+        snprintf(rel, sizeof(rel), "%s", v->guest[0] == '/' ? v->guest + 1 : v->guest);
+        if (rel[0] == '\0') {
+            fprintf(stderr, "[fg-vmm] invalid volume guest path\n");
+            exit(125);
+        }
+        int rc = fg_mkdir_in_root((int) root_fd, rel, 0755);
+        if (rc != 0) {
+            fprintf(stderr, "[fg-vmm] mkdir %s in rootfs: %s\n", rel, strerror(-rc));
+            exit(125);
+        }
+        char *dest = fg_realpath_in_root((int) root_fd, rel);
+        if (dest == NULL) {
+            fprintf(stderr, "[fg-vmm] cannot resolve %s in rootfs\n", rel);
+            exit(125);
+        }
         if (mount(v->host, dest, NULL, MS_BIND | MS_REC, NULL) != 0) {
             fprintf(stderr, "[fg-vmm] bind %s -> %s: %s\n", v->host, dest, strerror(errno));
             exit(125);
@@ -154,7 +147,9 @@ static void setup_volumes(void) {
             }
         }
         fprintf(stderr, "[fg-vmm] volume %s -> %s%s\n", v->host, dest, v->read_only ? " (ro)" : "");
+        free(dest);
     }
+    close((int) root_fd);
 }
 
 /* ----- bounded console log ring -------------------------------------- */

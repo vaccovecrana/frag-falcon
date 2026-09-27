@@ -51,6 +51,12 @@ public class FgJni {
 
   public static native int reapChildren();
 
+  /** Extracts a tar archive into {@code rootDir} using kernel-confined path ops. */
+  public static native int extractTar(String tarPath, String rootDir);
+
+  /** Maps an errno value to its message. */
+  public static native String strerror(int err);
+
   // Raw socket communication
   public static native int rawCreate(String interfaceName);
 

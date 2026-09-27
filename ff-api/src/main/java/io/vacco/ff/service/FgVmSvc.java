@@ -44,10 +44,7 @@ public class FgVmSvc {
    * Provisions the rootfs from the VM's OCI image (image layers pulled lazily here).
    */
   public static FgVm build(FgVm vm, File vmRoot, FgOciStore store, FgOciProgress progress) {
-    vm.image = FgDockerIo.extract(
-      vm.image.source, rootfsOf(vmRoot), store,
-      (entry, err) -> {
-      }, progress);
+    vm.image = FgDockerIo.extract(vm.image.source, rootfsOf(vmRoot), store, progress);
     FgIo.toJson(vm.image, imageOf(vmRoot), GSON);
     return vm;
   }

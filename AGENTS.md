@@ -48,8 +48,9 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
 ```
 ff-jni    Host primitives (JNI) + the native C VM launcher; vendors the libkrun
           shared objects. Built by a Makefile (invoked from Gradle) with `cc`.
-ff-oci    OCI registry client + tar extraction to a rootfs dir, with a persistent
-          content-addressable blob cache (gson + slf4j-api).
+ff-oci    OCI registry client + kernel-confined tar extraction (via ff-jni's
+          openat2 RESOLVE_IN_ROOT extractor) to a rootfs dir, with a persistent
+          content-addressable blob cache (gson + slf4j-api). → ff-jni.
 ff-test   Centralized tests for all modules.
 ff-api    Domain model, VM lifecycle services, stack model + topo, supervisor, and
           the stack-oriented ronove REST API. Generates TS types (`build/rpc.ts`).
@@ -57,9 +58,9 @@ ff-app    Thin packaging module (application, mainClass `io.vacco.ff.FgMain`).
 ff-ui     (planned) Preact SPA.
 ```
 
-Dependency direction: `ff-oci` is standalone; `ff-test → ff-jni, ff-oci`. Do not
-introduce cycles. `ff-krun` and `ff-vmm` were retired in M3 (the C launcher owns
-libkrun).
+Dependency direction: `ff-oci` → `ff-jni`; `ff-test → ff-jni, ff-oci`; `ff-api`
+→ `ff-jni, ff-oci`. Do not introduce cycles. `ff-krun` and `ff-vmm` were retired
+in M3 (the C launcher owns libkrun).
 
 ## Conventions
 

@@ -36,11 +36,7 @@ public class FgTest {
     }
     if (rootfs == null) {
       var r = new File(WORK, "rootfs");
-      FgDockerIo.extract(
-        "alpine:latest", r,
-        new FgOciStore(new File(WORK, "oci")), (_, _) -> {
-        }
-      );
+      FgDockerIo.extract("alpine:latest", r, new FgOciStore(new File(WORK, "oci")));
       rootfs = r;
     }
     return rootfs;

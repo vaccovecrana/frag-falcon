@@ -4,6 +4,8 @@ import com.google.gson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.vacco.ff.net.FgRoot;
+
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -12,15 +14,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Objects;
-import java.util.TreeSet;
-import java.util.function.BiConsumer;
+
 import java.util.zip.GZIPInputStream;
 
 import static io.vacco.ff.oci.FgOciIo.*;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.nio.file.Files.setPosixFilePermissions;
 
 /**
  * Minimal OCI/Docker registry client: resolves a manifest, downloads layer
@@ -167,7 +166,7 @@ public class FgDockerIo {
 
   private static FgImage processManifest(JsonObject manifest, String registryUrl, String repoName,
                                          String authToken, FgOciStore store, File rootfsDir,
-                                         BiConsumer<FgTarEntry, Exception> onError, FgOciProgress progress) {
+                                         FgOciProgress progress) {
     var configDigest = manifest.getAsJsonObject("config").get("digest").getAsString();
     var configJson = getConfigJson(registryUrl, repoName, configDigest, authToken);
 
@@ -222,7 +221,6 @@ public class FgDockerIo {
     var unzippedDir = store.tmpDir("unzipped");
     delete(rootfsDir, e -> log.warn("Unable to clear rootfs directory [{}]", rootfsDir, e));
     mkDirs(rootfsDir);
-    var tarFiles = new TreeSet<FgTarEntry>();
 
     for (int li = 0; li < layers.size(); li++) {
       var layerObj = layers.get(li).getAsJsonObject();
@@ -233,32 +231,8 @@ public class FgDockerIo {
       var blobFile = cachedBlob(store, registryUrl, repoName, blobSum, authToken, progress, bytesDone, totalBytes);
       var extractedFile = new File(unzippedDir, blobFile.getName());
       expand(blobFile, extractedFile);
-      tarFiles.addAll(FgTarIo.extract(extractedFile, rootfsDir, onError));
+      FgRoot.extractTar(rootfsDir, extractedFile);
       progress.onLayers(li + 1, layers.size());
-    }
-    for (var entry : tarFiles) {
-      try {
-        setPosixFilePermissions(entry.fsPath, entry.permissions);
-      } catch (UnsupportedOperationException | IOException e) {
-        onError.accept(entry, e);
-      }
-    }
-    for (var entry : tarFiles) {
-      var entryName = entry.fsPath.getFileName().toString();
-      if (entryName.startsWith(".wh.")) {
-        var originalName = entryName.substring(4);
-        var originalFile = new File(entry.fsPath.getParent().toFile(), originalName);
-        if (originalFile.exists()) {
-          delete(originalFile, e -> log.warn("Unable to delete whiteout entry [{}]", originalFile, e));
-        }
-      } else if (entryName.equals(".wh..wh..opq")) {
-        var dir = entry.fsPath.getParent().toFile();
-        for (var file : Objects.requireNonNull(dir.listFiles())) {
-          if (!file.getName().startsWith(".wh.")) {
-            delete(file, e -> log.warn("Unable to delete whiteout opaque entry [{}]", file, e));
-          }
-        }
-      }
     }
     delete(unzippedDir, e -> log.warn("Unable to delete unzipped directory [{}]", unzippedDir, e));
 
@@ -275,7 +249,7 @@ public class FgDockerIo {
    */
   public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
                                 String architecture, String os,
-                                BiConsumer<FgTarEntry, Exception> onError, FgOciProgress progress) {
+                                FgOciProgress progress) {
     if (!dockerImageUri.contains("/")) {
       dockerImageUri = dockerTld + "/library/" + dockerImageUri;
     }
@@ -325,7 +299,7 @@ public class FgDockerIo {
       if (oDigest.isPresent()) {
         var digestUrl = format("%s%s/manifests/%s", registryUrl, repoName, oDigest.get());
         var manifest0 = getJsonResponse(digestUrl, authToken, mimeTypeOciManifestV1);
-        return processManifest(manifest0, registryUrl, repoName, authToken, store, rootfsDir, onError, progress)
+        return processManifest(manifest0, registryUrl, repoName, authToken, store, rootfsDir, progress)
           .withSource(dockerImageUri);
       }
       throw new IllegalStateException(format(
@@ -333,17 +307,16 @@ public class FgDockerIo {
         dockerImageUri, architecture, os
       ));
     }
-    return processManifest(manifest, registryUrl, repoName, authToken, store, rootfsDir, onError, progress)
+    return processManifest(manifest, registryUrl, repoName, authToken, store, rootfsDir, progress)
       .withSource(dockerImageUri);
   }
 
-  public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
-                                BiConsumer<FgTarEntry, Exception> onError) {
-    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, onError, FgOciProgress.NOOP);
+  public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store) {
+    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, FgOciProgress.NOOP);
   }
 
   public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
-                                BiConsumer<FgTarEntry, Exception> onError, FgOciProgress progress) {
-    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, onError, progress);
+                                FgOciProgress progress) {
+    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, progress);
   }
 }

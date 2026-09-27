@@ -5,6 +5,7 @@ configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
 val api by configurations
 
 dependencies {
+  api(project(":ff-jni"))
   api("com.google.code.gson:gson:2.11.0")
   api("org.slf4j:slf4j-api:2.0.18")
 }

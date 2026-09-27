@@ -167,6 +167,29 @@ must never be exposed publicly; run it behind a private LAN segment or a VPN.
 
 ---
 
+## 13. Image extraction is kernel-confined (host-escape defense)
+
+OCI layers arrive as tar archives from untrusted registries. The old cpio
+model did **not** make extraction safer — the risk is host-side extraction, not
+the image format. libkrun's virtiofs is already symlink-safe at runtime
+(`readlinkat` returns the target string; `lookup` is `O_NOFOLLOW`), so the
+boundary is **extraction**.
+
+`ff-jni`'s `fg_extract.c` extracts each layer with **`openat2(RESOLVE_IN_ROOT |
+RESOLVE_NO_MAGICLINKS)`**: every path is resolved as if chrooted into the rootfs,
+so `..` and absolute targets can never leave it. Rules:
+- Entry paths: relative, no `..`, no leading `/` — otherwise provisioning fails.
+- Symlink **targets** are stored verbatim (e.g. Alpine's `etc/mtab -> ../proc/mounts`
+  and `/sbin/blkid -> /bin/busybox`), because a target is just data the guest
+  resolves inside its own root.
+- Hardlink sources must resolve inside the root.
+- Device/FIFO entries are skipped (no `mknod`).
+- Any violation fails provisioning (no silent skip).
+- Volume mount points created by the launcher use the same confined `mkdir`
+  (no traversal through a host symlinked ancestor).
+
+---
+
 ## 12. Bounded log ring (launcher-owned)
 
 The launcher redirects the guest console to a pipe; a reader thread keeps the
