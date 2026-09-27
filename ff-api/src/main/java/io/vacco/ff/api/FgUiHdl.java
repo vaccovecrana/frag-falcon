@@ -40,7 +40,6 @@ public class FgUiHdl extends MxStatic {
   @Override
   public void handle(MxExchange xc) {
     var path = xc.getPath();
-    log.info("p: {}", path);
     if (path.equals("/favicon.svg") || path.equals("/index.css") || path.equals("/index.js")
       || path.equals("/index.js.map") || path.equals("/index.css.map") || path.equals("/version")) {
       super.handle(xc);
