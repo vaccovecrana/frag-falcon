@@ -38,6 +38,7 @@ static int ram_mib = 256;
 
 static const char *tap_name = NULL;
 static const char *bridge_name = NULL;
+static const char *vm_id_arg = NULL;
 static int tap_up = 0;
 static int tap_down = 0;
 static int dhcp_enabled = 1;
@@ -340,6 +341,8 @@ static void parse_args(int argc, char **argv) {
             workdir = argv[++i];
         } else if (strcmp(a, "--tap") == 0 && i + 1 < argc) {
             tap_name = argv[++i];
+        } else if (strcmp(a, "--vm-id") == 0 && i + 1 < argc) {
+            vm_id_arg = argv[++i];
         } else if (strcmp(a, "--bridge") == 0 && i + 1 < argc) {
             bridge_name = argv[++i];
         } else if (strcmp(a, "--mac") == 0 && i + 1 < argc) {
@@ -409,10 +412,10 @@ int main(int argc, char **argv) {
 
     setup_log_ring(log_file, log_lines);
 
-    const char *vm_id = getenv("FF_VMID");
+    const char *vm_id = vm_id_arg;
     if (vm_id != NULL) {
         char comm[16];
-        snprintf(comm, sizeof(comm), "ff-%s", vm_id);
+        snprintf(comm, sizeof(comm), "%s", vm_id);
         prctl(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
     }
     fprintf(stderr, "[fg-vmm] starting vm=%s rootfs=%s vcpus=%d ram=%d\n",

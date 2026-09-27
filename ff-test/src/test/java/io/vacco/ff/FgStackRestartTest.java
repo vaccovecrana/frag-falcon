@@ -11,9 +11,9 @@ import org.junit.runner.RunWith;
 import java.util.HashSet;
 import java.util.List;
 
+import static io.vacco.ff.FgTest.log;
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertTrue;
-import static io.vacco.ff.FgTest.log;
 
 /**
  * M5 supervisor: a service with {@code restart: always} is restarted by the

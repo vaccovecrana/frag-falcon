@@ -26,9 +26,4 @@ public class FgVm {
    * User-supplied environment (stack service environment), applied last.
    */
   public List<io.vacco.ff.oci.FgEnvVar> env = new ArrayList<>();
-
-  public FgVm effective() {
-    machine.effective();
-    return this;
-  }
 }

@@ -12,6 +12,7 @@ disk images). The UI is later restructured to follow the element layout of
 `../dockge` while keeping our own Java (murmux/ronove/shax) backend.
 
 Reference material (read-only, outside this repo):
+
 - `../libkrun-build/out/include/{libkrun.h,libkrun_init.h}` — C headers (source of truth).
 - `../libkrun-build/out/lib64` and `../libkrun-build/out/lib/x86_64-linux-gnu` — native libs.
 - `../libkrun-build/src/libkrun/` — libkrun C sources; `examples/chroot_vm.c` is the canonical builder-API example.
@@ -101,7 +102,8 @@ libkrun).
    to retry — see `CAVEATS.md` and `patches/libkrun-dhcp-retry.patch`; reapply the
    patch after a fresh `build-libkrun.sh` fetch.
 8. **A cap'd launcher is non-dumpable**, so `/proc/<pid>/environ` is root-only;
-   discovery matches `/proc/<pid>/comm` (`ff-<vmid>`) first. A cap'd binary also
+   discovery matches `/proc/<pid>/comm` (`<vmid>`, passed to the launcher as
+   `--vm-id`) — the only discovery mechanism. A cap'd binary also
    ignores `LD_LIBRARY_PATH` (secure-execution mode), hence the launcher's absolute
    `RUNPATH` and direct `libkrunfw` `DT_NEEDED`.
 9. **Logs are bounded by the launcher.** The launcher keeps the last `--log-lines`

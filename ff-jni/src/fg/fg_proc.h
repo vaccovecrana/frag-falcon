@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-int spawn_process(const char *vm_id, const char *cmd, char **argv,
+int spawn_process(const char *cmd, char **argv,
                   const char *log_path, const char *ld_library_path);
 int terminate_process(pid_t pid);
 int reap_children(void);

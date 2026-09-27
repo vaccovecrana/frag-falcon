@@ -22,11 +22,10 @@ public class FgVmIdTest {
       assertTrue(!a.isEmpty() && a.length() <= 8);
     });
 
-    it("produces comm/tap names within the 15-char limit", () -> {
-      assertTrue(FgVmId.procTag("deadbeef").length() <= 15);
+    it("produces tap names and vm ids within the 15-char limit", () -> {
       assertTrue(FgVmId.tapName("deadbeef").length() <= 15);
-      assertTrue(FgVmId.procTag("deadbeef").startsWith("ff"));
       assertTrue(FgVmId.tapName("deadbeef").startsWith("ff"));
+      assertTrue(FgVmId.of("stack", "service").length() <= 15);
     });
 
     it("derives a locally-administered MAC address", () -> {

@@ -18,10 +18,6 @@ public class FgVmId {
     return "ff" + Integer.toHexString(vmId.hashCode());
   }
 
-  public static String procTag(String vmId) {
-    return "ff" + Integer.toHexString(vmId.hashCode());
-  }
-
   public static byte[] mac(String vmId) {
     int h = vmId.hashCode();
     return new byte[]{

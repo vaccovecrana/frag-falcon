@@ -12,9 +12,8 @@
 ////////////////////////////////////////////////////
 
 JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_spawnProcess(
-        JNIEnv *env, jclass cls, jstring vmId, jstring command,
+        JNIEnv *env, jclass cls, jstring command,
         jobjectArray args, jstring logPath, jstring ldLibraryPath) {
-    const char *vm_id = (*env)->GetStringUTFChars(env, vmId, 0);
     const char *cmd = (*env)->GetStringUTFChars(env, command, 0);
 
     const char *log_path = NULL;
@@ -37,9 +36,8 @@ JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_spawnProcess(
     }
     argv[arg_len + 1] = NULL;
 
-    jint result = spawn_process(vm_id, cmd, argv, log_path, ld_library_path);
+    jint result = spawn_process(cmd, argv, log_path, ld_library_path);
 
-    (*env)->ReleaseStringUTFChars(env, vmId, vm_id);
     (*env)->ReleaseStringUTFChars(env, command, cmd);
     if (logPath != NULL) {
         (*env)->ReleaseStringUTFChars(env, logPath, log_path);

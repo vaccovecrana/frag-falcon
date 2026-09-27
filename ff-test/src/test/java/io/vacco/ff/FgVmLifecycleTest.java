@@ -14,9 +14,9 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.util.List;
 
+import static io.vacco.ff.FgTest.log;
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertTrue;
-import static io.vacco.ff.FgTest.log;
 
 /**
  * M5a: verifies the low-level VM lifecycle (build / start / running / stop)

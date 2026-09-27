@@ -43,7 +43,7 @@ public class FgJni {
   }
 
   // Process management
-  public static native int spawnProcess(String vmId, String command, String[] args, String logPath, String ldLibraryPath);
+  public static native int spawnProcess(String command, String[] args, String logPath, String ldLibraryPath);
 
   public static native int terminate(int pid);
 

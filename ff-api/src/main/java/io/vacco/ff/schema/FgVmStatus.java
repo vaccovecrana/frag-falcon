@@ -18,14 +18,4 @@ public class FgVmStatus {
     s.state = state;
     return s;
   }
-
-  public FgVmStatus withProvision(FgProvision provision) {
-    this.provision = provision;
-    return this;
-  }
-
-  public FgVmStatus withError(String error) {
-    this.error = error;
-    return this;
-  }
 }

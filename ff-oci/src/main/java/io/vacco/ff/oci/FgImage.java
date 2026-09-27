@@ -15,7 +15,6 @@ public class FgImage {
   public String[] cmd;
 
   public List<FgEnvVar> env;
-  public List<FgEnvVar> envUsr;
 
   /**
    * Ports declared by the image config, e.g. "8000/tcp".
@@ -30,27 +29,6 @@ public class FgImage {
   public FgImage withExposedPorts(List<String> exposedPorts) {
     this.exposedPorts = exposedPorts;
     return this;
-  }
-
-  public FgImage withEnvUsr(List<FgEnvVar> envUsr) {
-    this.envUsr = envUsr;
-    return this;
-  }
-
-  public String[] entryPointList() {
-    return entryPoint;
-  }
-
-  public String[] cmdList() {
-    return cmd;
-  }
-
-  public List<FgEnvVar> envList() {
-    return env;
-  }
-
-  public List<FgEnvVar> envUsrList() {
-    return envUsr;
   }
 
   public static FgImage of(String rootDir, String[] entryPoint, String[] cmd,

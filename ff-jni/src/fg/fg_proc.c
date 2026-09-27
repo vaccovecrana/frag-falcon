@@ -14,18 +14,17 @@ extern char **environ;
 
 /* Static storage so no allocation happens between fork() and execve() in a
  * multi-threaded host process. */
-static char ff_vmid_env[1024];
 static char ff_ld_env[8192];
 
 /*
  * Forks a detached VM launcher process.
  *
- * The child is tagged with FF_VMID in its environment (re-discoverable under
- * /proc/<pid>/environ), has stdin from /dev/null and stdout/stderr redirected
- * to log_path, and gets LD_LIBRARY_PATH set so it can resolve the vendored
- * libkrun shared objects.
+ * The child has stdin from /dev/null and stdout/stderr redirected to log_path,
+ * and gets LD_LIBRARY_PATH set so it can resolve the vendored libkrun shared
+ * objects. The VM id is passed to the launcher as a command-line argument, not
+ * via the environment.
  */
-int spawn_process(const char *vm_id, const char *cmd, char **argv,
+int spawn_process(const char *cmd, char **argv,
                   const char *log_path, const char *ld_library_path) {
     pid_t pid = fork();
     if (pid == -1) {
@@ -61,9 +60,6 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv,
                 close(fd);
             }
         }
-
-        snprintf(ff_vmid_env, sizeof(ff_vmid_env), "FF_VMID=%s", vm_id);
-        putenv(ff_vmid_env);
 
         if (ld_library_path != NULL) {
             snprintf(ff_ld_env, sizeof(ff_ld_env), "LD_LIBRARY_PATH=%s", ld_library_path);

@@ -23,6 +23,7 @@ instantly.)
 queued in the socket buffer) and keep retrying until the same deadline.
 
 **Apply / rebuild / re-vendor.**
+
 ```bash
 # 1. Apply to the fetched libkrun source tree
 cd ../libkrun-build/src/libkrun
@@ -38,6 +39,7 @@ cp out/lib64/libkrun_init.so.0.1.0 \
 cp out/lib64/libkrun.so.2.0.0 \
    /path/to/frag-falcon-libkrun/ff-jni/src/main/resources/io/vacco/ff/libkrun.so.2
 ```
+
 A fresh `build-libkrun.sh` (without `--no-fetch`) re-downloads `main` and loses
 the patch, so re-apply it.
 
@@ -72,6 +74,7 @@ A binary with file capabilities (e.g. `cap_net_admin+ep` on `fg_vmm`) runs in
 the loader's **secure-execution mode**, where `LD_LIBRARY_PATH`/`LD_PRELOAD` are
 ignored. To make the launcher work both rootless (setcap) and as root
 (`LD_LIBRARY_PATH`), it:
+
 - links `libkrunfw.so.5` **directly** (a `DT_NEEDED` entry, via
   `-Wl,--no-as-needed`) so libkrun's `dlopen("libkrunfw.so.5")` finds the
   already-loaded soname, and
@@ -87,8 +90,9 @@ setcap'd built launcher instead of the temp extraction.
 
 A process that gains file capabilities has `dumpable=0`, so
 `/proc/<pid>/environ` is root-only. Our `/proc` VM re-discovery can't read it as
-a normal user. The launcher sets its process name to `ff-<vmid>`
+a normal user. The launcher sets its process name to the VM id
 (`prctl(PR_SET_NAME)`), and `FgProc.pidOf` matches on `/proc/<pid>/comm`
+(no environment fallback).
 (falling back to `environ`, which works for the root hypervisor).
 
 ---
@@ -99,6 +103,7 @@ Host-directory volumes are bind-mounted into the rootfs dir inside a private
 mount namespace (`CLONE_NEWNS` as root, `CLONE_NEWUSER|CLONE_NEWNS`
 unprivileged). libkrun's virtiofs passthrough follows host submounts, so the
 guest sees them with no guest-side mount. Notes:
+
 - `unshare(CLONE_NEWUSER)` discards host-namespace capabilities, so if a VM
   needs **both** a managed TAP and volumes while unprivileged, the tap must be
   set up before the user namespace is created (not yet exercised).
@@ -134,6 +139,10 @@ zombie and naive pid discovery would keep reporting the VM as "running".
 and `FgProc.reap()` (native `waitpid(-1, WNOHANG)` loop) is available for the
 supervisor to drain exited children. libkrun `_exit()`s the launcher on guest
 shutdown, so this matters for every VM exit.
+
+VM discovery uses **only** the process name: the launcher sets
+`/proc/<pid>/comm` to exactly the VM id (passed as `--vm-id`); there is no
+environment-based fallback.
 
 ---
 

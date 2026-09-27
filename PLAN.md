@@ -13,16 +13,16 @@ provides, and track progress with the milestones below.
 
 ## 0. Progress
 
-| Milestone | Status | Notes |
-|-----------|--------|-------|
-| M0 — Branch & skeleton | ✅ Done | Branch emptied; Gradle 9.2.1 / Java 25 toolchain; smoke test green. |
-| M1 — "Hello VM" | ✅ Done | First via Java/FFM; later superseded by the native C launcher (see M3). |
-| M2 — Container as microVM | ✅ Done | `ff-oci` (persistent cache) + child-process boot; Alpine prints to console. |
-| M3 — Host volumes | ✅ Done | Native C launcher in `ff-jni`; host-dir volumes via bind mounts; `ff-krun`/`ff-vmm` retired. |
-| M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`). |
-| M5 — Supervisor + REST API | ✅ Done | M5a VM lifecycle + M5b stacks/topo/REST/supervisor; launcher-owned bounded log ring implemented (`CAVEATS.md` §12); 16 tests green. |
-| M6 — dockge-structured UI | ⬜ | |
-| M7 — Packaging, tests, docs | ⬜ | |
+| Milestone                      | Status | Notes                                                                                                                               |
+|--------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------|
+| M0 — Branch & skeleton         | ✅ Done | Branch emptied; Gradle 9.2.1 / Java 25 toolchain; smoke test green.                                                                 |
+| M1 — "Hello VM"                | ✅ Done | First via Java/FFM; later superseded by the native C launcher (see M3).                                                             |
+| M2 — Container as microVM      | ✅ Done | `ff-oci` (persistent cache) + child-process boot; Alpine prints to console.                                                         |
+| M3 — Host volumes              | ✅ Done | Native C launcher in `ff-jni`; host-dir volumes via bind mounts; `ff-krun`/`ff-vmm` retired.                                        |
+| M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`).  |
+| M5 — Supervisor + REST API     | ✅ Done | M5a VM lifecycle + M5b stacks/topo/REST/supervisor; launcher-owned bounded log ring implemented (`CAVEATS.md` §12); 16 tests green. |
+| M6 — dockge-structured UI      | ⬜      |                                                                                                                                     |
+| M7 — Packaging, tests, docs    | ⬜      |                                                                                                                                     |
 
 ### Progress log
 
@@ -86,19 +86,20 @@ Consequences:
 
 ## 2. Locked decisions
 
-| # | Decision |
-|---|----------|
+| #  | Decision                                                                                                                                                                                                                                           |
+|----|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | D1 | **Process-per-VM with `/proc` re-discovery, no IPC.** The hypervisor forks a child process per VM tagged with metadata in `/proc`; on restart it re-adopts running VMs by scanning `/proc`. Root privileges are guaranteed on the bare-metal host. |
-| D2 | **virtio-net + TAP + bridge** networking. Keep the existing native TAP code and DHCP stack. |
-| D3 | **Use libkrun's built-in init; drop the Go `ffrt` runtime and `FgCpio`.** |
-| D4 | **Keep the Preact UI**; restructure it to dockge's element layout; adopt the `vf-*` design system from `vgmusic-restoration/vgr-funding/vf-ui/res/main.scss` (+ `fonts.scss`). |
-| D5 | **Empty the feature branch** (commit the current deletions), then populate; **vendor the native `.so` files into the repo**. |
+| D2 | **virtio-net + TAP + bridge** networking. Keep the existing native TAP code and DHCP stack.                                                                                                                                                        |
+| D3 | **Use libkrun's built-in init; drop the Go `ffrt` runtime and `FgCpio`.**                                                                                                                                                                          |
+| D4 | **Keep the Preact UI**; restructure it to dockge's element layout; adopt the `vf-*` design system from `vgmusic-restoration/vgr-funding/vf-ui/res/main.scss` (+ `fonts.scss`).                                                                     |
+| D5 | **Empty the feature branch** (commit the current deletions), then populate; **vendor the native `.so` files into the repo**.                                                                                                                       |
 
 ---
 
 ## 3. Keep / drop / rewrite
 
 **Keep (retarget)**
+
 - `FgDockerIo`, `FgTarIo`, `FgTarEntry` — OCI pull/extract, now into a persistent
   **rootfs dir** instead of a cpio.
 - `ff-jni` native host primitives that still apply: `fg_tap.c` (TAP
@@ -109,6 +110,7 @@ Consequences:
   shape, `FgValid` (yavi), murmux/ronove/shax, and the Preact app shell.
 
 **Drop**
+
 - `io.vacco.ff.firecracker.**` (~40 classes), `FgFirecracker`, `FcApiResponse`,
   `FgNetIo`, `FgJni.httpRequest`, `FgVmFiles.fc.sock`.
 - `ff-api/src/main/go/**` (`ffrt`), `FgCpio`, `FgConstants` initramfs bits.
@@ -116,6 +118,7 @@ Consequences:
 - `--fc-path`, `--krn-dir`, `BootSource`, `Drive`, and all disk/block config.
 
 **Rewrite**
+
 - VM lifecycle (`FgVmSvcBuild/Control/Status`), the VM spec model (`FgVm`/`FgConfig`),
   `FgApiHdl`/`FgRoute`, the `FgVmFiles` layout, and the `ff-ui` screens.
 
@@ -157,10 +160,11 @@ Dependency direction: `ff-oci` is standalone; `ff-api` → `ff-jni`, `ff-oci`;
   rootfs directory via virtiofs. Because libkrun's passthrough follows submounts, the
   guest sees the volumes with no guest-side mount. Unprivileged runs use
   `CLONE_NEWUSER|CLONE_NEWNS`; root uses `CLONE_NEWNS`. Mounts vanish with the namespace.
-- **Metadata:** the child env carries `FF_VMID=<id>`. Env is visible at
-  `/proc/<pid>/environ` — the tagging mechanism, retained deliberately.
-- **Re-discovery:** `FgProc.pidOf(vmId)` scans `/proc/[0-9]+/environ` for `FF_VMID=`.
-  On hypervisor start, `vmList` combines that with the on-disk specs.
+- **Identity:** the VM id is passed to the launcher as `--vm-id`; the launcher sets
+  its process name (`/proc/<pid>/comm`) to exactly that id.
+- **Re-discovery:** `FgProc.pidOf(vmId)` matches `/proc/<pid>/comm` (the only
+  mechanism — no environment fallback). On hypervisor start, `vmList` combines that
+  with the on-disk specs.
 - **Control without IPC:** status = pid liveness + on-disk spec; logs = tail
   `vm.log`; **stop = SIGTERM → SIGKILL**. Because the rootfs is a host directory
   (virtiofs), an abrupt kill does not corrupt a block device, so hard-stop is
@@ -190,6 +194,7 @@ No boot source, no drives, no kernel path, no socket path.
 ## 7. Milestones
 
 ### M0 — Empty the branch & stand up the skeleton
+
 - Commit the existing working-tree deletions so `feature/libkrun` is truly empty.
 - Copy the module skeleton + Gradle 9 / Java 25 toolchain; port `settings.gradle.kts`,
   gitflow/ronove plugins.
@@ -200,15 +205,18 @@ No boot source, no drives, no kernel path, no socket path.
   and `krun_init_log()`.
 
 ### M1 — "Hello VM"  (superseded by M3's C launcher)
+
 - First implemented with Java/FFM bindings; retired in M3 in favour of C.
 - **Exit (met):** a guest ran `/bin/sh -c 'echo hi'` over a rootfs dir.
 
 ### M2 — Container as microVM
+
 - `FgDockerIo` extracts OCI images into a host rootfs dir (persistent blob cache).
 - libkrun's init is driven with the image's `Entrypoint`/`Cmd`/`Env`/`WorkingDir`.
 - **Exit (met):** a real image (`alpine`) boots and prints its output.
 
-### M3 — Host volumes  ✅
+### M3 — Host volumes ✅
+
 - Native C launcher (`ff-jni/src/vmm/fg_vmm.c`) using the libkrun builder API.
 - Volumes are host directories **bind-mounted into the rootfs dir** inside a private
   mount namespace, then shared via the single rootfs virtiofs device (§5).
@@ -218,6 +226,7 @@ No boot source, no drives, no kernel path, no socket path.
   host; RO volume rejects writes; `FF_VMID` discovery finds a running VM.
 
 ### M4 — Networking (TAP + bridge)
+
 - `krun_net_device_new_tap(id, tapName, mac, features)`; reuse `fg_tap.c` for
   create/attach/teardown and `fg_raw.c` DHCP.
 - Pass `ip=`/`dns=` via `krun_payload_append_cmdline` (or enable
@@ -225,6 +234,7 @@ No boot source, no drives, no kernel path, no socket path.
 - **Exit:** the guest gets a LAN IP and reaches the network.
 
 ### M5 — Process supervisor + API
+
 - Hypervisor (`ff-app`) spawns/supervises `ff-jni` launchers via `FgProc`; re-adopts
   running VMs via `FgProc.pidOf` (`/proc`).
 - New `FgApiHdl`: list/create/start/stop/status/logs (+ console tail), backed by
@@ -233,6 +243,7 @@ No boot source, no drives, no kernel path, no socket path.
   is re-discovered and still stoppable.
 
 ### M6 — dockge-structured UI
+
 - Keep Preact + the generated `rpc.ts`. Restructure to `vf-*`: `vf-detail`
   master/detail (stack list + detail), `vf-pill` status badges, `vf-card` VM cards,
   `vf-panel`, `vf-progress`, `vf-empty` (FgNoData), `vf-lock-overlay` (FgLock),
@@ -241,6 +252,7 @@ No boot source, no drives, no kernel path, no socket path.
 - **Exit:** VM list + detail/edit + logs resemble dockge's layout on our backend.
 
 ### M7 — Packaging, tests, docs
+
 - Package `ff-app` (GraalVM native-image or jlink); ship the `ff-jni` launcher and
   vendored libs as resources.
 - Tests: image pull, rootfs build, boot, volumes, TAP/DHCP, process re-discovery.
