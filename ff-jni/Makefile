@@ -1,6 +1,5 @@
 JAVA_HOME ?= $(shell dirname $$(dirname $$(readlink -f $$(which javac))))
 LIBDIR := src/main/resources/io/vacco/ff
-LIBDIR_ABS := $(CURDIR)/$(LIBDIR)
 OUT := out
 
 FG_SRC := src/fg/fg_proc.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_extract.c
@@ -21,7 +20,7 @@ $(OUT)/fg_vmm: src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_tap.h
 	  -o $@ src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c \
 	  -L$(LIBDIR) -Wl,--no-as-needed \
 	  -l:libkrun.so.2 -l:libkrun_init.so -l:libkrunfw.so.5 \
-	  -Wl,--as-needed -Wl,-rpath,$(LIBDIR_ABS)
+	  -Wl,--as-needed -Wl,-rpath,'$$ORIGIN'
 
 clean:
 	rm -rf $(OUT)

@@ -22,7 +22,7 @@ provides, and track progress with the milestones below.
 | M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`).  |
 | M5 — Supervisor + REST API     | ✅ Done | M5a VM lifecycle + M5b stacks/topo/REST/supervisor; launcher-owned bounded log ring implemented (`CAVEATS.md` §12); 16 tests green. |
 | M6 — dockge-structured UI      | ⬜      |                                                                                                                                     |
-| M7 — Packaging, tests, docs    | ⬜      |                                                                                                                                     |
+| M7 — Packaging, tests, docs | ✅ Done | Flat `tar.gz`: GraalVM native `ff-app` + `fg_vmm` + libkrun libs; ronove Graal reflect config; README + systemd example. CI deferred. |
 
 ### Progress log
 

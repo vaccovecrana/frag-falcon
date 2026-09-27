@@ -10,7 +10,8 @@ configure<io.vacco.ronove.plugin.RvPluginExtension> {
   optionalFields = true
   controllerClasses = arrayOf("io.vacco.ff.api.FgApiHdl")
   outFile.set(layout.buildDirectory.file("rpc.ts"))
-  reflectConfigFile.set(file("../ff-app/src/main/resources/reflect-config.json"))
+  reflectConfigFile.set(layout.buildDirectory.file("ronove/reflect-config.json"))
+  reachabilityMetadataFile.set(layout.buildDirectory.file("ronove/reachability-metadata.json"))
 }
 
 val api by configurations
@@ -21,8 +22,4 @@ dependencies {
   api("io.vacco.shax:shax:2.0.18.1")
   api("am.ik.yavi:yavi:0.14.1")
   api("io.vacco.ronove:rv-kit-murmux:3.0.1")
-}
-
-tasks.named("classes") {
-  finalizedBy("ronoveTypescriptRpc")
 }

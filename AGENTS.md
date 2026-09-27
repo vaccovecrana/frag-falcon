@@ -125,6 +125,14 @@ in M3 (the C launcher owns libkrun).
   Host primitives (TAP/raw/proc) are exposed through the JNI shim `fg_jni.c` +
   `FgJni.java`.
 
+## Packaging
+
+Release = a flat `tar.gz` (`gradle :flc:distNativeTar`) containing the GraalVM
+native `ff-app`, `fg_vmm`, and the libkrun `.so`s. At runtime `FgNative` resolves
+their directory from `/proc/self/exe` (override `FF_NATIVE_DIR`; no resource
+extraction). Run as **root** — a `setcap`'d launcher ignores both
+`LD_LIBRARY_PATH` and `$ORIGIN`, and caps are ignored entirely on `nosuid` fs.
+
 ## UI direction (when the UI milestone starts)
 
 - Keep the **Preact** codebase; restructure it to mirror dockge's UX element layout

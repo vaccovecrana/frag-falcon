@@ -76,17 +76,12 @@ public class FgTest {
    * Runs the launcher in a privileged utility mode (e.g. --tap-up / --tap-down).
    */
   public static void runLauncherTool(List<String> args) throws Exception {
-    var bin = System.getenv("FF_VMM_BIN");
-    if (bin == null) {
-      throw new IllegalStateException("FF_VMM_BIN is not set");
-    }
+    var bin = io.vacco.ff.net.FgProc.launcherPath();
     var pb = new ProcessBuilder();
-    pb.command().add(bin);
+    pb.command().add(bin.toAbsolutePath().toString());
     pb.command().addAll(args);
-    var lib = System.getenv("FF_VMM_LIBDIR");
-    if (lib != null) {
-      pb.environment().put("LD_LIBRARY_PATH", lib);
-    }
+    pb.environment().put("LD_LIBRARY_PATH",
+        io.vacco.ff.net.FgProc.launcherLibDir().toAbsolutePath().toString());
     pb.redirectErrorStream(true);
     var p = pb.start();
     var out = new String(p.getInputStream().readAllBytes());
@@ -101,7 +96,7 @@ public class FgTest {
    * True when the configured launcher carries the cap_net_admin file capability.
    */
   public static boolean hasNetCap() {
-    var bin = System.getenv("FF_VMM_BIN");
+    var bin = io.vacco.ff.net.FgProc.launcherPath().toAbsolutePath().toString();
     if (bin == null) {
       return false;
     }

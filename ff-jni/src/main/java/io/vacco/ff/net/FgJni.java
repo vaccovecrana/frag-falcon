@@ -2,11 +2,9 @@ package io.vacco.ff.net;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * JNI bindings for host primitives: process spawn/tagging, kernel-confined tar
@@ -16,23 +14,7 @@ import java.util.Objects;
 public class FgJni {
 
   static {
-    System.load(extractLib().toAbsolutePath().toString());
-  }
-
-  private static Path extractLib() {
-    try {
-      var dir = Files.createTempDirectory("ff-jni-");
-      dir.toFile().deleteOnExit();
-      var lib = dir.resolve("fg_jni.so");
-      try (var in = FgJni.class.getResourceAsStream("/io/vacco/ff/fg_jni.so");
-           var out = Files.newOutputStream(lib)) {
-        Objects.requireNonNull(in, "fg_jni.so").transferTo(out);
-      }
-      lib.toFile().deleteOnExit();
-      return lib;
-    } catch (IOException e) {
-      throw new IllegalStateException("Unable to extract fg_jni.so", e);
-    }
+    System.load(FgNative.require("fg_jni.so"));
   }
 
   // Process management

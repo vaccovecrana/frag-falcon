@@ -9,7 +9,6 @@ dependencies {
 tasks.withType<Test> {
   jvmArgs("--enable-native-access=ALL-UNNAMED")
   testLogging { showStandardStreams = true }
-  dependsOn(":ff-jni:nativeBuild")
-  environment("FF_VMM_BIN", project(":ff-jni").projectDir.resolve("out/fg_vmm").absolutePath)
-  environment("FF_VMM_LIBDIR", project(":ff-jni").projectDir.resolve("src/main/resources/io/vacco/ff").absolutePath)
+  dependsOn(":ff-jni:installNative")
+  environment("FF_NATIVE_DIR", project(":ff-jni").layout.buildDirectory.dir("native").get().asFile.absolutePath)
 }

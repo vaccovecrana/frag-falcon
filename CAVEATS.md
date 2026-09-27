@@ -205,3 +205,18 @@ Both are acceptable given the intent (containers ship their own telemetry).
 
 
 
+---
+
+## 14. Packaging: flat layout, run as root (no `setcap`)
+
+The release is a flat `tar.gz`: the GraalVM native `ff-app` plus `fg_vmm` and the
+libkrun shared objects in the same directory. At runtime the executable resolves
+that directory via `/proc/self/exe` (override with `FF_NATIVE_DIR`); there is no
+resource extraction.
+
+The intended deployment runs **as root** (`User=root`), so no file capabilities
+are needed. That matters because a cap'd binary runs in the loader's
+secure-execution mode, which makes it ignore both `LD_LIBRARY_PATH` **and** an
+`$ORIGIN` RUNPATH — so a `setcap`'d launcher cannot find `libkrun.so.2` beside
+it. Root sidesteps this entirely. (File capabilities are also silently ignored
+on `nosuid` filesystems such as `/tmp`.)

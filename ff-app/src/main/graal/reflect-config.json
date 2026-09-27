@@ -1,0 +1,104 @@
+[
+  {
+    "name": "io.vacco.ff.schema.FgNetConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgProvision",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgResources",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgService",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgServiceStatus",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStack",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStackRef",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStackState",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStackStatus",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVm",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVmMachine",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVmState",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVmStatus",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVmTag",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVolume",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ronove.RvResponse",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.api.FgApiHdl",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  }
+]

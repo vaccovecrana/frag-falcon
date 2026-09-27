@@ -5,68 +5,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Per-VM process management: extracts the native launcher and libkrun shared
- * objects, spawns a detached launcher tagged with {@code FF_VMID}, and
- * re-discovers running VMs by scanning {@code /proc}.
+ * Per-VM process management: spawns a detached launcher (whose process name is
+ * the VM id) and re-discovers it via {@code /proc}. The native launcher and
+ * libkrun shared objects live in {@link FgNative#home()}.
  */
 public class FgProc {
 
   private static final Pattern numeric = Pattern.compile("\\d+");
 
-  private static final List<String> NATIVE_FILES = List.of(
-    "fg_vmm",
-    "libkrun.so.2",
-    "libkrun_init.so",
-    "libkrunfw.so.5"
-  );
-
-  private static Path nativeDir;
-
-  private static synchronized Path extractNative() {
-    if (nativeDir != null) {
-      return nativeDir;
-    }
-    try {
-      var dir = Files.createTempDirectory("ff-vmm-");
-      dir.toFile().deleteOnExit();
-      for (var name : NATIVE_FILES) {
-        var target = dir.resolve(name);
-        try (var in = FgProc.class.getResourceAsStream("/io/vacco/ff/" + name);
-             var out = Files.newOutputStream(target)) {
-          Objects.requireNonNull(in, name).transferTo(out);
-        }
-        target.toFile().setExecutable(true);
-        target.toFile().deleteOnExit();
-      }
-      nativeDir = dir;
-      return dir;
-    } catch (IOException e) {
-      throw new IllegalStateException("Unable to extract native VM launcher", e);
-    }
-  }
-
-  public static Path nativeDir() {
-    return extractNative();
-  }
-
-  /**
-   * Path to the native launcher (FF_VMM_BIN override, else extracted).
-   */
+  /** Path to the native launcher. */
   public static Path launcherPath() {
-    var override = System.getenv("FF_VMM_BIN");
-    return override != null ? Path.of(override) : extractNative().resolve("fg_vmm");
+    return FgNative.path("fg_vmm");
   }
 
-  /**
-   * Directory holding the libkrun shared objects (FF_VMM_LIBDIR override, else extracted).
-   */
+  /** Directory holding the libkrun shared objects. */
   public static Path launcherLibDir() {
-    var override = System.getenv("FF_VMM_LIBDIR");
-    return override != null ? Path.of(override) : extractNative();
+    return FgNative.home();
   }
 
   /**
