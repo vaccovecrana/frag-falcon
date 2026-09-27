@@ -1,8 +1,11 @@
 package io.vacco.ff.api;
 
 import com.google.gson.Gson;
+import com.sun.net.httpserver.HttpExchange;
 import io.vacco.ff.service.FgStackSvc;
 import io.vacco.murmux.Murmux;
+import io.vacco.murmux.http.MxErrorHandler;
+import io.vacco.murmux.http.MxExchange;
 import io.vacco.murmux.http.MxStatus;
 import io.vacco.murmux.middleware.MxRouter;
 import io.vacco.ronove.RvJsonInput;
@@ -32,12 +35,9 @@ public class FgApi implements Closeable {
       xc.withStatus(MxStatus._500).commitText("internal error");
     };
 
-    var rpc = new RvMxAdapter<>(new FgApiHdl(svc), errorHdl,
-      (RvJsonInput) g::fromJson, (RvJsonOutput) g::toJson).build();
-
+    var rpc = new RvMxAdapter<>(new FgApiHdl(svc), errorHdl, g::fromJson, g::toJson).build();
     var uiHdl = new FgUiHdl();
-    var router = new MxRouter().prefix(FgRoute.apiRoot, rpc);
-    router.noMatch(uiHdl);
+    var router = new MxRouter().prefix(FgRoute.apiRoot, rpc).noMatch(uiHdl);
 
     mx.rootHandler(router).listen(port);
     log.info("frag-falcon API listening on http://{}:{}", host, port);

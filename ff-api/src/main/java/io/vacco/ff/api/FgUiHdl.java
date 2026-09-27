@@ -3,7 +3,10 @@ package io.vacco.ff.api;
 import io.vacco.murmux.http.MxExchange;
 import io.vacco.murmux.http.MxMime;
 import io.vacco.murmux.middleware.MxStatic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.nio.file.Paths;
 
 /**
@@ -12,12 +15,20 @@ import java.nio.file.Paths;
  */
 public class FgUiHdl extends MxStatic {
 
+  private static final Logger log = LoggerFactory.getLogger(FgUiHdl.class);
   private static final String INDEX = "index.html";
+  private static final File projectRoot = resolveCommonPath(new File("."), "frag-falcon-libkrun"); // TODO rename back to plain frag-falcon later
+  private static final File pkgJson = projectRoot != null && projectRoot.exists()
+    ? new File(projectRoot, "./ff-ui/package.json")
+    : null;
 
   @SuppressWarnings("this-escape")
   public FgUiHdl() {
-    super(Origin.Classpath, Paths.get("/ui"));
+    var origin = pkgJson.exists() ? Origin.FileSystem : Origin.Classpath;
+    var root = pkgJson.exists() ? Paths.get("./ff-ui/build/resources/main/ui") : Paths.get("/ui");
+    super(origin, root);
     withNoTypeResolver((p, o) -> p.getFileName().toString().endsWith(".map") ? MxMime.json.type : MxMime.bin.type);
+    log.info("Resources: {} {}", origin, root);
   }
 
   @Override
