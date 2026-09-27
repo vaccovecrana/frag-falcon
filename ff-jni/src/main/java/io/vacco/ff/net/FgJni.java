@@ -50,14 +50,7 @@ public class FgJni {
   public static native int spawnProcess(String vmId, String command, String[] args, String logPath, String ldLibraryPath);
   public static native int terminate(int pid);
   public static native int waitProcess(int pid, int timeoutMs);
-
-  // TAP interface management
-  public static native int tapCreate(String ifName);
-  public static native int tapAttach(String ifName, String brId);
-  public static native int tapDetach(String ifName, String brId);
-  public static native int tapDelete(String ifName);
-
-  public static native byte[] getMacAddress(String ifName);
+  public static native int reapChildren();
 
   // Raw socket communication
   public static native int rawCreate(String interfaceName);

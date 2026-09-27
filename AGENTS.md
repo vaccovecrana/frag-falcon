@@ -50,8 +50,9 @@ ff-jni    Host primitives (JNI) + the native C VM launcher; vendors the libkrun
 ff-oci    OCI registry client + tar extraction to a rootfs dir, with a persistent
           content-addressable blob cache (gson + slf4j-api).
 ff-test   Centralized tests for all modules.
-ff-api    (planned) domain model, lifecycle services, murmux/ronove REST, shax.
-ff-app    (planned) hypervisor main: REST API, spawns/supervises ff-jni launchers.
+ff-api    Domain model + VM lifecycle services (FgVm/FgVmSvc/FgVmId). Stack model,
+          ronove REST and the supervisor land in M5b.
+ff-app    (planned) thin packaging module (application/mainClass).
 ff-ui     (planned) Preact SPA.
 ```
 

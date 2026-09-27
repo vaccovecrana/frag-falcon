@@ -20,7 +20,7 @@ provides, and track progress with the milestones below.
 | M2 — Container as microVM | ✅ Done | `ff-oci` (persistent cache) + child-process boot; Alpine prints to console. |
 | M3 — Host volumes | ✅ Done | Native C launcher in `ff-jni`; host-dir volumes via bind mounts; `ff-krun`/`ff-vmm` retired. |
 | M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`). |
-| M5 — Supervisor + REST API | 🔜 Next | process-per-VM + `/proc` re-discovery. |
+| M5 — Supervisor + REST API | 🔄 In progress | M5a (VM lifecycle services + model) ✅; M5b (stacks, topo, REST, supervisor) next. |
 | M6 — dockge-structured UI | ⬜ | |
 | M7 — Packaging, tests, docs | ⬜ | |
 
@@ -131,15 +131,17 @@ ff-jni    ✅ Host primitives (JNI) + the native C VM launcher.
           └─ vendored libkrun.so.2 / libkrun_init.so / libkrunfw.so.5
 ff-oci    ✅ OCI registry client + tar extraction to a host rootfs, with a
           persistent content-addressable blob cache. (gson + slf4j-api)
-ff-api    ⬜ New domain model, lifecycle services, murmux/ronove REST, shax.
-ff-app    ⬜ Hypervisor main (FgMain): owns the REST API, spawns/supervises ff-jni launchers.
+ff-api    🔄 Domain model + VM lifecycle services (M5a done: FgVm/FgVmSvc/FgVmId).
+          Stack model, ronove REST + shax, and supervisor land in M5b.
+ff-app    ⬜ Thin packaging module (application/mainClass) — M5b.
 ff-ui     ⬜ Preact SPA, dockge-structured, vf-* styled.
-ff-test   ✅ Centralized j8spec tests (depends on ff-jni, ff-oci).
+ff-test   ✅ Centralized j8spec tests (depends on ff-jni, ff-oci, ff-api).
 ```
 
-Dependency direction: `ff-oci` is standalone; `ff-test` → `ff-jni`, `ff-oci`.
+Dependency direction: `ff-oci` is standalone; `ff-api` → `ff-jni`, `ff-oci`;
+`ff-test` → all. Do not introduce cycles.
 `ff-krun` and `ff-vmm` were **retired** in M3 (the C launcher owns libkrun).
-`ff-api`/`ff-app`/`ff-ui` are not started yet.
+`ff-app`/`ff-ui` are not started yet.
 
 ---
 

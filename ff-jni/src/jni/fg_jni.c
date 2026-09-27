@@ -4,7 +4,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../fg/fg_tap.h"
 #include "../fg/fg_raw.h"
 #include "../fg/fg_proc.h"
 
@@ -80,80 +79,10 @@ JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_waitProcess(JNIEnv *env, jclas
     }
 }
 
-////////////////////////////////////////////////////
-//            TAP device management               //
-////////////////////////////////////////////////////
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_tapCreate(JNIEnv *env, jclass cls, jstring jIfName) {
+JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_reapChildren(JNIEnv *env, jclass cls) {
+    (void) env;
     (void) cls;
-    const char *ifName = (*env)->GetStringUTFChars(env, jIfName, NULL);
-    if (ifName == NULL) {
-        return -1;
-    }
-    int result = create_tap_device(ifName);
-    (*env)->ReleaseStringUTFChars(env, jIfName, ifName);
-    return result;
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_tapDelete(JNIEnv *env, jclass cls, jstring ifName) {
-    (void) cls;
-    const char *interfaceName = (*env)->GetStringUTFChars(env, ifName, 0);
-    if (interfaceName == NULL) {
-        return -1;
-    }
-    int result = delete_tap_device(interfaceName);
-    (*env)->ReleaseStringUTFChars(env, ifName, interfaceName);
-    return result;
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_tapAttach(JNIEnv *env, jclass cls, jstring ifName, jstring brId) {
-    (void) cls;
-    const char *if_name = (*env)->GetStringUTFChars(env, ifName, NULL);
-    const char *br_name = (*env)->GetStringUTFChars(env, brId, NULL);
-    if (if_name == NULL || br_name == NULL) {
-        if (if_name != NULL) (*env)->ReleaseStringUTFChars(env, ifName, if_name);
-        if (br_name != NULL) (*env)->ReleaseStringUTFChars(env, brId, br_name);
-        return -1;
-    }
-    int result = attach_tap_to_bridge(if_name, br_name);
-    (*env)->ReleaseStringUTFChars(env, ifName, if_name);
-    (*env)->ReleaseStringUTFChars(env, brId, br_name);
-    return result;
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_tapDetach(JNIEnv *env, jclass cls, jstring jIfName, jstring jBrId) {
-    (void) cls;
-    const char *ifName = (*env)->GetStringUTFChars(env, jIfName, NULL);
-    const char *brId = (*env)->GetStringUTFChars(env, jBrId, NULL);
-    if (ifName == NULL || brId == NULL) {
-        if (ifName != NULL) (*env)->ReleaseStringUTFChars(env, jIfName, ifName);
-        if (brId != NULL) (*env)->ReleaseStringUTFChars(env, jBrId, brId);
-        return -1;
-    }
-    int result = detach_tap_from_bridge(ifName, brId);
-    (*env)->ReleaseStringUTFChars(env, jIfName, ifName);
-    (*env)->ReleaseStringUTFChars(env, jBrId, brId);
-    return result;
-}
-
-JNIEXPORT jbyteArray JNICALL Java_io_vacco_ff_net_FgJni_getMacAddress(JNIEnv *env, jclass cls, jstring ifName) {
-    (void) cls;
-    const char *interfaceName = (*env)->GetStringUTFChars(env, ifName, NULL);
-    if (interfaceName == NULL) {
-        return NULL;
-    }
-    unsigned char mac[6];
-    int result = get_mac_address(interfaceName, mac);
-    (*env)->ReleaseStringUTFChars(env, ifName, interfaceName);
-    if (result != 0) {
-        return NULL;
-    }
-    jbyteArray macAddress = (*env)->NewByteArray(env, 6);
-    if (macAddress == NULL) {
-        return NULL;
-    }
-    (*env)->SetByteArrayRegion(env, macAddress, 0, 6, (jbyte *) mac);
-    return macAddress;
+    return reap_children();
 }
 
 ////////////////////////////////////////////////////

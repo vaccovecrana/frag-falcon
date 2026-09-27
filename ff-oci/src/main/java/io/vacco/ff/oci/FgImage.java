@@ -15,8 +15,16 @@ public class FgImage {
   public List<FgEnvVar> env;
   public List<FgEnvVar> envUsr;
 
+  /** Ports declared by the image config, e.g. "8000/tcp". */
+  public List<String> exposedPorts;
+
   public FgImage withSource(String source) {
     this.source = Objects.requireNonNull(source);
+    return this;
+  }
+
+  public FgImage withExposedPorts(List<String> exposedPorts) {
+    this.exposedPorts = exposedPorts;
     return this;
   }
 

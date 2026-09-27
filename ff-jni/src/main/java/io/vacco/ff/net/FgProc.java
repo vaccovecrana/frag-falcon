@@ -52,6 +52,18 @@ public class FgProc {
     return extractNative();
   }
 
+  /** Path to the native launcher (FF_VMM_BIN override, else extracted). */
+  public static Path launcherPath() {
+    var override = System.getenv("FF_VMM_BIN");
+    return override != null ? Path.of(override) : extractNative().resolve("fg_vmm");
+  }
+
+  /** Directory holding the libkrun shared objects (FF_VMM_LIBDIR override, else extracted). */
+  public static Path launcherLibDir() {
+    var override = System.getenv("FF_VMM_LIBDIR");
+    return override != null ? Path.of(override) : extractNative();
+  }
+
   /**
    * Spawns the native launcher for a VM.
    *
@@ -61,18 +73,8 @@ public class FgProc {
    * @return the child pid, or -1 on failure
    */
   public static int spawn(String vmId, List<String> args, Path log) {
-    var binOverride = System.getenv("FF_VMM_BIN");
-    var libOverride = System.getenv("FF_VMM_LIBDIR");
-    String cmd;
-    String libPath;
-    if (binOverride != null && libOverride != null) {
-      cmd = Path.of(binOverride).toAbsolutePath().toString();
-      libPath = Path.of(libOverride).toAbsolutePath().toString();
-    } else {
-      var dir = extractNative();
-      cmd = dir.resolve("fg_vmm").toAbsolutePath().toString();
-      libPath = dir.toAbsolutePath().toString();
-    }
+    var cmd = launcherPath().toAbsolutePath().toString();
+    var libPath = launcherLibDir().toAbsolutePath().toString();
     var logPath = log == null ? null : log.toAbsolutePath().toString();
     return FgJni.spawnProcess(vmId, cmd, args.toArray(String[]::new), logPath, libPath);
   }
@@ -106,6 +108,7 @@ public class FgProc {
         .filter(Files::isDirectory)
         .filter(path -> numeric.matcher(path.getFileName().toString()).matches())
         .filter(path -> !path.getFileName().toString().equals("1"))
+        .filter(path -> !isZombie(path))
         .filter(path -> matchesVm(path, expected, vmId))
         .mapToInt(path -> Integer.parseInt(path.getFileName().toString()))
         .findFirst()
@@ -113,6 +116,21 @@ public class FgProc {
     } catch (IOException e) {
       return -1;
     }
+  }
+
+  private static boolean isZombie(Path procDir) {
+    try {
+      var stat = Files.readString(procDir.resolve("stat"));
+      int rp = stat.lastIndexOf(')');
+      return rp >= 0 && rp + 2 < stat.length() && stat.charAt(rp + 2) == 'Z';
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  /** Reaps any exited child launchers (avoids zombies in the hypervisor). */
+  public static int reap() {
+    return FgJni.reapChildren();
   }
 
   private static boolean matchesVm(Path procDir, String comm, String vmId) {

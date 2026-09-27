@@ -5,6 +5,7 @@ configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
 dependencies {
   implementation(project(":ff-jni"))
   implementation(project(":ff-oci"))
+  implementation(project(":ff-api"))
 }
 
 tasks.withType<Test> {

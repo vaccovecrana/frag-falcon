@@ -122,3 +122,23 @@ newly attached port forwards — covered by the 8 s DHCP retry window above. It
 runs `dnsmasq` on `:67`, so no extra DHCP server is needed. `docker0` has **no**
 DHCP server and is unsuitable. Tests require `cap_net_admin` on the launcher
 (`ff-jni/setup-caps.sh`); otherwise the network test no-ops.
+
+---
+
+## 9. Zombie children must be reaped
+
+The hypervisor spawns each VM launcher as a child of its JVM. When a launcher
+exits, the JVM does not reap it automatically, so `/proc/<pid>` lingers as a
+zombie and naive pid discovery would keep reporting the VM as "running".
+`FgProc.pidOf` therefore ignores zombie processes (reads `/proc/<pid>/stat`),
+and `FgProc.reap()` (native `waitpid(-1, WNOHANG)` loop) is available for the
+supervisor to drain exited children. libkrun `_exit()`s the launcher on guest
+shutdown, so this matters for every VM exit.
+
+---
+
+## 10. Not intended to be a public service
+
+frag-falcon has **no authentication** and manages privileged VM networking. It
+must never be exposed publicly; run it behind a private LAN segment or a VPN.
+

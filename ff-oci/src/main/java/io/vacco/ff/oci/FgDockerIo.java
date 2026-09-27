@@ -106,7 +106,8 @@ public class FgDockerIo {
   }
 
   private static void downloadBlob(String registryUrl, String repository, String blobSum,
-                                   File outputFile, String authToken) {
+                                   File outputFile, String authToken, FgOciProgress progress,
+                                   long[] bytesDone, long totalBytes) {
     try {
       var blobUrl = registryUrl + repository + "/blobs/" + blobSum;
       log.info("Downloading layer: {}", blobUrl);
@@ -121,7 +122,7 @@ public class FgDockerIo {
         throw new IOException("Unauthorized request. Check token.");
       } else if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
         var newUrl = connection.getHeaderField("Location");
-        downloadBlob(newUrl, repository, blobSum, outputFile, authToken);
+        downloadBlob(newUrl, repository, blobSum, outputFile, authToken, progress, bytesDone, totalBytes);
         return;
       }
       try (var in = new BufferedInputStream(connection.getInputStream());
@@ -130,6 +131,8 @@ public class FgDockerIo {
         int bytesRead;
         while ((bytesRead = in.read(buffer)) != -1) {
           out.write(buffer, 0, bytesRead);
+          bytesDone[0] += bytesRead;
+          progress.onBytes(bytesDone[0], totalBytes);
         }
       }
     } catch (IOException e) {
@@ -139,10 +142,11 @@ public class FgDockerIo {
   }
 
   private static File cachedBlob(FgOciStore store, String registryUrl, String repository,
-                                 String blobSum, String authToken) {
+                                 String blobSum, String authToken, FgOciProgress progress,
+                                 long[] bytesDone, long totalBytes) {
     var blobFile = store.blobFile(blobSum);
     if (!blobFile.exists()) {
-      downloadBlob(registryUrl, repository, blobSum, blobFile, authToken);
+      downloadBlob(registryUrl, repository, blobSum, blobFile, authToken, progress, bytesDone, totalBytes);
     } else {
       log.info("Cache hit for layer: {}", blobSum);
     }
@@ -174,7 +178,7 @@ public class FgDockerIo {
 
   private static FgImage processManifest(JsonObject manifest, String registryUrl, String repoName,
                                          String authToken, FgOciStore store, File rootfsDir,
-                                         BiConsumer<FgTarEntry, Exception> onError) {
+                                         BiConsumer<FgTarEntry, Exception> onError, FgOciProgress progress) {
     var configDigest = manifest.getAsJsonObject("config").get("digest").getAsString();
     var configJson = getConfigJson(registryUrl, repoName, configDigest, authToken);
 
@@ -209,21 +213,39 @@ public class FgDockerIo {
       ? manifest.getAsJsonArray("layers")
       : manifest.getAsJsonArray("fsLayers");
 
+    var exposedPorts = new ArrayList<String>();
+    var exposedJson = configJson.getAsJsonObject("config").get("ExposedPorts");
+    if (exposedJson != null && exposedJson.isJsonObject()) {
+      exposedPorts.addAll(exposedJson.getAsJsonObject().keySet());
+    }
+
+    long totalBytes = 0;
+    for (var layer : layers) {
+      var layerObj = layer.getAsJsonObject();
+      if (layerObj.has("size")) {
+        totalBytes += layerObj.get("size").getAsLong();
+      }
+    }
+    long[] bytesDone = {0};
+    progress.onLayers(0, layers.size());
+    progress.onBytes(0, totalBytes);
+
     var unzippedDir = store.tmpDir("unzipped");
     delete(rootfsDir, e -> log.warn("Unable to clear rootfs directory [{}]", rootfsDir, e));
     mkDirs(rootfsDir);
     var tarFiles = new TreeSet<FgTarEntry>();
 
-    for (var layer : layers) {
-      var layerObj = layer.getAsJsonObject();
+    for (int li = 0; li < layers.size(); li++) {
+      var layerObj = layers.get(li).getAsJsonObject();
       var blobSum = layerObj.has("digest")
         ? layerObj.get("digest").getAsString()
         : layerObj.get("blobSum").getAsString();
 
-      var blobFile = cachedBlob(store, registryUrl, repoName, blobSum, authToken);
+      var blobFile = cachedBlob(store, registryUrl, repoName, blobSum, authToken, progress, bytesDone, totalBytes);
       var extractedFile = new File(unzippedDir, blobFile.getName());
       expand(blobFile, extractedFile);
       tarFiles.addAll(FgTarIo.extract(extractedFile, rootfsDir, onError));
+      progress.onLayers(li + 1, layers.size());
     }
     for (var entry : tarFiles) {
       try {
@@ -251,7 +273,8 @@ public class FgDockerIo {
     }
     delete(unzippedDir, e -> log.warn("Unable to delete unzipped directory [{}]", unzippedDir, e));
 
-    return FgImage.of(rootfsDir.getAbsolutePath(), entryPoint, cmd, env, workingDir);
+    return FgImage.of(rootfsDir.getAbsolutePath(), entryPoint, cmd, env, workingDir)
+      .withExposedPorts(exposedPorts);
   }
 
   /**
@@ -263,7 +286,7 @@ public class FgDockerIo {
    */
   public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
                                 String architecture, String os,
-                                BiConsumer<FgTarEntry, Exception> onError) {
+                                BiConsumer<FgTarEntry, Exception> onError, FgOciProgress progress) {
     if (!dockerImageUri.contains("/")) {
       dockerImageUri = dockerTld + "/library/" + dockerImageUri;
     }
@@ -313,7 +336,7 @@ public class FgDockerIo {
       if (oDigest.isPresent()) {
         var digestUrl = format("%s%s/manifests/%s", registryUrl, repoName, oDigest.get());
         var manifest0 = getJsonResponse(digestUrl, authToken, mimeTypeOciManifestV1);
-        return processManifest(manifest0, registryUrl, repoName, authToken, store, rootfsDir, onError)
+        return processManifest(manifest0, registryUrl, repoName, authToken, store, rootfsDir, onError, progress)
           .withSource(dockerImageUri);
       }
       throw new IllegalStateException(format(
@@ -321,12 +344,23 @@ public class FgDockerIo {
         dockerImageUri, architecture, os
       ));
     }
-    return processManifest(manifest, registryUrl, repoName, authToken, store, rootfsDir, onError)
+    return processManifest(manifest, registryUrl, repoName, authToken, store, rootfsDir, onError, progress)
       .withSource(dockerImageUri);
   }
 
   public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
+                                String architecture, String os,
                                 BiConsumer<FgTarEntry, Exception> onError) {
-    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, onError);
+    return extract(dockerImageUri, rootfsDir, store, architecture, os, onError, FgOciProgress.NOOP);
+  }
+
+  public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
+                                BiConsumer<FgTarEntry, Exception> onError) {
+    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, onError, FgOciProgress.NOOP);
+  }
+
+  public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
+                                BiConsumer<FgTarEntry, Exception> onError, FgOciProgress progress) {
+    return extract(dockerImageUri, rootfsDir, store, dockerArch, dockerOs, onError, progress);
   }
 }

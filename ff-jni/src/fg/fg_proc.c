@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,4 +80,14 @@ int spawn_process(const char *vm_id, const char *cmd, char **argv,
 
 int terminate_process(pid_t pid) {
     return kill(pid, SIGTERM);
+}
+
+/* Reaps any exited children (non-blocking). Returns the number reaped. */
+int reap_children(void) {
+    int status;
+    int reaped = 0;
+    while (waitpid(-1, &status, WNOHANG) > 0) {
+        reaped++;
+    }
+    return reaped;
 }
