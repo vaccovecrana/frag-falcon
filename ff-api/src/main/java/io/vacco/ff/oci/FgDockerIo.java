@@ -1,10 +1,9 @@
 package io.vacco.ff.oci;
 
 import com.google.gson.*;
+import io.vacco.ff.net.FgRoot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.vacco.ff.net.FgRoot;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -14,7 +13,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
-
 import java.util.zip.GZIPInputStream;
 
 import static io.vacco.ff.oci.FgOciIo.*;

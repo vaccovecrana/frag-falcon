@@ -14,6 +14,7 @@ import static java.lang.System.arraycopy;
  * JNI bindings for host primitives (process spawn/tagging, TAP/bridge devices,
  * raw AF_PACKET sockets) plus small Ethernet/IP/UDP framing helpers.
  */
+@SuppressWarnings("restricted")
 public class FgJni {
 
   private static final Random rng = new Random();
@@ -51,10 +52,14 @@ public class FgJni {
 
   public static native int reapChildren();
 
-  /** Extracts a tar archive into {@code rootDir} using kernel-confined path ops. */
+  /**
+   * Extracts a tar archive into {@code rootDir} using kernel-confined path ops.
+   */
   public static native int extractTar(String tarPath, String rootDir);
 
-  /** Maps an errno value to its message. */
+  /**
+   * Maps an errno value to its message.
+   */
   public static native String strerror(int err);
 
   // Raw socket communication

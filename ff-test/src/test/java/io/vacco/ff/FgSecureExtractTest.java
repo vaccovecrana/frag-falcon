@@ -99,7 +99,7 @@ public class FgSecureExtractTest {
       assertTrue(new File(root, "bin/busybox").isFile());
       assertTrue(java.nio.file.Files.isSymbolicLink(new File(root, "bin/ls").toPath()));
       assertEquals("/bin/busybox",
-          java.nio.file.Files.readSymbolicLink(new File(root, "bin/ls").toPath()).toString());
+        java.nio.file.Files.readSymbolicLink(new File(root, "bin/ls").toPath()).toString());
     });
 
     it("rejects a parent-directory traversal entry", () -> {

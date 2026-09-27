@@ -12,7 +12,7 @@ public class FgRoot {
     int result = FgJni.extractTar(tar.getAbsolutePath(), rootDir.getAbsolutePath());
     if (result != 0) {
       throw new IllegalStateException("Secure tar extraction failed (" + result + "): "
-          + FgJni.strerror(-result));
+        + FgJni.strerror(-result));
     }
   }
 }

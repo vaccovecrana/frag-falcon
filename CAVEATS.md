@@ -178,6 +178,7 @@ boundary is **extraction**.
 `ff-jni`'s `fg_extract.c` extracts each layer with **`openat2(RESOLVE_IN_ROOT |
 RESOLVE_NO_MAGICLINKS)`**: every path is resolved as if chrooted into the rootfs,
 so `..` and absolute targets can never leave it. Rules:
+
 - Entry paths: relative, no `..`, no leading `/` — otherwise provisioning fails.
 - Symlink **targets** are stored verbatim (e.g. Alpine's `etc/mtab -> ../proc/mounts`
   and `/sbin/blkid -> /bin/busybox`), because a target is just data the guest
