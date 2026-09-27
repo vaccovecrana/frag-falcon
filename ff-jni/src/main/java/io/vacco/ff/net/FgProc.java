@@ -16,12 +16,16 @@ public class FgProc {
 
   private static final Pattern numeric = Pattern.compile("\\d+");
 
-  /** Path to the native launcher. */
+  /**
+   * Path to the native launcher.
+   */
   public static Path launcherPath() {
     return FgNative.path("fg_vmm");
   }
 
-  /** Directory holding the libkrun shared objects. */
+  /**
+   * Directory holding the libkrun shared objects.
+   */
   public static Path launcherLibDir() {
     return FgNative.home();
   }

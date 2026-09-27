@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "module": "preserve",
+    "target": "ES2022",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact/compat",
+    "resolveJsonModule": true,
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "allowJs": false,
+    "paths": {
+      "@ui/*": [
+        "./src/*"
+      ],
+      "react": [
+        "./node_modules/preact/compat"
+      ],
+      "react-dom": [
+        "./node_modules/preact/compat"
+      ]
+    }
+  },
+  "baseUrl": ".",
+  "include": [
+    "./src"
+  ],
+  "exclude": [
+    "./build"
+  ]
+}

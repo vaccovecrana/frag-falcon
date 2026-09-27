@@ -180,6 +180,23 @@ public final class FgStackSvc implements AutoCloseable {
     return status(id);
   }
 
+  /**
+   * Re-provisions stopped services by discarding their extracted rootfs so the
+   * next start re-pulls the (possibly newer) image. Only valid when the stack is
+   * fully stopped.
+   */
+  public FgStackStatus update(String id) {
+    var stack = load(id);
+    for (var service : stack.serviceNames()) {
+      var dir = serviceDir(id, service);
+      FgIo.delete(FgVmSvc.rootfsOf(dir), e -> {
+      });
+      FgIo.delete(FgVmSvc.imageOf(dir), e -> {
+      });
+    }
+    return status(id);
+  }
+
   public void delete(String id) {
     stop(id);
     for (var service : load(id).serviceNames()) {

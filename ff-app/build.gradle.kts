@@ -1,6 +1,3 @@
-import org.gradle.api.tasks.bundling.Compression
-import org.gradle.api.tasks.bundling.Tar
-
 plugins {
   application
   id("org.graalvm.buildtools.native") version "1.1.13"
@@ -37,14 +34,14 @@ val distNativeTar = tasks.register<Tar>("distNativeTar") {
   destinationDirectory.set(layout.buildDirectory.dir("distributions"))
   into("frag-falcon-${project.version}") {
     from(layout.buildDirectory.dir("native/nativeCompile")) { include("flc") }
-    rename("flc", "ff-app")
     from(project(":ff-jni").layout.buildDirectory.dir("native")) {
       include("fg_vmm", "fg_jni.so", "libkrun.so.2", "libkrun_init.so", "libkrunfw.so.5")
     }
   }
   filePermissions { unix("0755") }
 }
-
+/*
 tasks.named("assemble") {
   dependsOn(distNativeTar)
 }
+*/

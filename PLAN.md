@@ -13,16 +13,16 @@ provides, and track progress with the milestones below.
 
 ## 0. Progress
 
-| Milestone                      | Status | Notes                                                                                                                               |
-|--------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------|
-| M0 — Branch & skeleton         | ✅ Done | Branch emptied; Gradle 9.2.1 / Java 25 toolchain; smoke test green.                                                                 |
-| M1 — "Hello VM"                | ✅ Done | First via Java/FFM; later superseded by the native C launcher (see M3).                                                             |
-| M2 — Container as microVM      | ✅ Done | `ff-oci` (persistent cache) + child-process boot; Alpine prints to console.                                                         |
-| M3 — Host volumes              | ✅ Done | Native C launcher in `ff-jni`; host-dir volumes via bind mounts; `ff-krun`/`ff-vmm` retired.                                        |
-| M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`).  |
-| M5 — Supervisor + REST API     | ✅ Done | M5a VM lifecycle + M5b stacks/topo/REST/supervisor; launcher-owned bounded log ring implemented (`CAVEATS.md` §12); 16 tests green. |
-| M6 — dockge-structured UI      | ⬜      |                                                                                                                                     |
-| M7 — Packaging, tests, docs | ✅ Done | Flat `tar.gz`: GraalVM native `ff-app` + `fg_vmm` + libkrun libs; ronove Graal reflect config; README + systemd example. CI deferred. |
+| Milestone                      | Status | Notes                                                                                                                                                                                                                |
+|--------------------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| M0 — Branch & skeleton         | ✅ Done | Branch emptied; Gradle 9.2.1 / Java 25 toolchain; smoke test green.                                                                                                                                                  |
+| M1 — "Hello VM"                | ✅ Done | First via Java/FFM; later superseded by the native C launcher (see M3).                                                                                                                                              |
+| M2 — Container as microVM      | ✅ Done | `ff-oci` (persistent cache) + child-process boot; Alpine prints to console.                                                                                                                                          |
+| M3 — Host volumes              | ✅ Done | Native C launcher in `ff-jni`; host-dir volumes via bind mounts; `ff-krun`/`ff-vmm` retired.                                                                                                                         |
+| M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`).                                                                                   |
+| M5 — Supervisor + REST API     | ✅ Done | M5a VM lifecycle + M5b stacks/topo/REST/supervisor; launcher-owned bounded log ring implemented (`CAVEATS.md` §12); 16 tests green.                                                                                  |
+| M6 — dockge-structured UI      | ✅ Done | Preact SPA (`ff-ui`) with the vf-* design system: master/detail stack list, stack detail (status/services/logs/provision progress), YAML↔form two-way editor, deploy/save/start/stop/update/delete; served by `flc`. |
+| M7 — Packaging, tests, docs    | ✅ Done | Flat `tar.gz`: GraalVM native `ff-app` + `fg_vmm` + libkrun libs; ronove Graal reflect config; README + systemd example. CI deferred.                                                                                |
 
 ### Progress log
 

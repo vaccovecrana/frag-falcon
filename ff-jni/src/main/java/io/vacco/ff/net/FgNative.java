@@ -50,8 +50,8 @@ public class FgNative {
     var p = path(name);
     if (!Files.exists(p)) {
       throw new IllegalStateException(
-          "Missing native artifact [" + p + "]; set FF_NATIVE_DIR to the directory "
-              + "holding fg_jni.so / fg_vmm / libkrun*.so");
+        "Missing native artifact [" + p + "]; set FF_NATIVE_DIR to the directory "
+          + "holding fg_jni.so / fg_vmm / libkrun*.so");
     }
     return p.toAbsolutePath().toString();
   }

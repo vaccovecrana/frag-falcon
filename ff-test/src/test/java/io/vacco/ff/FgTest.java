@@ -81,7 +81,7 @@ public class FgTest {
     pb.command().add(bin.toAbsolutePath().toString());
     pb.command().addAll(args);
     pb.environment().put("LD_LIBRARY_PATH",
-        io.vacco.ff.net.FgProc.launcherLibDir().toAbsolutePath().toString());
+      io.vacco.ff.net.FgProc.launcherLibDir().toAbsolutePath().toString());
     pb.redirectErrorStream(true);
     var p = pb.start();
     var out = new String(p.getInputStream().readAllBytes());

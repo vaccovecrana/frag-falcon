@@ -55,11 +55,12 @@ ff-test   Centralized tests for all modules.
 ff-api    Domain model, VM lifecycle services, stack model + topo, supervisor, and
           the stack-oriented ronove REST API. Generates TS types (`build/rpc.ts`).
 ff-app    Thin packaging module (application, mainClass `io.vacco.ff.FgMain`).
-ff-ui     (planned) Preact SPA.
+ff-ui     Preact SPA (vf-* design system) — stack list/detail/edit; built with
+          rspack+sass via the Gradle node plugin; bundled into `flc`.
 ```
 
-Dependency direction: `ff-oci` → `ff-jni`; `ff-test → ff-jni, ff-oci`; `ff-api`
-→ `ff-jni, ff-oci`. Do not introduce cycles. `ff-krun` and `ff-vmm` were retired
+Dependency direction: `ff-api` → `ff-jni`, `ff-ui`; `ff-test → ff-jni, ff-api`.
+Do not introduce cycles. `ff-krun` and `ff-vmm` were retired
 in M3 (the C launcher owns libkrun).
 
 ## Conventions

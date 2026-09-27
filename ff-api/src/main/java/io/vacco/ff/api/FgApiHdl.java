@@ -84,6 +84,17 @@ public class FgApiHdl {
     }
   }
 
+  @PATCH
+  @Path(FgRoute.apiV1StackId)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackStatus> apiV1StackIdPatch(@PathParam(FgRoute.StackId) String stackId) {
+    try {
+      return ok(svc.update(stackId));
+    } catch (Exception e) {
+      return fail(Response.Status.BAD_REQUEST, e);
+    }
+  }
+
   @POST
   @Path(FgRoute.apiV1StackStart)
   @Consumes(MediaType.APPLICATION_JSON)

@@ -35,8 +35,9 @@ public class FgApi implements Closeable {
     var rpc = new RvMxAdapter<>(new FgApiHdl(svc), errorHdl,
       (RvJsonInput) g::fromJson, (RvJsonOutput) g::toJson).build();
 
+    var uiHdl = new FgUiHdl();
     var router = new MxRouter().prefix(FgRoute.apiRoot, rpc);
-    router.noMatch(xc -> xc.withStatus(MxStatus._404).commitText("not found"));
+    router.noMatch(uiHdl);
 
     mx.rootHandler(router).listen(port);
     log.info("frag-falcon API listening on http://{}:{}", host, port);
