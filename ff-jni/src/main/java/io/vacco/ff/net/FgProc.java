@@ -23,9 +23,12 @@ public class FgProc {
       "libkrunfw.so.5"
   );
 
-  private static final Path NATIVE_DIR = extractNative();
+  private static Path nativeDir;
 
-  private static Path extractNative() {
+  private static synchronized Path extractNative() {
+    if (nativeDir != null) {
+      return nativeDir;
+    }
     try {
       var dir = Files.createTempDirectory("ff-vmm-");
       dir.toFile().deleteOnExit();
@@ -38,6 +41,7 @@ public class FgProc {
         target.toFile().setExecutable(true);
         target.toFile().deleteOnExit();
       }
+      nativeDir = dir;
       return dir;
     } catch (IOException e) {
       throw new IllegalStateException("Unable to extract native VM launcher", e);
@@ -45,7 +49,7 @@ public class FgProc {
   }
 
   public static Path nativeDir() {
-    return NATIVE_DIR;
+    return extractNative();
   }
 
   /**
@@ -57,9 +61,19 @@ public class FgProc {
    * @return the child pid, or -1 on failure
    */
   public static int spawn(String vmId, List<String> args, Path log) {
-    var cmd = NATIVE_DIR.resolve("fg_vmm").toAbsolutePath().toString();
+    var binOverride = System.getenv("FF_VMM_BIN");
+    var libOverride = System.getenv("FF_VMM_LIBDIR");
+    String cmd;
+    String libPath;
+    if (binOverride != null && libOverride != null) {
+      cmd = Path.of(binOverride).toAbsolutePath().toString();
+      libPath = Path.of(libOverride).toAbsolutePath().toString();
+    } else {
+      var dir = extractNative();
+      cmd = dir.resolve("fg_vmm").toAbsolutePath().toString();
+      libPath = dir.toAbsolutePath().toString();
+    }
     var logPath = log == null ? null : log.toAbsolutePath().toString();
-    var libPath = NATIVE_DIR.toAbsolutePath().toString();
     return FgJni.spawnProcess(vmId, cmd, args.toArray(String[]::new), logPath, libPath);
   }
 
@@ -82,18 +96,35 @@ public class FgProc {
 
   /** Finds the pid of a running VM by its {@code FF_VMID} tag, or -1. */
   public static int pidOf(String vmId) {
+    var comm = "ff-" + vmId;
+    if (comm.length() > 15) {
+      comm = comm.substring(0, 15);
+    }
+    var expected = comm;
     try (var paths = Files.list(Path.of("/proc"))) {
       return paths
         .filter(Files::isDirectory)
         .filter(path -> numeric.matcher(path.getFileName().toString()).matches())
         .filter(path -> !path.getFileName().toString().equals("1"))
-        .filter(path -> hasVmId(path.resolve("environ"), vmId))
+        .filter(path -> matchesVm(path, expected, vmId))
         .mapToInt(path -> Integer.parseInt(path.getFileName().toString()))
         .findFirst()
         .orElse(-1);
     } catch (IOException e) {
       return -1;
     }
+  }
+
+  private static boolean matchesVm(Path procDir, String comm, String vmId) {
+    // A launcher with file capabilities is non-dumpable, so /proc/<pid>/environ
+    // is root-only; the process name (comm) is always readable.
+    try {
+      if (Files.readString(procDir.resolve("comm")).trim().equals(comm)) {
+        return true;
+      }
+    } catch (IOException ignored) {
+    }
+    return hasVmId(procDir.resolve("environ"), vmId);
   }
 
   private static boolean hasVmId(Path environ, String vmId) {

@@ -1,5 +1,6 @@
 JAVA_HOME ?= $(shell dirname $$(dirname $$(readlink -f $$(which javac))))
 LIBDIR := src/main/resources/io/vacco/ff
+LIBDIR_ABS := $(CURDIR)/$(LIBDIR)
 OUT := out
 
 FG_SRC := src/fg/fg_proc.c src/fg/fg_tap.c src/fg/fg_raw.c
@@ -15,10 +16,12 @@ $(OUT)/fg_jni.so: $(FG_SRC) src/jni/fg_jni.c $(FG_SRC:.c=.h) | $(OUT)
 	  -Isrc/fg \
 	  -o $@ src/jni/fg_jni.c $(FG_SRC)
 
-$(OUT)/fg_vmm: src/vmm/fg_vmm.c src/vmm/include/libkrun.h src/vmm/include/libkrun_init.h | $(OUT)
-	cc -Wall -O2 -Isrc/vmm/include \
-	  -o $@ src/vmm/fg_vmm.c \
-	  -L$(LIBDIR) -l:libkrun.so.2 -l:libkrun_init.so
+$(OUT)/fg_vmm: src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_tap.h src/vmm/include/libkrun.h src/vmm/include/libkrun_init.h | $(OUT)
+	cc -Wall -O2 -Isrc/vmm/include -Isrc/fg \
+	  -o $@ src/vmm/fg_vmm.c src/fg/fg_tap.c \
+	  -L$(LIBDIR) -Wl,--no-as-needed \
+	  -l:libkrun.so.2 -l:libkrun_init.so -l:libkrunfw.so.5 \
+	  -Wl,--as-needed -Wl,-rpath,$(LIBDIR_ABS)
 
 clean:
 	rm -rf $(OUT)

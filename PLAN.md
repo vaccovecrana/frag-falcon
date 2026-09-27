@@ -19,8 +19,8 @@ provides, and track progress with the milestones below.
 | M1 — "Hello VM" | ✅ Done | First via Java/FFM; later superseded by the native C launcher (see M3). |
 | M2 — Container as microVM | ✅ Done | `ff-oci` (persistent cache) + child-process boot; Alpine prints to console. |
 | M3 — Host volumes | ✅ Done | Native C launcher in `ff-jni`; host-dir volumes via bind mounts; `ff-krun`/`ff-vmm` retired. |
-| M4 — Networking (TAP + bridge) | 🔜 Next | Reuse `fg_tap.c`/`fg_raw.c` in `ff-jni`. |
-| M5 — Supervisor + REST API | ⬜ | process-per-VM + `/proc` re-discovery. |
+| M4 — Networking (TAP + bridge) | ✅ Done | Launcher `--tap`/`--mac` + DHCP; host tap lifecycle via `--tap-up`/`--tap-down`; libkrun DHCP patched to retry (see `CAVEATS.md`). |
+| M5 — Supervisor + REST API | 🔜 Next | process-per-VM + `/proc` re-discovery. |
 | M6 — dockge-structured UI | ⬜ | |
 | M7 — Packaging, tests, docs | ⬜ | |
 
@@ -34,6 +34,10 @@ provides, and track progress with the milestones below.
 - **M3** (uncommitted): retired `ff-krun`/`ff-vmm`; reinstated the native `ff-jni`
   module; rewrote the launcher in C (`ff-jni/src/vmm/fg_vmm.c`); host-directory
   volumes via bind mounts; `FgProc` spawns/tags/re-discovers VMs.
+- **M4**: bridged TAP + in-guest DHCP. Patched libkrun's DHCP client to retry
+  (single-shot 100 ms was too aggressive for a TAP/bridge); tab/VM re-discovery
+  now matches `/proc/<pid>/comm` because cap'd launchers are non-dumpable. See
+  `CAVEATS.md` and `patches/libkrun-dhcp-retry.patch`.
 
 ### Key discoveries (folded into implementation)
 

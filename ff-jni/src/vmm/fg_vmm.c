@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -14,7 +15,12 @@
 #include <libkrun.h>
 #include <libkrun_init.h>
 
+#include "../fg/fg_tap.h"
+
 #define MAX_ITEMS 4096
+
+/* virtio-net feature bits accepted for the TAP backend (see chroot_vm.c). */
+#define FG_COMPAT_NET_FEATURES ((1u << 0) | (1u << 1) | (1u << 7) | (1u << 10) | (1u << 11) | (1u << 14))
 
 typedef struct {
     const char *host;
@@ -27,6 +33,14 @@ static const char *rootfs_tag = "/dev/root";
 static const char *workdir = "/";
 static int vcpus = 1;
 static int ram_mib = 256;
+
+static const char *tap_name = NULL;
+static const char *bridge_name = NULL;
+static int tap_up = 0;
+static int tap_down = 0;
+static int dhcp_enabled = 1;
+static unsigned char guest_mac[6];
+static int mac_set = 0;
 
 static const char *envs[MAX_ITEMS];
 static int env_count = 0;
@@ -138,6 +152,45 @@ static void setup_volumes(void) {
     }
 }
 
+static int parse_mac(const char *s, unsigned char *out) {
+    return sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                  &out[0], &out[1], &out[2], &out[3], &out[4], &out[5]) == 6;
+}
+
+/*
+ * Privileged TAP lifecycle utilities (require CAP_NET_ADMIN).
+ * The hypervisor owns this in production; dev/test uses these modes via
+ * ff-jni/setup-caps.sh.
+ */
+static void run_tap_utility(void) {
+    if (tap_name == NULL) {
+        die("--tap-up/--tap-down require --tap NAME");
+    }
+    if (tap_up) {
+        int rc = create_tap_device(tap_name);
+        if (rc < 0) {
+            fprintf(stderr, "[fg-vmm] unable to create tap %s: %s\n", tap_name, strerror(-rc));
+            exit(125);
+        }
+        if (bridge_name != NULL) {
+            rc = attach_tap_to_bridge(tap_name, bridge_name);
+            if (rc != 0) {
+                fprintf(stderr, "[fg-vmm] unable to attach %s to %s: %d\n", tap_name, bridge_name, rc);
+                exit(125);
+            }
+        }
+        fprintf(stderr, "[fg-vmm] tap %s up%s%s\n", tap_name,
+                bridge_name ? " on " : "", bridge_name ? bridge_name : "");
+    } else {
+        int rc = delete_tap_device(tap_name);
+        if (rc != 0) {
+            fprintf(stderr, "[fg-vmm] unable to delete tap %s: %d\n", tap_name, rc);
+            exit(125);
+        }
+        fprintf(stderr, "[fg-vmm] tap %s down\n", tap_name);
+    }
+}
+
 static void parse_args(int argc, char **argv) {
     int i = 1;
     for (; i < argc; i++) {
@@ -155,6 +208,21 @@ static void parse_args(int argc, char **argv) {
             ram_mib = atoi(argv[++i]);
         } else if (strcmp(a, "--workdir") == 0 && i + 1 < argc) {
             workdir = argv[++i];
+        } else if (strcmp(a, "--tap") == 0 && i + 1 < argc) {
+            tap_name = argv[++i];
+        } else if (strcmp(a, "--bridge") == 0 && i + 1 < argc) {
+            bridge_name = argv[++i];
+        } else if (strcmp(a, "--mac") == 0 && i + 1 < argc) {
+            if (!parse_mac(argv[++i], guest_mac)) {
+                die("invalid --mac (expected aa:bb:cc:dd:ee:ff)");
+            }
+            mac_set = 1;
+        } else if (strcmp(a, "--tap-up") == 0) {
+            tap_up = 1;
+        } else if (strcmp(a, "--tap-down") == 0) {
+            tap_down = 1;
+        } else if (strcmp(a, "--no-dhcp") == 0) {
+            dhcp_enabled = 0;
         } else if (strcmp(a, "--env") == 0 && i + 1 < argc) {
             if (env_count >= MAX_ITEMS) die("too many env vars");
             envs[env_count++] = argv[++i];
@@ -186,6 +254,9 @@ static void parse_args(int argc, char **argv) {
         if (command_count >= MAX_ITEMS) die("too many command args");
         command[command_count++] = argv[i];
     }
+    if (tap_up || tap_down) {
+        return;
+    }
     if (rootfs_dir == NULL) {
         die("--rootfs is required");
     }
@@ -197,9 +268,30 @@ static void parse_args(int argc, char **argv) {
 int main(int argc, char **argv) {
     parse_args(argc, argv);
 
+    if (tap_up || tap_down) {
+        run_tap_utility();
+        return 0;
+    }
+
     const char *vm_id = getenv("FF_VMID");
+    if (vm_id != NULL) {
+        char comm[16];
+        snprintf(comm, sizeof(comm), "ff-%s", vm_id);
+        prctl(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
+    }
     fprintf(stderr, "[fg-vmm] starting vm=%s rootfs=%s vcpus=%d ram=%d\n",
             vm_id ? vm_id : "-", rootfs_dir, vcpus, ram_mib);
+
+    if (!mac_set) {
+        guest_mac[0] = 0x52;
+        guest_mac[1] = 0x54;
+        guest_mac[2] = 0x00;
+        unsigned v = (unsigned) getpid();
+        guest_mac[3] = (v >> 16) & 0xff;
+        guest_mac[4] = (v >> 8) & 0xff;
+        guest_mac[5] = v & 0xff;
+        mac_set = 1;
+    }
 
     KrunError krun_err = NULL;
 
@@ -229,6 +321,9 @@ int main(int argc, char **argv) {
         krun_init_builder_env_var(&init_builder, KRUN_STR(envs[i]));
     }
     krun_init_builder_workdir(&init_builder, KRUN_STR(workdir));
+    if (tap_name != NULL && dhcp_enabled) {
+        krun_init_builder_dhcp(&init_builder, true);
+    }
     KrunInitConfig init_config = krun_init_builder_build(&init_builder);
     check_handle(init_config, "krun_init_builder_build");
     check_result(krun_init_config_apply(init_config, overlay, payload, &krun_err),
@@ -253,6 +348,15 @@ int main(int argc, char **argv) {
     KrunRngDevice rng = krun_rng_device_new(&krun_err);
     if (rng != NULL) {
         krun_mmio_device_manager_add(devices, rng);
+    }
+
+    if (tap_name != NULL) {
+        KrunNetDevice net = krun_net_device_new_tap(
+            KRUN_STR("net0"), KRUN_STR(tap_name), KRUN_BYTES(guest_mac),
+            FG_COMPAT_NET_FEATURES, &krun_err);
+        check_handle(net, "krun_net_device_new_tap");
+        krun_mmio_device_manager_add(devices, net);
+        fprintf(stderr, "[fg-vmm] net0 -> tap %s (dhcp=%d)\n", tap_name, dhcp_enabled);
     }
 
     KrunVmmBuilder vmm_builder = krun_vmm_builder_new();

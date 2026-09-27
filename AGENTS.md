@@ -37,6 +37,9 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
   namespaces for local runs.
 - `ff-jni`'s native code is built by `make` (invoked from Gradle's `nativeBuild` task);
   it needs `cc` and `JAVA_HOME` (set). Rebuild directly with `make -C ff-jni`.
+- The **network test** needs `cap_net_admin` on the launcher: run
+  `sudo bash ff-jni/setup-caps.sh` (again after any launcher rebuild). Without it the
+  test no-ops.
 - CI/GitHub Actions is intentionally **out of scope for now** — do not build it out yet.
 
 ## Module layout
@@ -92,6 +95,15 @@ libkrun).
    delete existing entries before recreating symlinks/hardlinks.
 6. **Close the extraction `OutputStream` before `execve`** — an unclosed stream makes
    the launcher fail with `ETXTBSY` ("Text file busy").
+7. **TAP/bridge networking** needs `cap_net_admin`. The tap must be pre-created
+   persistent (a tap can only be attached by one process). libkrun's DHCP was patched
+   to retry — see `CAVEATS.md` and `patches/libkrun-dhcp-retry.patch`; reapply the
+   patch after a fresh `build-libkrun.sh` fetch.
+8. **A cap'd launcher is non-dumpable**, so `/proc/<pid>/environ` is root-only;
+   discovery matches `/proc/<pid>/comm` (`ff-<vmid>`) first. A cap'd binary also
+   ignores `LD_LIBRARY_PATH` (secure-execution mode), hence the launcher's absolute
+   `RUNPATH` and direct `libkrunfw` `DT_NEEDED`.
+9. Read `CAVEATS.md` before touching libkrun integration, the launcher, or networking.
 
 ## Technology choices
 

@@ -62,6 +62,52 @@ public class FgTest {
     return new RunResult(code, out);
   }
 
+  /** Runs the launcher in a privileged utility mode (e.g. --tap-up / --tap-down). */
+  public static void runLauncherTool(List<String> args) throws Exception {
+    var bin = System.getenv("FF_VMM_BIN");
+    if (bin == null) {
+      throw new IllegalStateException("FF_VMM_BIN is not set");
+    }
+    var pb = new ProcessBuilder();
+    pb.command().add(bin);
+    pb.command().addAll(args);
+    var lib = System.getenv("FF_VMM_LIBDIR");
+    if (lib != null) {
+      pb.environment().put("LD_LIBRARY_PATH", lib);
+    }
+    pb.redirectErrorStream(true);
+    var p = pb.start();
+    var out = new String(p.getInputStream().readAllBytes());
+    int code = p.waitFor();
+    if (code != 0) {
+      throw new IllegalStateException("launcher tool failed (" + code + ") for " + args + ":\n" + out);
+    }
+    System.out.printf("libkrun: %s -> %s%n", args, out.trim());
+  }
+
+  /** True when the configured launcher carries the cap_net_admin file capability. */
+  public static boolean hasNetCap() {
+    var bin = System.getenv("FF_VMM_BIN");
+    if (bin == null) {
+      return false;
+    }
+    var setcap = new File("/sbin/getcap");
+    if (!setcap.exists()) {
+      setcap = new File("/usr/sbin/getcap");
+    }
+    if (!setcap.exists()) {
+      return false;
+    }
+    try {
+      var p = new ProcessBuilder(setcap.getAbsolutePath(), bin).redirectErrorStream(true).start();
+      var out = new String(p.getInputStream().readAllBytes());
+      p.waitFor();
+      return out.contains("cap_net_admin");
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   public static File freshDir(String name) throws Exception {
     var dir = new File(WORK, name);
     if (dir.exists()) {
