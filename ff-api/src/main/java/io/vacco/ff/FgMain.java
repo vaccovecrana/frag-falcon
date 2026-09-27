@@ -5,7 +5,7 @@ import io.vacco.ff.service.FgOptions;
 
 public class FgMain {
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
     if (args.length == 0) {
       System.out.println(FgOptions.usage());
       return;

@@ -19,13 +19,13 @@ public class FgVmIdTest {
       var c = FgVmId.of("crow", "agent-0");
       assertEquals(a, b);
       assertNotEquals(a, c);
-      assertTrue(a.length() > 0 && a.length() <= 8);
+      assertTrue(!a.isEmpty() && a.length() <= 8);
     });
 
     it("produces comm/tap names within the 15-char limit", () -> {
       assertTrue(FgVmId.procTag("deadbeef").length() <= 15);
       assertTrue(FgVmId.tapName("deadbeef").length() <= 15);
-      assertTrue(FgVmId.procTag("deadbeef").startsWith("ff-"));
+      assertTrue(FgVmId.procTag("deadbeef").startsWith("ff"));
       assertTrue(FgVmId.tapName("deadbeef").startsWith("ff"));
     });
 

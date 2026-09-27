@@ -310,11 +310,14 @@ static void run_tap_utility(void) {
                 bridge_name ? " on " : "", bridge_name ? bridge_name : "");
     } else {
         int rc = delete_tap_device(tap_name);
-        if (rc != 0) {
+        if (rc == -2) {
+            fprintf(stderr, "[fg-vmm] tap %s already gone\n", tap_name);
+        } else if (rc != 0) {
             fprintf(stderr, "[fg-vmm] unable to delete tap %s: %d\n", tap_name, rc);
             exit(125);
+        } else {
+            fprintf(stderr, "[fg-vmm] tap %s down\n", tap_name);
         }
-        fprintf(stderr, "[fg-vmm] tap %s down\n", tap_name);
     }
 }
 
