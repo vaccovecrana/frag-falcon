@@ -17,7 +17,7 @@ $(OUT)/fg_jni.so: $(FG_SRC) src/jni/fg_jni.c $(FG_SRC:.c=.h) | $(OUT)
 	  -o $@ src/jni/fg_jni.c $(FG_SRC)
 
 $(OUT)/fg_vmm: src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_tap.h src/vmm/include/libkrun.h src/vmm/include/libkrun_init.h | $(OUT)
-	cc -Wall -O2 -Isrc/vmm/include -Isrc/fg \
+	cc -Wall -O2 -pthread -Isrc/vmm/include -Isrc/fg \
 	  -o $@ src/vmm/fg_vmm.c src/fg/fg_tap.c \
 	  -L$(LIBDIR) -Wl,--no-as-needed \
 	  -l:libkrun.so.2 -l:libkrun_init.so -l:libkrunfw.so.5 \

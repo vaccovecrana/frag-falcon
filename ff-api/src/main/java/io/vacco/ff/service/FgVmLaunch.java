@@ -23,6 +23,11 @@ public class FgVmLaunch {
     a.add("--workdir");
     a.add(workdir);
 
+    a.add("--log-file");
+    a.add(FgVmSvc.logOf(vmRoot).getAbsolutePath());
+    a.add("--log-lines");
+    a.add(Integer.toString(4096));
+
     for (var e : env(vm)) {
       a.add("--env");
       a.add(e);
@@ -50,8 +55,8 @@ public class FgVmLaunch {
         out.add(format(e));
       }
     }
-    if (vm.image != null && vm.image.envUsr != null) {
-      for (var e : vm.image.envUsr) {
+    if (vm.env != null) {
+      for (var e : vm.env) {
         out.add(format(e));
       }
     }

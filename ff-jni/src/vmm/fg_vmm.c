@@ -2,6 +2,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <pthread.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +41,8 @@ static const char *bridge_name = NULL;
 static int tap_up = 0;
 static int tap_down = 0;
 static int dhcp_enabled = 1;
+static const char *log_file = NULL;
+static int log_lines = 4096;
 static unsigned char guest_mac[6];
 static int mac_set = 0;
 
@@ -152,6 +156,129 @@ static void setup_volumes(void) {
     }
 }
 
+/* ----- bounded console log ring -------------------------------------- */
+/* Keeps the last N console lines in memory and periodically rewrites
+ * vm.log atomically, so the file never grows without bound. */
+
+#define LOG_LINE_MAX 8192
+
+static int log_read_fd = -1;
+static char **log_ring;
+static int log_ring_count;
+static int log_dirty;
+static int log_new;
+static char log_pending[LOG_LINE_MAX];
+static size_t log_pending_len;
+static pthread_mutex_t log_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+static void log_ring_add(const char *s, size_t len) {
+    char *copy = malloc(len + 1);
+    if (copy == NULL) {
+        return;
+    }
+    memcpy(copy, s, len);
+    copy[len] = '\0';
+    pthread_mutex_lock(&log_mtx);
+    if (log_ring_count == log_lines) {
+        free(log_ring[0]);
+        memmove(log_ring, log_ring + 1, (size_t) (log_lines - 1) * sizeof(char *));
+        log_ring_count--;
+    }
+    log_ring[log_ring_count++] = copy;
+    log_dirty = 1;
+    log_new++;
+    pthread_mutex_unlock(&log_mtx);
+}
+
+static void log_flush(void) {
+    pthread_mutex_lock(&log_mtx);
+    if (!log_dirty) {
+        pthread_mutex_unlock(&log_mtx);
+        return;
+    }
+    char tmp[4096];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", log_file);
+    FILE *f = fopen(tmp, "w");
+    if (f != NULL) {
+        for (int i = 0; i < log_ring_count; i++) {
+            fputs(log_ring[i], f);
+            fputc('\n', f);
+        }
+        fclose(f);
+        rename(tmp, log_file);
+    }
+    log_dirty = 0;
+    log_new = 0;
+    pthread_mutex_unlock(&log_mtx);
+}
+
+static void *log_thread(void *arg) {
+    (void) arg;
+    char buf[4096];
+    struct pollfd pfd;
+    pfd.fd = log_read_fd;
+    pfd.events = POLLIN;
+    for (;;) {
+        pfd.revents = 0;
+        int pr = poll(&pfd, 1, 500);
+        if (pr > 0 && (pfd.revents & (POLLIN | POLLHUP))) {
+            ssize_t n = read(log_read_fd, buf, sizeof(buf));
+            if (n <= 0) {
+                if (log_pending_len > 0) {
+                    log_ring_add(log_pending, log_pending_len);
+                    log_pending_len = 0;
+                }
+                log_flush();
+                break;
+            }
+            for (ssize_t i = 0; i < n; i++) {
+                char c = buf[i];
+                if (c == '\n') {
+                    log_ring_add(log_pending, log_pending_len);
+                    log_pending_len = 0;
+                } else if (log_pending_len < sizeof(log_pending) - 1) {
+                    log_pending[log_pending_len++] = c;
+                }
+            }
+            if (log_new >= 64) {
+                log_flush();
+            }
+        } else {
+            log_flush();
+        }
+    }
+    return NULL;
+}
+
+static void setup_log_ring(const char *path, int max_lines) {
+    if (path == NULL) {
+        return;
+    }
+    log_file = strdup(path);
+    log_lines = max_lines > 0 ? max_lines : 4096;
+    log_ring = calloc((size_t) log_lines, sizeof(char *));
+    if (log_file == NULL || log_ring == NULL) {
+        return;
+    }
+    int p[2];
+    if (pipe(p) != 0) {
+        perror("pipe");
+        return;
+    }
+    log_read_fd = p[0];
+    dup2(p[1], STDOUT_FILENO);
+    dup2(p[1], STDERR_FILENO);
+    if (p[1] > STDERR_FILENO) {
+        close(p[1]);
+    }
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+    pthread_t t;
+    if (pthread_create(&t, NULL, log_thread, NULL) == 0) {
+        pthread_detach(t);
+    }
+}
+
 static int parse_mac(const char *s, unsigned char *out) {
     return sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
                   &out[0], &out[1], &out[2], &out[3], &out[4], &out[5]) == 6;
@@ -223,6 +350,10 @@ static void parse_args(int argc, char **argv) {
             tap_down = 1;
         } else if (strcmp(a, "--no-dhcp") == 0) {
             dhcp_enabled = 0;
+        } else if (strcmp(a, "--log-file") == 0 && i + 1 < argc) {
+            log_file = argv[++i];
+        } else if (strcmp(a, "--log-lines") == 0 && i + 1 < argc) {
+            log_lines = atoi(argv[++i]);
         } else if (strcmp(a, "--env") == 0 && i + 1 < argc) {
             if (env_count >= MAX_ITEMS) die("too many env vars");
             envs[env_count++] = argv[++i];
@@ -272,6 +403,8 @@ int main(int argc, char **argv) {
         run_tap_utility();
         return 0;
     }
+
+    setup_log_ring(log_file, log_lines);
 
     const char *vm_id = getenv("FF_VMID");
     if (vm_id != NULL) {

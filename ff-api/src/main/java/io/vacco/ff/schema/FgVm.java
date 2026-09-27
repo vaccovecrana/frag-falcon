@@ -20,6 +20,9 @@ public class FgVm {
   /** Optional command override (entrypoint + args); when set it replaces the image's. */
   public List<String> command;
 
+  /** User-supplied environment (stack service environment), applied last. */
+  public List<io.vacco.ff.oci.FgEnvVar> env = new ArrayList<>();
+
   public FgVm effective() {
     machine.effective();
     return this;

@@ -142,3 +142,33 @@ shutdown, so this matters for every VM exit.
 frag-falcon has **no authentication** and manages privileged VM networking. It
 must never be exposed publicly; run it behind a private LAN segment or a VPN.
 
+---
+
+## 11. Stack model is a compose subset (with extensions)
+
+- `resources: { vcpus, ramMib }` is a **frag-falcon extension**, not standard
+  docker compose. When omitted, a service gets **1 vCPU / 512 MiB**.
+- `ports` and `networks` are **ignored**. Each VM gets its own bridge IP, so it
+  owns its port space; the UI renders the ports the OCI image declares
+  (`ExposedPorts`). Publishing/NAT is the operator's concern.
+- `restart: on-failure` is treated as `always`: the supervisor polls `/proc`
+  (single mechanism for fresh and re-adopted VMs) and has no exit code.
+- A VM's id is `toHex((stackId + serviceId).hashCode())` (no bookkeeping);
+  unlike a random id, a cross-service collision is theoretically possible.
+
+---
+
+## 12. Bounded log ring (launcher-owned)
+
+The launcher redirects the guest console to a pipe; a reader thread keeps the
+last `--log-lines` (default 4096) lines in memory and rewrites `vm.log`
+**atomically** (temp + rename) every ~500 ms and every 64 new lines. The file is
+therefore bounded, and it survives hypervisor restarts (the launcher owns it).
+`FgVmLaunch` passes `--log-file <service>/vm.log --log-lines 4096`.
+
+Trade-offs: messages beyond the last N are dropped, and because libkrun
+`_exit()`s the launcher, the final few lines after the last flush can be lost.
+Both are acceptable given the intent (containers ship their own telemetry).
+
+
+

@@ -3,13 +3,6 @@ package io.vacco.ff.schema;
 /** Runtime status of a VM, including optional provisioning progress. */
 public class FgVmStatus {
 
-  public static class FgProvision {
-    public int layersDone;
-    public int layersTotal;
-    public long bytesDone;
-    public long bytesTotal;
-  }
-
   public int pid;
   public FgVmState state = FgVmState.pending;
   public FgVm vm;

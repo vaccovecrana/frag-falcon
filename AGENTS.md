@@ -50,9 +50,9 @@ ff-jni    Host primitives (JNI) + the native C VM launcher; vendors the libkrun
 ff-oci    OCI registry client + tar extraction to a rootfs dir, with a persistent
           content-addressable blob cache (gson + slf4j-api).
 ff-test   Centralized tests for all modules.
-ff-api    Domain model + VM lifecycle services (FgVm/FgVmSvc/FgVmId). Stack model,
-          ronove REST and the supervisor land in M5b.
-ff-app    (planned) thin packaging module (application/mainClass).
+ff-api    Domain model, VM lifecycle services, stack model + topo, supervisor, and
+          the stack-oriented ronove REST API. Generates TS types (`build/rpc.ts`).
+ff-app    Thin packaging module (application, mainClass `io.vacco.ff.FgMain`).
 ff-ui     (planned) Preact SPA.
 ```
 
@@ -104,7 +104,10 @@ libkrun).
    discovery matches `/proc/<pid>/comm` (`ff-<vmid>`) first. A cap'd binary also
    ignores `LD_LIBRARY_PATH` (secure-execution mode), hence the launcher's absolute
    `RUNPATH` and direct `libkrunfw` `DT_NEEDED`.
-9. Read `CAVEATS.md` before touching libkrun integration, the launcher, or networking.
+9. **Logs are bounded by the launcher.** The launcher keeps the last `--log-lines`
+   (default 4096) console lines and rewrites `vm.log` atomically; `FgVmLaunch` passes
+   `--log-file`/`--log-lines`. The API returns (at most) that tail.
+10. Read `CAVEATS.md` before touching libkrun integration, the launcher, or networking.
 
 ## Technology choices
 
