@@ -12,8 +12,13 @@ import java.util.Map;
  */
 public class FgStack {
 
-  public FgStackTag tag = new FgStackTag();
+  public String id;
   public Map<String, FgService> services = new LinkedHashMap<>();
+
+  public FgStack id(String id) {
+    this.id = id;
+    return this;
+  }
 
   public List<String> serviceNames() {
     return List.copyOf(services.keySet());

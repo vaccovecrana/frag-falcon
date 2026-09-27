@@ -8,6 +8,8 @@ import io.vacco.ff.oci.FgOciProgress;
 import io.vacco.ff.oci.FgOciStore;
 import io.vacco.ff.schema.*;
 import io.vacco.ff.util.FgIo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -26,6 +28,8 @@ import java.util.regex.Pattern;
  * that restarts services per their {@code restart} policy.
  */
 public final class FgStackSvc implements AutoCloseable {
+
+  private static final Logger log = LoggerFactory.getLogger(FgStackSvc.class);
 
   private static final Pattern ID = Pattern.compile("[A-Za-z0-9-]+");
   private static final long RESTART_BACKOFF_MS = 1000;
@@ -66,9 +70,10 @@ public final class FgStackSvc implements AutoCloseable {
           tick();
           Thread.sleep(POLL_INTERVAL_MS);
         } catch (InterruptedException e) {
+          log.debug("poll interrupted - {}", vmDir);
           Thread.currentThread().interrupt();
         } catch (Exception e) {
-          System.err.printf("[ff] supervisor error: %s%n", e);
+          log.error("poll error - {}", vmDir, e);
         }
       }
     });
@@ -95,7 +100,7 @@ public final class FgStackSvc implements AutoCloseable {
   /* ----- persistence -------------------------------------------------- */
 
   public FgStack save(FgStack stack) {
-    var id = stack.tag != null ? stack.tag.id : null;
+    var id = stack.id;
     if (id == null || !ID.matcher(id).matches()) {
       throw new IllegalArgumentException("Invalid stack id (letters, numbers, dash only): " + id);
     }
@@ -149,9 +154,12 @@ public final class FgStackSvc implements AutoCloseable {
           FgVmSvc.start(vm, dir, store, bridge, progressListener(id, service));
           live.remove(k);
         } catch (Exception e) {
-          live.put(key(id, service), FgServiceStatus.of(service,
-              FgVmId.of(id, service), FgVmState.failed, -1)
-            .withError(e.getMessage()));
+          live.put(
+            key(id, service),
+            FgServiceStatus.of(
+              service, FgVmId.of(id, service), FgVmState.failed, -1).withError(e.getMessage()
+            )
+          );
         }
       }
     });
@@ -240,7 +248,7 @@ public final class FgStackSvc implements AutoCloseable {
     if (svc == null) {
       throw new IllegalArgumentException("No such service: " + service);
     }
-    var id = stack.tag.id;
+    var id = stack.id;
     var vmid = FgVmId.of(id, service);
     var vm = new FgVm();
     vm.tag.id = vmid;
@@ -311,11 +319,11 @@ public final class FgStackSvc implements AutoCloseable {
             mon.vm = toVm(stack, service);
             mon.dir = serviceDir(d.getName(), service);
             monitored.put(key(d.getName(), service), mon);
-            System.out.printf("[ff] re-adopted running VM %s (%s/%s)%n", vmid, d.getName(), service);
+            log.info("reconcile re-adopted running VM {} ({}/{})", vmid, d.getName(), service);
           }
         }
       } catch (Exception e) {
-        System.err.printf("[ff] reconcile error for %s: %s%n", d.getName(), e);
+        log.error("reconcile error: {}", d.getName(), e);
       }
     }
   }
@@ -335,10 +343,10 @@ public final class FgStackSvc implements AutoCloseable {
       }
       mon.lastStart = now;
       try {
-        System.out.printf("[ff] restarting %s/%s (policy=%s)%n", mon.stackId, mon.service, mon.policy);
+        log.info("restart: {}/{} (policy={})", mon.stackId, mon.service, mon.policy);
         FgVmSvc.start(mon.vm, mon.dir, store, bridge, FgOciProgress.NOOP);
       } catch (Exception e) {
-        System.err.printf("[ff] restart failed for %s/%s: %s%n", mon.stackId, mon.service, e);
+        log.error("restart error: {}/{} {}", mon.stackId, mon.service, mon.policy, e);
       }
     }
   }

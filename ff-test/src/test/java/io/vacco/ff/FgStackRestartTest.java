@@ -3,7 +3,6 @@ package io.vacco.ff;
 import com.google.gson.Gson;
 import io.vacco.ff.schema.FgService;
 import io.vacco.ff.schema.FgStack;
-import io.vacco.ff.schema.FgStackTag;
 import io.vacco.ff.service.FgStackSvc;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
@@ -14,6 +13,7 @@ import java.util.List;
 
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertTrue;
+import static io.vacco.ff.FgTest.log;
 
 /**
  * M5 supervisor: a service with {@code restart: always} is restarted by the
@@ -31,8 +31,7 @@ public class FgStackRestartTest {
       var stackId = "m5restart";
       var svc = new FgStackSvc(vmDir, null, new Gson());
       try {
-        var stack = new FgStack();
-        stack.tag = FgStackTag.of(stackId);
+        var stack = new FgStack().id(stackId);
         var s = new FgService();
         s.image = "alpine:latest";
         s.restart = "always";
@@ -51,7 +50,7 @@ public class FgStackRestartTest {
           }
           Thread.sleep(100);
         }
-        System.out.printf("libkrun: observed restart pids=%s%n", pids);
+        log.info("libkrun: observed restart pids={}", pids);
         assertTrue("expected the service to be restarted (distinct pids): " + pids, pids.size() >= 2);
       } finally {
         svc.close();

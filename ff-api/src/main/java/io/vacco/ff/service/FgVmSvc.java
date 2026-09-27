@@ -11,6 +11,8 @@ import io.vacco.ff.schema.FgVm;
 import io.vacco.ff.schema.FgVmState;
 import io.vacco.ff.schema.FgVmStatus;
 import io.vacco.ff.util.FgIo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
@@ -21,6 +23,7 @@ import java.io.File;
 public class FgVmSvc {
 
   private static final Gson GSON = new Gson();
+  private static final Logger log = LoggerFactory.getLogger(FgVmSvc.class);
 
   public static File rootfsOf(File vmRoot) {
     return new File(vmRoot, "rootfs");
@@ -93,14 +96,14 @@ public class FgVmSvc {
       try {
         FgProc.terminate(pid);
       } catch (Exception e) {
-        System.err.printf("[ff] terminate %s failed: %s%n", vm.tag.id, e);
+        log.error("terminate failed: {}", vm.tag.id, e);
       }
     }
     if (vm.network != null && vm.network.tapName != null) {
       try {
         FgTap.down(vm.network.tapName);
       } catch (Exception e) {
-        System.err.printf("[ff] tap-down %s failed: %s%n", vm.network.tapName, e);
+        log.error("tap-down failed: {} {}", vm.tag.id, vm.network.tapName, e);
       }
     }
     return pid;

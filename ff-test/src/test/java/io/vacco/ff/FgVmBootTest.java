@@ -36,8 +36,7 @@ public class FgVmBootTest {
       var args = FgTest.baseArgs("it-rw");
       args.add("--volume");
       args.add(host.getAbsolutePath() + ":/data");
-      args.addAll(List.of("--", "/bin/sh", "-c",
-        "cat /data/host.txt; echo guest-wrote > /data/out.txt"));
+      args.addAll(List.of("--", "/bin/sh", "-c", "cat /data/host.txt; echo guest-wrote > /data/out.txt"));
       var r = FgTest.runVm("it-rw", args);
 
       assertEquals(0, r.exitCode());

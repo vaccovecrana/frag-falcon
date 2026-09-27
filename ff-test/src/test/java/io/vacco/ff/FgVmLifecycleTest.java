@@ -16,6 +16,7 @@ import java.util.List;
 
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertTrue;
+import static io.vacco.ff.FgTest.log;
 
 /**
  * M5a: verifies the low-level VM lifecycle (build / start / running / stop)
@@ -33,7 +34,7 @@ public class FgVmLifecycleTest {
   static {
     it("provisions, starts, reports running, and stops a VM", () -> {
       if (!FgTest.hasNetCap()) {
-        System.out.println("libkrun: skipping VM lifecycle test (no cap_net_admin)");
+        log.info("libkrun: skipping VM lifecycle test (no cap_net_admin)");
         return;
       }
       var stackId = "m5a";
@@ -68,7 +69,7 @@ public class FgVmLifecycleTest {
         assertTrue("expected the guest to exit", stopped);
 
         var logs = FgVmSvc.logs(vmRoot);
-        System.out.printf("libkrun: m5a vm logs:%n%s%n", logs);
+        log.info("libkrun: m5a vm logs:\n{}", logs);
         assertTrue("expected guest output in vm.log", logs.contains("m5a-ok"));
       } finally {
         FgVmSvc.stop(vm);

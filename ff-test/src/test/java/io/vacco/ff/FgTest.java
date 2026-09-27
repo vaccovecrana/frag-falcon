@@ -3,6 +3,9 @@ package io.vacco.ff;
 import io.vacco.ff.net.FgProc;
 import io.vacco.ff.oci.FgDockerIo;
 import io.vacco.ff.oci.FgOciStore;
+import io.vacco.shax.logging.ShOption;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -10,6 +13,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FgTest {
+
+  static {
+    ShOption.setSysProp(ShOption.IO_VACCO_SHAX_DEVMODE, "true");
+    ShOption.setSysProp(ShOption.IO_VACCO_SHAX_PRETTYPRINT, "true");
+  }
+
+  public static final Logger log = LoggerFactory.getLogger(FgTest.class);
 
   public record RunResult(int exitCode, String console) {
   }
@@ -52,17 +62,17 @@ public class FgTest {
   }
 
   public static RunResult runVm(String vmId, List<String> args) throws Exception {
-    var log = new File(WORK, vmId + ".log");
-    if (log.exists()) {
-      log.delete();
+    var logFile = new File(WORK, vmId + ".log");
+    if (logFile.exists()) {
+      logFile.delete();
     }
-    int pid = FgProc.spawn(vmId, args, log.toPath());
+    int pid = FgProc.spawn(vmId, args, logFile.toPath());
     if (pid <= 0) {
       throw new IllegalStateException("spawn failed for " + vmId + ": " + pid);
     }
     int code = FgProc.waitProcess(pid, 120_000);
-    var out = log.exists() ? Files.readString(log.toPath()) : "";
-    System.out.printf("libkrun: vm=%s exit=%d console:%n%s%n", vmId, code, out);
+    var out = logFile.exists() ? Files.readString(logFile.toPath()) : "";
+    log.info("libkrun: vm={} exit={} console:\n{}", vmId, code, out);
     return new RunResult(code, out);
   }
 
@@ -88,7 +98,7 @@ public class FgTest {
     if (code != 0) {
       throw new IllegalStateException("launcher tool failed (" + code + ") for " + args + ":\n" + out);
     }
-    System.out.printf("libkrun: %s -> %s%n", args, out.trim());
+    log.info("libkrun: {} -> {}", args, out.trim());
   }
 
   /**

@@ -10,6 +10,8 @@ import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import static io.vacco.ff.FgTest.log;
+
 /**
  * Boots an Alpine microVM with a bridged TAP device and verifies the guest
  * obtains an address via DHCP (libkrun's in-guest DHCP client) and can reach
@@ -28,7 +30,7 @@ public class FgNetBootTest {
   static {
     it("boots with a bridged TAP and obtains an address via DHCP", () -> {
       if (!FgTest.hasNetCap()) {
-        System.out.println("libkrun: skipping network test (no cap_net_admin; run ff-jni/setup-caps.sh)");
+        log.warn("libkrun: skipping network test (no cap_net_admin; run ff-jni/setup-caps.sh)");
         return;
       }
       var tap = "fftap" + ProcessHandle.current().pid();

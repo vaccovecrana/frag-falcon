@@ -15,13 +15,11 @@ public class FgVmId {
   }
 
   public static String tapName(String vmId) {
-    var n = "ff" + vmId;
-    return n.length() > 15 ? n.substring(0, 15) : n;
+    return "ff" + Integer.toHexString(vmId.hashCode());
   }
 
   public static String procTag(String vmId) {
-    var n = "ff-" + vmId;
-    return n.length() > 15 ? n.substring(0, 15) : n;
+    return "ff" + Integer.toHexString(vmId.hashCode());
   }
 
   public static byte[] mac(String vmId) {

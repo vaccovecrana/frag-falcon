@@ -2,7 +2,6 @@ package io.vacco.ff;
 
 import io.vacco.ff.schema.FgService;
 import io.vacco.ff.schema.FgStack;
-import io.vacco.ff.schema.FgStackTag;
 import io.vacco.ff.service.FgStackPlan;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
@@ -24,8 +23,7 @@ public class FgStackPlanTest {
   }
 
   private static FgStack stackWith(String... names) {
-    var s = new FgStack();
-    s.tag = FgStackTag.of("s");
+    var s = new FgStack().id("s");
     for (var n : names) {
       s.services.put(n, svc());
     }

@@ -6,7 +6,6 @@ import io.vacco.ff.api.FgApi;
 import io.vacco.ff.schema.FgService;
 import io.vacco.ff.schema.FgStack;
 import io.vacco.ff.schema.FgStackStatus;
-import io.vacco.ff.schema.FgStackTag;
 import io.vacco.ff.service.FgStackSvc;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
@@ -22,6 +21,7 @@ import java.util.Map;
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static io.vacco.ff.FgTest.log;
 
 /**
  * M5b: stack-oriented REST round-trip (create → start → running → logs → stop →
@@ -51,18 +51,16 @@ public class FgStackRestTest {
   static {
     it("manages a stack end-to-end over REST", () -> {
       if (!FgTest.hasNetCap()) {
-        System.out.println("libkrun: skipping stack REST test (no cap_net_admin)");
+        log.info("libkrun: skipping stack REST test (no cap_net_admin)");
         return;
       }
       var base = "http://127.0.0.1:" + (17070 + (int) (ProcessHandle.current().pid() % 1000));
       var vmDir = FgTest.freshDir("m5b");
       var svc = new FgStackSvc(vmDir, BRIDGE, G);
-      var api = new FgApi(svc, G, "127.0.0.1", URI.create(base).getPort());
       var stackId = "m5brest";
 
-      try {
-        var stack = new FgStack();
-        stack.tag = FgStackTag.of(stackId);
+      try (svc; var _ = new FgApi(svc, G, "127.0.0.1", URI.create(base).getPort())) {
+        var stack = new FgStack().id(stackId);
         var s = new FgService();
         s.image = "alpine:latest";
         s.restart = "no";
@@ -99,18 +97,15 @@ public class FgStackRestTest {
           }
           Thread.sleep(100);
         }
-        System.out.printf("libkrun: m5b stack logs: %s%n", logBody);
+        log.info("libkrun: m5b stack logs: {}", logBody);
         assertTrue("expected guest output in logs", logBody.contains("m5b-ok"));
 
-        assertEquals(200, post(base + "/api/v1/stack/stop",
-          Map.of("stackId", stackId)).statusCode());
-        assertEquals(200, HTTP.send(HttpRequest.newBuilder(
-            URI.create(base + "/api/v1/stack/" + stackId))
-          .DELETE().build(), HttpResponse.BodyHandlers.ofString()).statusCode());
+        assertEquals(200, post(base + "/api/v1/stack/stop", Map.of("stackId", stackId)).statusCode());
+        assertEquals(200, HTTP.send(
+          HttpRequest.newBuilder(URI.create(base + "/api/v1/stack/" + stackId)).DELETE().build(),
+          HttpResponse.BodyHandlers.ofString()).statusCode()
+        );
         assertEquals(400, get(base + "/api/v1/stack/" + stackId).statusCode());
-      } finally {
-        api.close();
-        svc.close();
       }
     });
   }
