@@ -4,7 +4,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../fg/fg_raw.h"
 #include "../fg/fg_proc.h"
 #include "../fg/fg_root.h"
 #include "../fg/fg_extract.h"
@@ -109,63 +108,3 @@ JNIEXPORT jstring JNICALL Java_io_vacco_ff_net_FgJni_strerror(JNIEnv *env, jclas
     return (*env)->NewStringUTF(env, msg != NULL ? msg : "unknown error");
 }
 
-////////////////////////////////////////////////////
-//           Raw socket communication             //
-////////////////////////////////////////////////////
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_rawCreate(JNIEnv *env, jclass cls, jstring interfaceName) {
-    (void) cls;
-    const char *iface = (*env)->GetStringUTFChars(env, interfaceName, NULL);
-    if (iface == NULL) {
-        return -1;
-    }
-    int sock = create_raw_socket(iface);
-    (*env)->ReleaseStringUTFChars(env, interfaceName, iface);
-    return sock;
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_rawSend(JNIEnv *env, jclass cls, jint socketHandle, jbyteArray payload) {
-    (void) cls;
-    jbyte *buffer = (*env)->GetByteArrayElements(env, payload, NULL);
-    jsize len = (*env)->GetArrayLength(env, payload);
-    if (buffer == NULL) {
-        return -2;
-    }
-    int sent = send_raw_packet(socketHandle, (unsigned char *) buffer, len);
-    (*env)->ReleaseByteArrayElements(env, payload, buffer, 0);
-    return sent;
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_rawReceive(JNIEnv *env, jclass cls, jint socketHandle, jbyteArray buffer, jint timeoutSeconds) {
-    (void) cls;
-    jsize bufferSize = (*env)->GetArrayLength(env, buffer);
-    if (buffer == NULL || bufferSize == 0) {
-        return -1;
-    }
-    unsigned char *nativeBuffer = (unsigned char *) malloc(bufferSize);
-    if (nativeBuffer == NULL) {
-        return -2;
-    }
-    int received = receive_raw_packet(socketHandle, nativeBuffer, bufferSize, timeoutSeconds);
-    if (received < 0) {
-        free(nativeBuffer);
-        return -3;
-    }
-    (*env)->SetByteArrayRegion(env, buffer, 0, received, (jbyte *) nativeBuffer);
-    free(nativeBuffer);
-    return received;
-}
-
-JNIEXPORT void JNICALL Java_io_vacco_ff_net_FgJni_rawClose(JNIEnv *env, jclass cls, jint socketHandle) {
-    (void) env;
-    (void) cls;
-    close_raw_socket(socketHandle);
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_rawPromisc(JNIEnv *env, jclass cls, jstring interfaceName, jboolean enabled) {
-    (void) cls;
-    const char *interface = (*env)->GetStringUTFChars(env, interfaceName, 0);
-    int result = set_promiscuous_mode(interface, enabled ? 1 : 0);
-    (*env)->ReleaseStringUTFChars(env, interfaceName, interface);
-    return result;
-}

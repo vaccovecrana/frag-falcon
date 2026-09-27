@@ -3,7 +3,7 @@ LIBDIR := src/main/resources/io/vacco/ff
 LIBDIR_ABS := $(CURDIR)/$(LIBDIR)
 OUT := out
 
-FG_SRC := src/fg/fg_proc.c src/fg/fg_tap.c src/fg/fg_raw.c src/fg/fg_root.c src/fg/fg_extract.c
+FG_SRC := src/fg/fg_proc.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_extract.c
 
 all: $(OUT)/fg_jni.so $(OUT)/fg_vmm
 
