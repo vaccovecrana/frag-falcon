@@ -1,20 +1,20 @@
-import {arrayOf, serviceOf} from "@ui/util"
+import {arrayOf} from "@ui/util"
 import {FgService} from "@ui/rpc"
 
 /**
- * Repeatable string-list editor bound directly to a service field (ports,
- * volumes, environment, ...). Mirrors dockge's ArrayInput: the field only
- * materializes an array once the user adds an item.
+ * Repeatable string-list editor. Reports changes to the parent via {@code setList}
+ * so the editor can rebuild state (and the YAML view).
  */
 const FfArrayInput = (
-  {service, name, displayName, placeholder}:
-  { service: FgService, name: keyof FgService, displayName: string, placeholder?: string },
+  {service, name, displayName, placeholder, setList}:
+  {
+    service: FgService, name: keyof FgService, displayName: string,
+    placeholder?: string, setList: (next: string[]) => void,
+  },
 ) => {
   const list = arrayOf(service, name)
 
-  const update = (next: string[]) => {
-    ;(service as any)[name] = next.length > 0 ? next : undefined
-  }
+  const update = (next: string[]) => setList(next)
 
   return (
     <div class="mb-4">
@@ -52,4 +52,3 @@ const FfArrayInput = (
 }
 
 export default FfArrayInput
-export {serviceOf}

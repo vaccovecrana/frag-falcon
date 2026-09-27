@@ -42,12 +42,14 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
-    apiV1BrGet().then(setBridges).catch(() => {})
+    apiV1BrGet().then(setBridges).catch(() => {
+    })
     if (!isNew) {
       apiV1StackIdGet(id).then(s => {
         setStack(s)
         setYamlText(stringify(toPlain(s)))
-      }).catch(e => usrError(e, () => {}))
+      }).catch(e => usrError(e, () => {
+      }))
     }
   }, [id, isNew])
 
@@ -94,9 +96,17 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
     mutate(s => serviceMap(s).delete(name))
   }
 
+  const patchService = (name: string, patch: Partial<FgService>) => {
+    mutate(s => {
+      const cur = serviceMap(s).get(name) || {}
+      serviceMap(s).set(name, {...cur, ...patch} as FgService)
+    })
+  }
+
   const save = (thenStart: boolean) => {
     if (yamlError) {
-      usrError(`Fix the YAML error first: ${yamlError}`, () => {})
+      usrError(`Fix the YAML error first: ${yamlError}`, () => {
+      })
       return
     }
     const payload = fromPlain(toPlain(stack))
@@ -139,7 +149,8 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
         }
       })
       .then(() => window.location.replace(uiRoot))
-      .catch(e => usrError(e, () => {}))
+      .catch(e => usrError(e, () => {
+      }))
       .finally(() => setProcessing(false))
   }
 
@@ -190,6 +201,7 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
               images={[]}
               canRemove={serviceNames.length > 1}
               onRename={(next) => renameService(name, next)}
+              onChange={(patch) => patchService(name, patch)}
               onRemove={() => removeService(name)}
             />
           ))}

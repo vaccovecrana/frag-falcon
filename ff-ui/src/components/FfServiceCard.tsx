@@ -4,14 +4,17 @@ import FfArrayInput from "@ui/components/FfArrayInput"
 const RESTART_POLICIES = ["always", "unless-stopped", "on-failure", "no"]
 
 /**
- * Per-service form card bound directly to the shared FgService object, so
- * edits here and in the YAML editor stay in sync (dockge-style two-way edit).
+ * Per-service form card. Field edits are reported through {@code onChange} as a
+ * patch, so the editor can rebuild its state (and the YAML view) rather than
+ * mutating the shared object in place.
  */
 const FfServiceCard = (
-  {name, service, images, onRename, onRemove, canRemove}:
+  {name, service, images, onRename, onChange, onRemove, canRemove}:
   {
     name: string, service: FgService, images: string[],
-    onRename: (next: string) => void, onRemove: () => void, canRemove: boolean,
+    onRename: (next: string) => void,
+    onChange: (patch: Partial<FgService>) => void,
+    onRemove: () => void, canRemove: boolean,
   },
 ) => {
   return (
@@ -34,7 +37,7 @@ const FfServiceCard = (
           list="ff-images"
           placeholder="docker.io/library/alpine:latest"
           value={service.image || ""}
-          onInput={(e: any) => service.image = e.target.value}
+          onInput={(e: any) => onChange({image: e.target.value})}
         />
         <datalist id="ff-images">
           {images.map(img => <option value={img}/>)}
@@ -46,7 +49,7 @@ const FfServiceCard = (
         <select
           class="ff-input"
           value={service.restart || "unless-stopped"}
-          onChange={(e: any) => service.restart = e.target.value}
+          onChange={(e: any) => onChange({restart: e.target.value})}
         >
           {RESTART_POLICIES.map(p => <option value={p}>{p}</option>)}
         </select>
@@ -58,10 +61,9 @@ const FfServiceCard = (
           <input
             class="ff-input" type="number" min={1}
             value={service.resources?.vcpus ?? 1}
-            onInput={(e: any) => {
-              const n = parseInt(e.target.value || "1", 10)
-              service.resources = {...service.resources, vcpus: n}
-            }}
+            onInput={(e: any) => onChange({
+              resources: {vcpus: parseInt(e.target.value || "1", 10), ramMib: service.resources?.ramMib ?? 512},
+            })}
           />
         </div>
         <div class="ff-field">
@@ -69,19 +71,23 @@ const FfServiceCard = (
           <input
             class="ff-input" type="number" min={128} step={128}
             value={service.resources?.ramMib ?? 512}
-            onInput={(e: any) => {
-              const n = parseInt(e.target.value || "512", 10)
-              service.resources = {...service.resources, ramMib: n}
-            }}
+            onInput={(e: any) => onChange({
+              resources: {vcpus: service.resources?.vcpus ?? 1, ramMib: parseInt(e.target.value || "512", 10)},
+            })}
           />
         </div>
       </div>
 
-      <FfArrayInput service={service} name="volumes" displayName="Volumes" placeholder="HOST:GUEST[:ro]"/>
-      <FfArrayInput service={service} name="environment" displayName="Environment" placeholder="KEY=VALUE"/>
-      <FfArrayInput service={service} name="entrypoint" displayName="Entrypoint" placeholder="/bin/sh"/>
-      <FfArrayInput service={service} name="command" displayName="Command" placeholder="-c"/>
-      <FfArrayInput service={service} name="depends_on" displayName="Depends on" placeholder="service name"/>
+      <FfArrayInput service={service} name="volumes" displayName="Volumes" placeholder="HOST:GUEST[:ro]"
+                    setList={(v) => onChange({volumes: v})}/>
+      <FfArrayInput service={service} name="environment" displayName="Environment" placeholder="KEY=VALUE"
+                    setList={(v) => onChange({environment: v})}/>
+      <FfArrayInput service={service} name="entrypoint" displayName="Entrypoint" placeholder="/bin/sh"
+                    setList={(v) => onChange({entrypoint: v})}/>
+      <FfArrayInput service={service} name="command" displayName="Command" placeholder="-c"
+                    setList={(v) => onChange({command: v})}/>
+      <FfArrayInput service={service} name="depends_on" displayName="Depends on" placeholder="service name"
+                    setList={(v) => onChange({depends_on: v})}/>
     </div>
   )
 }

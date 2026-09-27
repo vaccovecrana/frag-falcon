@@ -2,7 +2,8 @@
   "scripts": {
     "build:fonts": "node tools/gen-fonts.mjs",
     "build:scss": "sass res/main.scss build/ui/index.css --silence-deprecation=if-function",
-    "build": "npm run build:fonts && tsc --noEmit && rspack build --mode production && npm run build:scss"
+    "build": "npm run build:fonts && tsc --noEmit && rspack build --mode production && npm run build:scss",
+    "test:e2e": "node --test test/*.test.mjs"
   },
   "author": "Vaccove Crana, LLC.",
   "dependencies": {
@@ -14,6 +15,7 @@
   "devDependencies": {
     "@rspack/cli": "2.2.3",
     "@rspack/core": "2.2.3",
+    "puppeteer": "25.12.0",
     "sass": "1.104.1",
     "tslib": "2.8.1",
     "typescript": "7.0.2"

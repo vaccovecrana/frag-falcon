@@ -7,7 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Serves the Preact SPA from the classpath ({@code /ui}), with an index.html
@@ -16,29 +19,33 @@ import java.nio.file.Paths;
 public class FgUiHdl extends MxStatic {
 
   private static final Logger log = LoggerFactory.getLogger(FgUiHdl.class);
-  private static final String INDEX = "index.html";
+  private static final String index = "/index.html";
+
   private static final File projectRoot = resolveCommonPath(new File("."), "frag-falcon-libkrun"); // TODO rename back to plain frag-falcon later
   private static final File pkgJson = projectRoot != null && projectRoot.exists()
     ? new File(projectRoot, "./ff-ui/package.json")
     : null;
+  private static final Origin origin = pkgJson != null ? Origin.FileSystem : Origin.Classpath;
+  private static final Path root = pkgJson != null
+    ? Paths.get(requireNonNull(projectRoot).toPath().toString(), "./ff-ui/build/resources/main/ui")
+    : Paths.get("/ui");
 
   @SuppressWarnings("this-escape")
   public FgUiHdl() {
-    var origin = pkgJson.exists() ? Origin.FileSystem : Origin.Classpath;
-    var root = pkgJson.exists() ? Paths.get("./ff-ui/build/resources/main/ui") : Paths.get("/ui");
     super(origin, root);
-    withNoTypeResolver((p, o) -> p.getFileName().toString().endsWith(".map") ? MxMime.json.type : MxMime.bin.type);
-    log.info("Resources: {} {}", origin, root);
+    withNoTypeResolver((p, _) -> p.getFileName().toString().endsWith(".map") ? MxMime.json.type : MxMime.bin.type);
+    log.info("Resources: ({}) - {}", origin, root);
   }
 
   @Override
   public void handle(MxExchange xc) {
     var path = xc.getPath();
+    log.info("p: {}", path);
     if (path.equals("/favicon.svg") || path.equals("/index.css") || path.equals("/index.js")
       || path.equals("/index.js.map") || path.equals("/index.css.map") || path.equals("/version")) {
-      handleWithPath(xc, path);
+      super.handle(xc);
       return;
     }
-    handleWithPath(xc, "/" + INDEX);
+    handleWithPath(xc, index);
   }
 }

@@ -10,7 +10,7 @@ const FfHeader = () => {
           <span>frag-falcon <span class="vf-brand-sub">Hypervisor</span></span>
         </a>
         <nav class="vf-nav">
-          <FfVersion />
+          <FfVersion/>
         </nav>
       </div>
     </header>

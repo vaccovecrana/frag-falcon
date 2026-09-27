@@ -20,7 +20,7 @@ const FfStackList = () => {
     <section>
       <div class="vf-hero-row">
         <div>
-          <h1>Stacks</h1>
+          <h1>MOMO</h1>
           <p>Container microVM stacks managed by this hypervisor.</p>
         </div>
         <div class="vf-hero-actions">

@@ -1,15 +1,11 @@
 package io.vacco.ff.api;
 
 import com.google.gson.Gson;
-import com.sun.net.httpserver.HttpExchange;
 import io.vacco.ff.service.FgStackSvc;
 import io.vacco.murmux.Murmux;
-import io.vacco.murmux.http.MxErrorHandler;
-import io.vacco.murmux.http.MxExchange;
+import io.vacco.murmux.http.MxLog;
 import io.vacco.murmux.http.MxStatus;
 import io.vacco.murmux.middleware.MxRouter;
-import io.vacco.ronove.RvJsonInput;
-import io.vacco.ronove.RvJsonOutput;
 import io.vacco.ronove.murmux.RvMxAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +23,11 @@ public class FgApi implements Closeable {
   private final Murmux mx;
 
   public FgApi(FgStackSvc svc, Gson g, String host, int port) {
+    MxLog.setDebugLogger(log::debug);
+    MxLog.setInfoLogger(log::info);
+    MxLog.setWarnLogger(log::warn);
+    MxLog.setErrorLogger(log::error);
+
     var pool = Executors.newCachedThreadPool(r -> new Thread(r, "ff-api"));
     this.mx = new Murmux(host, pool);
 
@@ -40,6 +41,7 @@ public class FgApi implements Closeable {
     var router = new MxRouter().prefix(FgRoute.apiRoot, rpc).noMatch(uiHdl);
 
     mx.rootHandler(router).listen(port);
+
     log.info("frag-falcon API listening on http://{}:{}", host, port);
   }
 
