@@ -1,4 +1,5 @@
 import {uiRoot} from "@ui/routes"
+import FfVersion from "@ui/components/FfVersion"
 
 const FfHeader = () => {
   return (
@@ -9,7 +10,7 @@ const FfHeader = () => {
           <span>frag-falcon <span class="vf-brand-sub">Hypervisor</span></span>
         </a>
         <nav class="vf-nav">
-          <a class="vf-pill vf-pill--accent" href={uiRoot}>Stacks</a>
+          <FfVersion />
         </nav>
       </div>
     </header>

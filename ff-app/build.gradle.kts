@@ -14,7 +14,7 @@ application {
 graalvmNative {
   binaries {
     named("main") {
-      configurationFileDirectories.from(file("src/main/graal"))
+      configurationFileDirectories.from(file("src/main/resources"))
       buildArgs.add("--enable-url-protocols=http,https")
       buildArgs.add("-march=compatibility")
     }
@@ -40,8 +40,5 @@ val distNativeTar = tasks.register<Tar>("distNativeTar") {
   }
   filePermissions { unix("0755") }
 }
-/*
-tasks.named("assemble") {
-  dependsOn(distNativeTar)
-}
-*/
+
+// tasks.named("assemble") { dependsOn(distNativeTar) }

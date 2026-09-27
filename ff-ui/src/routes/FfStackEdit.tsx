@@ -28,6 +28,8 @@ const fromPlain = (obj: any): FgStack => ({
   services: new Map<string, FgService>(Object.entries(obj.services || {})),
 })
 
+const ID_PATTERN = /^[A-Za-z0-9-]+$/
+
 const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const isNew = !props.stackId || props.stackId === VmIdNew
   const id = isNew ? "" : props.stackId!
@@ -35,18 +37,17 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const [stack, setStack] = useState<FgStack>(NEW_STACK)
   const [yamlText, setYamlText] = useState(stringify(toPlain(NEW_STACK)))
   const [yamlError, setYamlError] = useState("")
+  const [formError, setFormError] = useState("")
   const [bridges, setBridges] = useState<string[]>([])
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
-    apiV1BrGet().then(setBridges).catch(() => {
-    })
+    apiV1BrGet().then(setBridges).catch(() => {})
     if (!isNew) {
       apiV1StackIdGet(id).then(s => {
         setStack(s)
         setYamlText(stringify(toPlain(s)))
-      }).catch(e => usrError(e, () => {
-      }))
+      }).catch(e => usrError(e, () => {}))
     }
   }, [id, isNew])
 
@@ -61,6 +62,7 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   // YAML -> form: parse on edit and refresh the model.
   const onYamlEdit = (text: string) => {
     setYamlText(text)
+    setFormError("")
     try {
       const obj = parse(text) || {}
       setStack(fromPlain(obj))
@@ -94,15 +96,37 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
 
   const save = (thenStart: boolean) => {
     if (yamlError) {
-      usrError(`Fix the YAML error first: ${yamlError}`, () => {
-      })
+      usrError(`Fix the YAML error first: ${yamlError}`, () => {})
       return
     }
     const payload = fromPlain(toPlain(stack))
-    if (!payload.id) {
-      payload.id = id || (window.prompt("Stack id (letters, numbers, dash)") || "").trim()
-      if (!payload.id) return
+    const wantId = (payload.id || "").trim()
+    if (isNew) {
+      if (!wantId) {
+        setFormError("A stack id is required (letters, numbers and dash only).")
+        return
+      }
+      if (!ID_PATTERN.test(wantId)) {
+        setFormError(`Invalid stack id [${wantId}]: letters, numbers and dash only.`)
+        return
+      }
+      payload.id = wantId
     }
+    if (!payload.services || (payload.services as any).size === 0) {
+      setFormError("Add at least one service before saving.")
+      return
+    }
+    for (const [name, svc] of (payload.services as any).entries()) {
+      if (!name.trim()) {
+        setFormError("Service names cannot be empty.")
+        return
+      }
+      if (!(svc as FgService).image?.trim()) {
+        setFormError(`Service [${name}] needs an image.`)
+        return
+      }
+    }
+    setFormError("")
     setProcessing(true)
     apiV1StackPost(payload)
       .then(async saved => {
@@ -115,8 +139,7 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
         }
       })
       .then(() => window.location.replace(uiRoot))
-      .catch(e => usrError(e, () => {
-      }))
+      .catch(e => usrError(e, () => {}))
       .finally(() => setProcessing(false))
   }
 
@@ -134,7 +157,26 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
         <button class="vf-pill" disabled={processing} onClick={() => save(false)}>Save</button>
       </div>
 
+      {formError && <div class="vf-error mb-4">{formError}</div>}
       {yamlError && <div class="vf-error mb-4">{yamlError}</div>}
+
+      <div class="ff-field" style="max-width:420px">
+        <label class="form-label">Stack id</label>
+        <input
+          class="ff-input"
+          placeholder="my-stack"
+          disabled={!isNew}
+          value={stack.id || ""}
+          onInput={(e: any) => {
+            const next = fromPlain(toPlain(stack))
+            next.id = e.target.value
+            setStack(next)
+            setYamlText(stringify(toPlain(next)))
+          }}
+        />
+        <div class="form-text vf-muted">Letters, numbers and dash only. Cannot be changed later.</div>
+      </div>
+
       {bridges.length > 0 && <div class="vf-card-meta mb-4">Bridge: {bridges.join(", ")}</div>}
 
       <div class="ff-edit">

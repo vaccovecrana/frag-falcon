@@ -1,0 +1,81 @@
+{
+  "reflection": [
+    {
+      "type": "io.vacco.ff.api.FgApiHdl",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgProvision",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgResources",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgService",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgServiceStatus",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgStack",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgStackRef",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgStackState",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgStackStatus",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ff.schema.FgVmState",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    },
+    {
+      "type": "io.vacco.ronove.RvResponse",
+      "allDeclaredConstructors": true,
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "unsafeAllocated": true
+    }
+  ]
+}
