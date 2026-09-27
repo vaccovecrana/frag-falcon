@@ -17,10 +17,10 @@ public class FgProc {
   private static final Pattern numeric = Pattern.compile("\\d+");
 
   private static final List<String> NATIVE_FILES = List.of(
-      "fg_vmm",
-      "libkrun.so.2",
-      "libkrun_init.so",
-      "libkrunfw.so.5"
+    "fg_vmm",
+    "libkrun.so.2",
+    "libkrun_init.so",
+    "libkrunfw.so.5"
   );
 
   private static Path nativeDir;
@@ -52,13 +52,17 @@ public class FgProc {
     return extractNative();
   }
 
-  /** Path to the native launcher (FF_VMM_BIN override, else extracted). */
+  /**
+   * Path to the native launcher (FF_VMM_BIN override, else extracted).
+   */
   public static Path launcherPath() {
     var override = System.getenv("FF_VMM_BIN");
     return override != null ? Path.of(override) : extractNative().resolve("fg_vmm");
   }
 
-  /** Directory holding the libkrun shared objects (FF_VMM_LIBDIR override, else extracted). */
+  /**
+   * Directory holding the libkrun shared objects (FF_VMM_LIBDIR override, else extracted).
+   */
   public static Path launcherLibDir() {
     var override = System.getenv("FF_VMM_LIBDIR");
     return override != null ? Path.of(override) : extractNative();
@@ -96,7 +100,9 @@ public class FgProc {
     return pid > 0 && Files.isDirectory(Path.of("/proc/" + pid));
   }
 
-  /** Finds the pid of a running VM by its {@code FF_VMID} tag, or -1. */
+  /**
+   * Finds the pid of a running VM by its {@code FF_VMID} tag, or -1.
+   */
   public static int pidOf(String vmId) {
     var comm = "ff-" + vmId;
     if (comm.length() > 15) {
@@ -128,7 +134,9 @@ public class FgProc {
     }
   }
 
-  /** Reaps any exited child launchers (avoids zombies in the hypervisor). */
+  /**
+   * Reaps any exited child launchers (avoids zombies in the hypervisor).
+   */
   public static int reap() {
     return FgJni.reapChildren();
   }

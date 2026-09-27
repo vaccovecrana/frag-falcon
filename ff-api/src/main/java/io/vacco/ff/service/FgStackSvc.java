@@ -6,17 +6,7 @@ import io.vacco.ff.oci.FgEnvVar;
 import io.vacco.ff.oci.FgImage;
 import io.vacco.ff.oci.FgOciProgress;
 import io.vacco.ff.oci.FgOciStore;
-import io.vacco.ff.schema.FgNetConfig;
-import io.vacco.ff.schema.FgProvision;
-import io.vacco.ff.schema.FgService;
-import io.vacco.ff.schema.FgServiceStatus;
-import io.vacco.ff.schema.FgStack;
-import io.vacco.ff.schema.FgStackState;
-import io.vacco.ff.schema.FgStackStatus;
-import io.vacco.ff.schema.FgVm;
-import io.vacco.ff.schema.FgVmMachine;
-import io.vacco.ff.schema.FgVmState;
-import io.vacco.ff.schema.FgVolume;
+import io.vacco.ff.schema.*;
 import io.vacco.ff.util.FgIo;
 
 import java.io.File;
@@ -57,11 +47,11 @@ public final class FgStackSvc implements AutoCloseable {
   private final Gson gson;
   private final FgOciStore store;
   private final ExecutorService ops = Executors.newCachedThreadPool(r ->
-      new Thread(r, "ff-stack-op"));
+    new Thread(r, "ff-stack-op"));
   private final Map<String, Mon> monitored = new ConcurrentHashMap<>();
   private final Map<String, FgServiceStatus> live = new ConcurrentHashMap<>();
   private final ExecutorService supervisor = Executors.newSingleThreadExecutor(r ->
-      new Thread(r, "ff-supervisor"));
+    new Thread(r, "ff-supervisor"));
 
   public FgStackSvc(File vmDir, String bridge, Gson gson) {
     this.vmDir = vmDir;
@@ -161,7 +151,7 @@ public final class FgStackSvc implements AutoCloseable {
         } catch (Exception e) {
           live.put(key(id, service), FgServiceStatus.of(service,
               FgVmId.of(id, service), FgVmState.failed, -1)
-              .withError(e.getMessage()));
+            .withError(e.getMessage()));
         }
       }
     });
@@ -223,10 +213,10 @@ public final class FgStackSvc implements AutoCloseable {
     }
     int total = st.services.size();
     st.state = total == 0 ? FgStackState.stopped
-        : running == total ? FgStackState.running
+      : running == total ? FgStackState.running
         : provisioning ? FgStackState.provisioning
-        : running > 0 ? FgStackState.partial
-        : FgStackState.stopped;
+          : running > 0 ? FgStackState.partial
+            : FgStackState.stopped;
     return st;
   }
 
@@ -285,8 +275,8 @@ public final class FgStackSvc implements AutoCloseable {
       vm.command = cmd;
     }
     vm.network = bridge != null
-        ? FgNetConfig.of(bridge, FgVmId.tapName(vmid), FgVmId.macString(vmid))
-        : null;
+      ? FgNetConfig.of(bridge, FgVmId.tapName(vmid), FgVmId.macString(vmid))
+      : null;
     // Reuse enriched image metadata if the service was already provisioned.
     var img = FgVmSvc.loadImage(serviceDir(id, service));
     if (img != null) {
@@ -363,18 +353,22 @@ public final class FgStackSvc implements AutoCloseable {
     s.provision = new FgProvision();
     live.put(k, s);
     return new FgOciProgress() {
-      @Override public void onLayers(int done, int total) {
+      @Override
+      public void onLayers(int done, int total) {
         s.provision.layersDone = done;
         s.provision.layersTotal = total;
       }
-      @Override public void onBytes(long done, long total) {
+
+      @Override
+      public void onBytes(long done, long total) {
         s.provision.bytesDone = done;
         s.provision.bytesTotal = total;
       }
     };
   }
 
-  @Override public void close() {
+  @Override
+  public void close() {
     supervisor.shutdownNow();
     ops.shutdownNow();
     try {

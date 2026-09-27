@@ -1,19 +1,10 @@
 package io.vacco.ff.oci;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -26,9 +17,7 @@ import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
-import static io.vacco.ff.oci.FgOciIo.delete;
-import static io.vacco.ff.oci.FgOciIo.mkDirs;
-import static io.vacco.ff.oci.FgOciIo.url;
+import static io.vacco.ff.oci.FgOciIo.*;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.file.Files.setPosixFilePermissions;
@@ -346,12 +335,6 @@ public class FgDockerIo {
     }
     return processManifest(manifest, registryUrl, repoName, authToken, store, rootfsDir, onError, progress)
       .withSource(dockerImageUri);
-  }
-
-  public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,
-                                String architecture, String os,
-                                BiConsumer<FgTarEntry, Exception> onError) {
-    return extract(dockerImageUri, rootfsDir, store, architecture, os, onError, FgOciProgress.NOOP);
   }
 
   public static FgImage extract(String dockerImageUri, File rootfsDir, FgOciStore store,

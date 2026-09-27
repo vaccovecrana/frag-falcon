@@ -12,8 +12,8 @@ import org.junit.runner.RunWith;
 import java.util.HashSet;
 import java.util.List;
 
-import static j8spec.J8Spec.*;
-import static org.junit.Assert.*;
+import static j8spec.J8Spec.it;
+import static org.junit.Assert.assertTrue;
 
 /**
  * M5 supervisor: a service with {@code restart: always} is restarted by the

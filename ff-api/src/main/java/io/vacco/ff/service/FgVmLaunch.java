@@ -7,7 +7,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Builds the native launcher argument vector for a VM. */
+/**
+ * Builds the native launcher argument vector for a VM.
+ */
 public class FgVmLaunch {
 
   public static List<String> args(FgVm vm, File vmRoot) {

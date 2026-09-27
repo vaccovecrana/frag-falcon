@@ -2,7 +2,9 @@ package io.vacco.ff.schema;
 
 import java.util.List;
 
-/** Per-service runtime status within a stack. */
+/**
+ * Per-service runtime status within a stack.
+ */
 public class FgServiceStatus {
 
   public String service;

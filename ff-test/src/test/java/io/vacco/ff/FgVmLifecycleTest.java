@@ -14,8 +14,8 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.util.List;
 
-import static j8spec.J8Spec.*;
-import static org.junit.Assert.*;
+import static j8spec.J8Spec.it;
+import static org.junit.Assert.assertTrue;
 
 /**
  * M5a: verifies the low-level VM lifecycle (build / start / running / stop)

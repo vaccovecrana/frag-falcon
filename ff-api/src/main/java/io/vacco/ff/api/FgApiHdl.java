@@ -6,14 +6,7 @@ import io.vacco.ff.schema.FgStackRef;
 import io.vacco.ff.schema.FgStackStatus;
 import io.vacco.ff.service.FgStackSvc;
 import io.vacco.ronove.RvResponse;
-import jakarta.ws.rs.BeanParam;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
@@ -45,7 +38,9 @@ public class FgApiHdl {
     return new RvResponse<T>().withStatus(status);
   }
 
-  @GET @Path(FgRoute.apiV1Stack) @Produces(MediaType.APPLICATION_JSON)
+  @GET
+  @Path(FgRoute.apiV1Stack)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<List<FgStackStatus>> apiV1StackGet() {
     try {
       return ok(svc.list());
@@ -54,7 +49,9 @@ public class FgApiHdl {
     }
   }
 
-  @GET @Path(FgRoute.apiV1StackId) @Produces(MediaType.APPLICATION_JSON)
+  @GET
+  @Path(FgRoute.apiV1StackId)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<FgStack> apiV1StackIdGet(@PathParam(FgRoute.StackId) String stackId) {
     try {
       return ok(svc.load(stackId));
@@ -63,7 +60,10 @@ public class FgApiHdl {
     }
   }
 
-  @POST @Path(FgRoute.apiV1Stack) @Consumes(MediaType.APPLICATION_JSON) @Produces(MediaType.APPLICATION_JSON)
+  @POST
+  @Path(FgRoute.apiV1Stack)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<FgStack> apiV1StackPost(@BeanParam FgStack stack) {
     try {
       return ok(svc.save(stack));
@@ -72,7 +72,9 @@ public class FgApiHdl {
     }
   }
 
-  @DELETE @Path(FgRoute.apiV1StackId) @Produces(MediaType.APPLICATION_JSON)
+  @DELETE
+  @Path(FgRoute.apiV1StackId)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<FgStackStatus> apiV1StackIdDelete(@PathParam(FgRoute.StackId) String stackId) {
     try {
       svc.delete(stackId);
@@ -82,7 +84,10 @@ public class FgApiHdl {
     }
   }
 
-  @POST @Path(FgRoute.apiV1StackStart) @Consumes(MediaType.APPLICATION_JSON) @Produces(MediaType.APPLICATION_JSON)
+  @POST
+  @Path(FgRoute.apiV1StackStart)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<FgStackStatus> apiV1StackStartPost(@BeanParam FgStackRef ref) {
     try {
       return ok(svc.start(ref.stackId));
@@ -91,7 +96,10 @@ public class FgApiHdl {
     }
   }
 
-  @POST @Path(FgRoute.apiV1StackStop) @Consumes(MediaType.APPLICATION_JSON) @Produces(MediaType.APPLICATION_JSON)
+  @POST
+  @Path(FgRoute.apiV1StackStop)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<FgStackStatus> apiV1StackStopPost(@BeanParam FgStackRef ref) {
     try {
       return ok(svc.stop(ref.stackId));
@@ -100,7 +108,10 @@ public class FgApiHdl {
     }
   }
 
-  @POST @Path(FgRoute.apiV1StackLogs) @Consumes(MediaType.APPLICATION_JSON) @Produces(MediaType.APPLICATION_JSON)
+  @POST
+  @Path(FgRoute.apiV1StackLogs)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<Map<String, String>> apiV1StackLogsPost(@BeanParam FgStackRef ref) {
     try {
       return ok(svc.logs(ref.stackId));
@@ -109,7 +120,9 @@ public class FgApiHdl {
     }
   }
 
-  @GET @Path(FgRoute.apiV1Br) @Produces(MediaType.APPLICATION_JSON)
+  @GET
+  @Path(FgRoute.apiV1Br)
+  @Produces(MediaType.APPLICATION_JSON)
   public RvResponse<List<String>> apiV1BrGet() {
     try {
       return ok(FgJni.getLinuxBridgeInterfaces());

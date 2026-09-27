@@ -11,7 +11,8 @@ import java.util.List;
 
 public class FgTest {
 
-  public record RunResult(int exitCode, String console) {}
+  public record RunResult(int exitCode, String console) {
+  }
 
   public static final File WORK = new File("./build/it");
 
@@ -25,8 +26,11 @@ public class FgTest {
     }
     if (rootfs == null) {
       var r = new File(WORK, "rootfs");
-      FgDockerIo.extract("alpine:latest", r, new FgOciStore(new File(WORK, "oci")),
-          (entry, err) -> {});
+      FgDockerIo.extract(
+        "alpine:latest", r,
+        new FgOciStore(new File(WORK, "oci")), (_, _) -> {
+        }
+      );
       rootfs = r;
     }
     return rootfs;
@@ -62,7 +66,9 @@ public class FgTest {
     return new RunResult(code, out);
   }
 
-  /** Runs the launcher in a privileged utility mode (e.g. --tap-up / --tap-down). */
+  /**
+   * Runs the launcher in a privileged utility mode (e.g. --tap-up / --tap-down).
+   */
   public static void runLauncherTool(List<String> args) throws Exception {
     var bin = System.getenv("FF_VMM_BIN");
     if (bin == null) {
@@ -85,7 +91,9 @@ public class FgTest {
     System.out.printf("libkrun: %s -> %s%n", args, out.trim());
   }
 
-  /** True when the configured launcher carries the cap_net_admin file capability. */
+  /**
+   * True when the configured launcher carries the cap_net_admin file capability.
+   */
   public static boolean hasNetCap() {
     var bin = System.getenv("FF_VMM_BIN");
     if (bin == null) {
@@ -120,13 +128,13 @@ public class FgTest {
   private static void deleteRecursively(File f) throws Exception {
     try (var paths = Files.walk(f.toPath())) {
       paths.sorted((a, b) -> b.getNameCount() - a.getNameCount())
-          .forEach(p -> {
-            try {
-              Files.deleteIfExists(p);
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-          });
+        .forEach(p -> {
+          try {
+            Files.deleteIfExists(p);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
     }
   }
 }

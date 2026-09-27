@@ -1,6 +1,8 @@
 package io.vacco.ff.schema;
 
-/** Network configuration for a VM on the hypervisor's bridge. */
+/**
+ * Network configuration for a VM on the hypervisor's bridge.
+ */
 public class FgNetConfig {
 
   public String brIf;

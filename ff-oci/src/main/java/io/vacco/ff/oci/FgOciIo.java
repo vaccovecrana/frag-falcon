@@ -15,7 +15,9 @@ import java.util.function.Consumer;
 
 import static java.lang.String.format;
 
-/** Small file/URI helpers used by the OCI extraction pipeline. */
+/**
+ * Small file/URI helpers used by the OCI extraction pipeline.
+ */
 public class FgOciIo {
 
   public static void mkDirs(File f) {
@@ -30,11 +32,14 @@ public class FgOciIo {
     }
     try {
       Files.walkFileTree(f.toPath(), new SimpleFileVisitor<>() {
-        @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
           Files.delete(file);
           return FileVisitResult.CONTINUE;
         }
-        @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+
+        @Override
+        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
           if (exc != null) {
             throw exc;
           }

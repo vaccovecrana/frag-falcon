@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import io.vacco.ff.api.FgApi;
 import io.vacco.ff.util.FgIo;
 import io.vacco.shax.logging.ShOption;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
@@ -25,13 +24,14 @@ public class FgContext implements Closeable {
     log.info("frag-falcon hypervisor starting");
     FgIo.mkDirs(FgOptions.vmDir);
     log.info("vm-dir: {}, bridge: {}, api: {}:{}",
-        FgOptions.vmDir, FgOptions.bridge, FgOptions.host, FgOptions.port);
+      FgOptions.vmDir, FgOptions.bridge, FgOptions.host, FgOptions.port);
 
     svc = new FgStackSvc(FgOptions.vmDir, FgOptions.bridge, new Gson());
     api = new FgApi(svc, new Gson(), FgOptions.host, FgOptions.port);
   }
 
-  @Override public void close() {
+  @Override
+  public void close() {
     if (api != null) {
       api.close();
     }

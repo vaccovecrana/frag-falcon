@@ -26,11 +26,11 @@ public class FgVmId {
 
   public static byte[] mac(String vmId) {
     int h = vmId.hashCode();
-    return new byte[] {
-        0x52, 0x54, 0x00,
-        (byte) ((h >> 16) & 0xff),
-        (byte) ((h >> 8) & 0xff),
-        (byte) (h & 0xff)
+    return new byte[]{
+      0x52, 0x54, 0x00,
+      (byte) ((h >> 16) & 0xff),
+      (byte) ((h >> 8) & 0xff),
+      (byte) (h & 0xff)
     };
   }
 

@@ -2,7 +2,9 @@ package io.vacco.ff.schema;
 
 import java.util.Objects;
 
-/** A host directory shared into the guest (virtiofs bind mount). */
+/**
+ * A host directory shared into the guest (virtiofs bind mount).
+ */
 public class FgVolume {
 
   public String hostPath;
@@ -17,7 +19,9 @@ public class FgVolume {
     return v;
   }
 
-  /** Parses a compose-style volume spec: {@code HOST:GUEST[:ro]}. */
+  /**
+   * Parses a compose-style volume spec: {@code HOST:GUEST[:ro]}.
+   */
   public static FgVolume parse(String spec) {
     var parts = spec.split(":");
     if (parts.length < 2) {

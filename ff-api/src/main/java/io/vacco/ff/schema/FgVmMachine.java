@@ -1,6 +1,8 @@
 package io.vacco.ff.schema;
 
-/** Per-VM compute resources. Defaults to 1 vCPU / 512 MiB when unspecified. */
+/**
+ * Per-VM compute resources. Defaults to 1 vCPU / 512 MiB when unspecified.
+ */
 public class FgVmMachine {
 
   public static final int DEFAULT_VCPUS = 1;

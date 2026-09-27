@@ -1,5 +1,6 @@
 package io.vacco.ff.service;
 
+import com.google.gson.Gson;
 import io.vacco.ff.net.FgProc;
 import io.vacco.ff.net.FgTap;
 import io.vacco.ff.oci.FgDockerIo;
@@ -10,8 +11,6 @@ import io.vacco.ff.schema.FgVm;
 import io.vacco.ff.schema.FgVmState;
 import io.vacco.ff.schema.FgVmStatus;
 import io.vacco.ff.util.FgIo;
-
-import com.google.gson.Gson;
 
 import java.io.File;
 
@@ -31,15 +30,21 @@ public class FgVmSvc {
     return new File(vmRoot, "vm.log");
   }
 
-  /** Persisted, enriched image metadata (entrypoint/cmd/env/workingDir/ports). */
+  /**
+   * Persisted, enriched image metadata (entrypoint/cmd/env/workingDir/ports).
+   */
   public static File imageOf(File vmRoot) {
     return new File(vmRoot, "image.json");
   }
 
-  /** Provisions the rootfs from the VM's OCI image (image layers pulled lazily here). */
+  /**
+   * Provisions the rootfs from the VM's OCI image (image layers pulled lazily here).
+   */
   public static FgVm build(FgVm vm, File vmRoot, FgOciStore store, FgOciProgress progress) {
-    vm.image = FgDockerIo.extract(vm.image.source, rootfsOf(vmRoot), store,
-        (entry, err) -> {}, progress);
+    vm.image = FgDockerIo.extract(
+      vm.image.source, rootfsOf(vmRoot), store,
+      (entry, err) -> {
+      }, progress);
     FgIo.toJson(vm.image, imageOf(vmRoot), GSON);
     return vm;
   }
@@ -79,7 +84,9 @@ public class FgVmSvc {
     return FgProc.spawn(vmid, FgVmLaunch.args(vm, vmRoot), logOf(vmRoot).toPath());
   }
 
-  /** Stops the VM (SIGTERM) and removes its TAP. */
+  /**
+   * Stops the VM (SIGTERM) and removes its TAP.
+   */
   public static int stop(FgVm vm) {
     var pid = FgProc.pidOf(vm.tag.id);
     if (pid > 0) {

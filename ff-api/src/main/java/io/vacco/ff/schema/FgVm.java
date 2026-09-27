@@ -17,10 +17,14 @@ public class FgVm {
   public List<FgVolume> volumes = new ArrayList<>();
   public FgNetConfig network;
 
-  /** Optional command override (entrypoint + args); when set it replaces the image's. */
+  /**
+   * Optional command override (entrypoint + args); when set it replaces the image's.
+   */
   public List<String> command;
 
-  /** User-supplied environment (stack service environment), applied last. */
+  /**
+   * User-supplied environment (stack service environment), applied last.
+   */
   public List<io.vacco.ff.oci.FgEnvVar> env = new ArrayList<>();
 
   public FgVm effective() {

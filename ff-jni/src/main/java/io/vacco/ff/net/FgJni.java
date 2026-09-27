@@ -4,11 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -22,7 +18,7 @@ public class FgJni {
 
   private static final Random rng = new Random();
 
-  public static final byte[] BroadcastMac = new byte[] {
+  public static final byte[] BroadcastMac = new byte[]{
     (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff
   };
 
@@ -48,15 +44,22 @@ public class FgJni {
 
   // Process management
   public static native int spawnProcess(String vmId, String command, String[] args, String logPath, String ldLibraryPath);
+
   public static native int terminate(int pid);
+
   public static native int waitProcess(int pid, int timeoutMs);
+
   public static native int reapChildren();
 
   // Raw socket communication
   public static native int rawCreate(String interfaceName);
+
   public static native int rawSend(int socketHandle, byte[] payload);
+
   public static native int rawReceive(int socketHandle, byte[] buffer, int timeoutSeconds);
+
   public static native void rawClose(int socketHandle);
+
   public static native int rawPromisc(String interfaceName, boolean enabled);
 
   public static byte[] trim(byte[] buffer, int byteCount) {
@@ -67,7 +70,7 @@ public class FgJni {
   }
 
   public static byte[] ethernetTx(FgEthFrame frame) {
-    var etherType = new byte[] {(byte) 0x08, (byte) 0x00};
+    var etherType = new byte[]{(byte) 0x08, (byte) 0x00};
     var ethernetFrame = new byte[frame.dst.length + frame.src.length + etherType.length + frame.payload.length];
     arraycopy(frame.dst, 0, ethernetFrame, 0, frame.dst.length);
     arraycopy(frame.src, 0, ethernetFrame, frame.dst.length, frame.src.length);

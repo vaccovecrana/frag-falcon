@@ -1,11 +1,6 @@
 package io.vacco.ff.oci;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -13,9 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.createLink;
-import static java.nio.file.Files.createSymbolicLink;
+import static java.nio.file.Files.*;
 
 public class FgTarIo {
 

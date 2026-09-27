@@ -6,8 +6,9 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
-import static j8spec.J8Spec.*;
-import static org.junit.Assert.*;
+import static j8spec.J8Spec.it;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Boots an Alpine microVM with a bridged TAP device and verifies the guest
@@ -39,11 +40,11 @@ public class FgNetBootTest {
         args.add("--tap");
         args.add(tap);
         args.addAll(List.of("--", "/bin/sh", "-c",
-            "ok=0; for i in 1 2 3 4 5; do "
-                + "if ping -c1 -W2 " + GATEWAY + " >/dev/null 2>&1; then ok=1; break; fi; "
-                + "sleep 1; done; "
-                + "ip -4 addr show eth0; "
-                + "[ $ok -eq 1 ] && echo NET-OK"));
+          "ok=0; for i in 1 2 3 4 5; do "
+            + "if ping -c1 -W2 " + GATEWAY + " >/dev/null 2>&1; then ok=1; break; fi; "
+            + "sleep 1; done; "
+            + "ip -4 addr show eth0; "
+            + "[ $ok -eq 1 ] && echo NET-OK"));
 
         var r = FgTest.runVm("it-net", args);
         assertEquals("expected the guest command to succeed: " + r.console(), 0, r.exitCode());

@@ -3,7 +3,9 @@ package io.vacco.ff.oci;
 import java.util.List;
 import java.util.Objects;
 
-/** Result of extracting an OCI image to a host rootfs directory. */
+/**
+ * Result of extracting an OCI image to a host rootfs directory.
+ */
 public class FgImage {
 
   public String source;
@@ -15,7 +17,9 @@ public class FgImage {
   public List<FgEnvVar> env;
   public List<FgEnvVar> envUsr;
 
-  /** Ports declared by the image config, e.g. "8000/tcp". */
+  /**
+   * Ports declared by the image config, e.g. "8000/tcp".
+   */
   public List<String> exposedPorts;
 
   public FgImage withSource(String source) {
@@ -60,7 +64,8 @@ public class FgImage {
     return d;
   }
 
-  @Override public String toString() {
+  @Override
+  public String toString() {
     return source;
   }
 }

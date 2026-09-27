@@ -2,11 +2,7 @@ package io.vacco.ff.service;
 
 import io.vacco.ff.schema.FgStack;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Computes service start/stop order from {@code depends_on} using Kahn's
@@ -30,7 +26,7 @@ public class FgStackPlan {
       for (var dep : svc.depends_on) {
         if (!stack.services.containsKey(dep)) {
           throw new IllegalStateException(
-              "Service [" + n + "] depends on unknown service [" + dep + "]");
+            "Service [" + n + "] depends on unknown service [" + dep + "]");
         }
         edges.get(dep).add(n);
         indegree.merge(n, 1, Integer::sum);

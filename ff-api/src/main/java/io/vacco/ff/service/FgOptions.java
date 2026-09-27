@@ -2,13 +2,12 @@ package io.vacco.ff.service;
 
 import java.io.File;
 import java.util.HashMap;
-import java.util.Map;
 
 public class FgOptions {
 
-  public enum LogLevel { error, warning, info, debug, trace }
+  public enum LogLevel {error, warning, info, debug, trace}
 
-  public enum LogFormat { text, json }
+  public enum LogFormat {text, json}
 
   public static File vmDir;
   public static String bridge;
@@ -19,14 +18,14 @@ public class FgOptions {
 
   public static String usage() {
     return String.join("\n",
-        "frag-falcon - libkrun microVM hypervisor",
-        "",
-        "  --vm-dir=PATH        VM storage directory (required)",
-        "  --bridge=NAME        Linux bridge for VM TAPs (optional)",
-        "  --api-host=HOST      API bind address (default 127.0.0.1)",
-        "  --api-port=PORT      API port (default 7070)",
-        "  --log-format=FORMAT  text|json (default text)",
-        "  --log-level=LEVEL    error|warning|info|debug|trace (default info)"
+      "frag-falcon - libkrun microVM hypervisor",
+      "",
+      "  --vm-dir=PATH        VM storage directory (required)",
+      "  --bridge=NAME        Linux bridge for VM TAPs (optional)",
+      "  --api-host=HOST      API bind address (default 127.0.0.1)",
+      "  --api-port=PORT      API port (default 7070)",
+      "  --log-format=FORMAT  text|json (default text)",
+      "  --log-level=LEVEL    error|warning|info|debug|trace (default info)"
     );
   }
 

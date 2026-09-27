@@ -58,7 +58,8 @@ public class FgTarEntry implements Comparable<FgTarEntry> {
     return perms;
   }
 
-  @Override public int compareTo(FgTarEntry o) {
+  @Override
+  public int compareTo(FgTarEntry o) {
     return this.name.compareTo(o.name);
   }
 
@@ -84,7 +85,8 @@ public class FgTarEntry implements Comparable<FgTarEntry> {
     return new String(perms);
   }
 
-  @Override public String toString() {
+  @Override
+  public String toString() {
     return String.format(
       "[%s%s%s%s%s, %s, %08d] %s%s",
       isDirectory ? "d" : "",

@@ -10,7 +10,7 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
-import static j8spec.J8Spec.*;
+import static j8spec.J8Spec.it;
 import static org.junit.Assert.*;
 
 @DefinedOrder

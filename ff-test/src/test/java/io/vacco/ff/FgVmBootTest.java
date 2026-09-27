@@ -9,7 +9,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
 
-import static j8spec.J8Spec.*;
+import static j8spec.J8Spec.it;
 import static org.junit.Assert.*;
 
 /**
@@ -37,7 +37,7 @@ public class FgVmBootTest {
       args.add("--volume");
       args.add(host.getAbsolutePath() + ":/data");
       args.addAll(List.of("--", "/bin/sh", "-c",
-          "cat /data/host.txt; echo guest-wrote > /data/out.txt"));
+        "cat /data/host.txt; echo guest-wrote > /data/out.txt"));
       var r = FgTest.runVm("it-rw", args);
 
       assertEquals(0, r.exitCode());

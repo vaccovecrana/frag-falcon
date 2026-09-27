@@ -6,9 +6,12 @@ package io.vacco.ff.oci;
  */
 public interface FgOciProgress {
 
-  default void onLayers(int done, int total) {}
+  default void onLayers(int done, int total) {
+  }
 
-  default void onBytes(long done, long total) {}
+  default void onBytes(long done, long total) {
+  }
 
-  FgOciProgress NOOP = new FgOciProgress() {};
+  FgOciProgress NOOP = new FgOciProgress() {
+  };
 }

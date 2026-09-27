@@ -14,7 +14,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.util.concurrent.Executors;
 
-/** HTTP server exposing the stack-oriented REST API. */
+/**
+ * HTTP server exposing the stack-oriented REST API.
+ */
 public class FgApi implements Closeable {
 
   private static final Logger log = LoggerFactory.getLogger(FgApi.class);
@@ -31,7 +33,7 @@ public class FgApi implements Closeable {
     };
 
     var rpc = new RvMxAdapter<>(new FgApiHdl(svc), errorHdl,
-        (RvJsonInput) g::fromJson, (RvJsonOutput) g::toJson).build();
+      (RvJsonInput) g::fromJson, (RvJsonOutput) g::toJson).build();
 
     var router = new MxRouter().prefix(FgRoute.apiRoot, rpc);
     router.noMatch(xc -> xc.withStatus(MxStatus._404).commitText("not found"));
@@ -40,7 +42,8 @@ public class FgApi implements Closeable {
     log.info("frag-falcon API listening on http://{}:{}", host, port);
   }
 
-  @Override public void close() {
+  @Override
+  public void close() {
     mx.stop();
   }
 }

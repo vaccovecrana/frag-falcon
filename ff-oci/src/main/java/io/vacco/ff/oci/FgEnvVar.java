@@ -13,7 +13,8 @@ public class FgEnvVar {
     return v;
   }
 
-  @Override public String toString() {
+  @Override
+  public String toString() {
     return String.format(
       "%s%s", key,
       val != null

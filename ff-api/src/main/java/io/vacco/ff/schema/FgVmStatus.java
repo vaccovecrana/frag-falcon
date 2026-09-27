@@ -1,6 +1,8 @@
 package io.vacco.ff.schema;
 
-/** Runtime status of a VM, including optional provisioning progress. */
+/**
+ * Runtime status of a VM, including optional provisioning progress.
+ */
 public class FgVmStatus {
 
   public int pid;
