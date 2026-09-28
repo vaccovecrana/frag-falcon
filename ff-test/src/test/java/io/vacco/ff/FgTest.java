@@ -27,6 +27,7 @@ public class FgTest {
   public static final File WORK = new File("./build/it");
 
   private static File rootfs;
+  private static File cowsayRootfs;
 
   public static synchronized File rootfs() {
     try {
@@ -42,10 +43,32 @@ public class FgTest {
     return rootfs;
   }
 
+  /**
+   * Cached rootfs for the grycap/cowsay image, shared by the expansion and boot
+   * tests so the image is pulled once.
+   */
+  public static synchronized File cowsayRootfs() {
+    try {
+      Files.createDirectories(WORK.toPath());
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+    if (cowsayRootfs == null) {
+      var r = new File(WORK, "cowsay-rootfs");
+      FgDockerIo.extract("docker.io/grycap/cowsay:latest", r, new FgOciStore(new File(WORK, "oci")));
+      cowsayRootfs = r;
+    }
+    return cowsayRootfs;
+  }
+
   public static List<String> baseArgs(String vmId) {
+    return baseArgs(vmId, rootfs());
+  }
+
+  public static List<String> baseArgs(String vmId, File rootfsDir) {
     var args = new ArrayList<String>();
     args.add("--rootfs");
-    args.add(rootfs().getAbsolutePath());
+    args.add(rootfsDir.getAbsolutePath());
     args.add("--vcpus");
     args.add("2");
     args.add("--ram");

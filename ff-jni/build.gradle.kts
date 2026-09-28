@@ -25,17 +25,29 @@ val installNative = tasks.register<Sync>("installNative") {
  * overwrite the binary and silently drop its file capabilities, which makes
  * unprivileged dev runs fail with "Operation not permitted" on tap creation.
  *
- * Run it with the privileges setcap needs, e.g.:
- *   sudo bash ff-jni/setup-caps.sh
- * or, if the invoking shell already has passwordless sudo/root:
- *   gradle :ff-jni:setupCaps
+ * Best-effort: uses passwordless sudo when available, otherwise prints a hint.
+ * Production runs the flat tarball as root and needs no caps.
+ */
+/**
+ * Re-applies cap_net_admin to every launcher copy. Copying fg_vmm drops its
+ * file capabilities, and every dev/test run needs them to attach a TAP.
  *
- * A no-op in production, where the flat tarball is run as root and needs no caps.
+ * Uses $SUDOPW (a password piped to sudo -S) when present, so it can run
+ * unattended from Gradle; otherwise it prints the manual command. Production
+ * runs the flat tarball as root and needs no caps.
  */
 val setupCaps = tasks.register<Exec>("setupCaps") {
-  dependsOn(nativeBuild, installNative, tasks.processResources)
+  dependsOn(nativeBuild)
   workingDir = projectDir
-  commandLine("bash", "setup-caps.sh")
+  val pw = System.getenv("SUDOPW")
+  commandLine(
+    "bash", "-c",
+    if (pw != null && pw.isNotEmpty()) {
+      "printf '%s\\n' \"\$SUDOPW\" | sudo -S -p '' bash setup-caps.sh"
+    } else {
+      "sudo -n bash setup-caps.sh || echo 'run: sudo bash ff-jni/setup-caps.sh'"
+    }
+  )
   isIgnoreExitValue = true
 }
 
@@ -46,3 +58,6 @@ tasks.processResources {
     into("io/vacco/ff")
   }
 }
+
+// Copying fg_vmm drops its file capabilities; re-apply them after every sync.
+installNative.configure { finalizedBy(setupCaps) }
