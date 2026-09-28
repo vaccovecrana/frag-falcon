@@ -12,6 +12,7 @@
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <libkrun.h>
@@ -166,6 +167,7 @@ static int log_new;
 static char log_pending[LOG_LINE_MAX];
 static size_t log_pending_len;
 static pthread_mutex_t log_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t log_read_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 static void log_ring_add(const char *s, size_t len) {
     char *copy = malloc(len + 1);
@@ -208,6 +210,47 @@ static void log_flush(void) {
     pthread_mutex_unlock(&log_mtx);
 }
 
+/* Splits a chunk into lines, appending completed lines to the ring. Caller
+ * must hold log_read_mtx. */
+static void log_feed(const char *buf, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        char c = buf[i];
+        if (c == '\n') {
+            log_ring_add(log_pending, log_pending_len);
+            log_pending_len = 0;
+        } else if (log_pending_len < sizeof(log_pending) - 1) {
+            log_pending[log_pending_len++] = c;
+        }
+    }
+}
+
+/* Drains whatever is still buffered in the console pipe and flushes the ring.
+ * Runs from the interposed _exit() hook, since libkrun terminates the process
+ * with _exit() and never flushes on its own. */
+static void log_final_flush(void) {
+    if (log_file == NULL || log_read_fd < 0) {
+        return;
+    }
+    char buf[4096];
+    pthread_mutex_lock(&log_read_mtx);
+    for (;;) {
+        ssize_t n = read(log_read_fd, buf, sizeof(buf));
+        if (n > 0) {
+            log_feed(buf, (size_t) n);
+        } else if (n < 0 && (errno == EAGAIN || errno == EINTR)) {
+            break;
+        } else {
+            break; /* EOF or error */
+        }
+    }
+    if (log_pending_len > 0) {
+        log_ring_add(log_pending, log_pending_len);
+        log_pending_len = 0;
+    }
+    log_flush();
+    pthread_mutex_unlock(&log_read_mtx);
+}
+
 static void *log_thread(void *arg) {
     (void) arg;
     char buf[4096];
@@ -218,24 +261,20 @@ static void *log_thread(void *arg) {
         pfd.revents = 0;
         int pr = poll(&pfd, 1, 500);
         if (pr > 0 && (pfd.revents & (POLLIN | POLLHUP))) {
+            pthread_mutex_lock(&log_read_mtx);
             ssize_t n = read(log_read_fd, buf, sizeof(buf));
-            if (n <= 0) {
+            if (n > 0) {
+                log_feed(buf, (size_t) n);
+            } else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR)) {
                 if (log_pending_len > 0) {
                     log_ring_add(log_pending, log_pending_len);
                     log_pending_len = 0;
                 }
                 log_flush();
+                pthread_mutex_unlock(&log_read_mtx);
                 break;
             }
-            for (ssize_t i = 0; i < n; i++) {
-                char c = buf[i];
-                if (c == '\n') {
-                    log_ring_add(log_pending, log_pending_len);
-                    log_pending_len = 0;
-                } else if (log_pending_len < sizeof(log_pending) - 1) {
-                    log_pending[log_pending_len++] = c;
-                }
-            }
+            pthread_mutex_unlock(&log_read_mtx);
             if (log_new >= 64) {
                 log_flush();
             }
@@ -262,6 +301,10 @@ static void setup_log_ring(const char *path, int max_lines) {
         return;
     }
     log_read_fd = p[0];
+    int flags = fcntl(log_read_fd, F_GETFL, 0);
+    if (flags >= 0) {
+        fcntl(log_read_fd, F_SETFL, flags | O_NONBLOCK);
+    }
     dup2(p[1], STDOUT_FILENO);
     dup2(p[1], STDERR_FILENO);
     if (p[1] > STDERR_FILENO) {
@@ -273,6 +316,16 @@ static void setup_log_ring(const char *path, int max_lines) {
     if (pthread_create(&t, NULL, log_thread, NULL) == 0) {
         pthread_detach(t);
     }
+}
+
+/* libkrun terminates the process with libc::_exit() (see vmm/mod.rs), which
+ * bypasses atexit handlers and destructors. Interpose it from the executable
+ * (linked with -rdynamic) so we can flush the bounded log ring one last time
+ * before the process is torn down. */
+__attribute__((noreturn)) void _exit(int status) {
+    log_final_flush();
+    syscall(SYS_exit_group, status);
+    __builtin_unreachable();
 }
 
 static int parse_mac(const char *s, unsigned char *out) {

@@ -16,6 +16,7 @@ application {
 tasks.named<JavaExec>("run") {
   environment("FF_NATIVE_DIR", project(":ff-jni").layout.buildDirectory.dir("native").get().asFile.absolutePath)
   standardOutput = FileOutputStream(file("./out.log"))
+  dependsOn(":ff-jni:installNative", ":ff-jni:setupCaps")
 }
 
 graalvmNative {

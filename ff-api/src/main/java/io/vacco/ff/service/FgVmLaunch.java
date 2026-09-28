@@ -21,7 +21,9 @@ public class FgVmLaunch {
     a.add("--ram");
     a.add(Integer.toString(vm.machine.ramMib));
 
-    var workdir = vm.image != null && vm.image.workingDir != null ? vm.image.workingDir : "/";
+    var workdir = vm.image != null && vm.image.workingDir != null && !vm.image.workingDir.isBlank()
+      ? vm.image.workingDir
+      : "/";
     a.add("--workdir");
     a.add(workdir);
 

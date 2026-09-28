@@ -177,7 +177,8 @@ public class FgDockerIo {
     String workingDir = null;
     var workingDirJson = configJson.getAsJsonObject("config").get("WorkingDir");
     if (workingDirJson != null && !(workingDirJson instanceof JsonNull)) {
-      workingDir = workingDirJson.getAsString();
+      var wd = workingDirJson.getAsString();
+      workingDir = wd == null || wd.isBlank() ? null : wd;
     }
 
     String[] cmd = null;

@@ -217,9 +217,18 @@ last `--log-lines` (default 4096) lines in memory and rewrites `vm.log`
 therefore bounded, and it survives hypervisor restarts (the launcher owns it).
 `FgVmLaunch` passes `--log-file <service>/vm.log --log-lines 4096`.
 
-Trade-offs: messages beyond the last N are dropped, and because libkrun
-`_exit()`s the launcher, the final few lines after the last flush can be lost.
-Both are acceptable given the intent (containers ship their own telemetry).
+**Flush on exit.** libkrun ends the launcher with `libc::_exit()` (`vmm/mod.rs`),
+which runs no atexit handlers/destructors, so the ring used to miss the final
+lines — a fast-exiting workload (e.g. `cowsay` printing and quitting) could log
+nothing at all. The launcher now **interposes `_exit`** (its own definition,
+linked with `-rdynamic` so it wins over libkrun's `_exit@GLIBC_2.2.5`
+reference): the hook drains whatever is still buffered in the console pipe,
+folds the last partial line into the ring, flushes it, then calls
+`exit_group(2)`. Only messages still inside libkrun's virtqueue at shutdown can
+be lost.
+
+Trade-off: messages beyond the last N are dropped (acceptable given the intent —
+containers ship their own telemetry).
 
 
 

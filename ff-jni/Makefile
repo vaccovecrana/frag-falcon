@@ -20,7 +20,7 @@ $(OUT)/fg_vmm: src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_tap.h
 	  -o $@ src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c \
 	  -L$(LIBDIR) -Wl,--no-as-needed \
 	  -l:libkrun.so.2 -l:libkrun_init.so -l:libkrunfw.so.5 \
-	  -Wl,--as-needed \
+	  -Wl,--as-needed -rdynamic \
 	  -Wl,-rpath,$(abspath $(LIBDIR)) -Wl,-rpath,'$$ORIGIN'
 
 clean:

@@ -18,11 +18,9 @@ import static org.junit.Assert.*;
  * <p>This is hard-required: it needs {@code cap_net_admin} on the launcher and
  * fails (not skips) when it is missing. Run {@code ff-jni/setup-caps.sh}.
  *
- * <p>The {@code sleep} after cowsay is deliberate: libkrun {@code _exit()}s the
- * launcher when the guest exits, and the launcher's bounded log ring
- * (CAVEATS §12) only flushes periodically, so a fast-exiting workload can lose
- * its whole console output. Keeping the process alive lets the art land in
- * {@code vm.log}.
+ * <p>The trailing {@code sleep} keeps the guest up long enough to observe the
+ * DHCP lease on eth0 (the guest's own console output is flushed on exit by the
+ * launcher's {@code _exit} interposition, so it is no longer needed for that).
  */
 @DefinedOrder
 @RunWith(J8SpecRunner.class)
