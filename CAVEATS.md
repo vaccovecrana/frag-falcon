@@ -234,19 +234,57 @@ containers ship their own telemetry).
 
 ---
 
-## 14. Packaging: flat layout, run as root (no `setcap`)
+## 14. Packaging: flat layout, rootless by design
 
 The release is a flat `tar.gz`: the GraalVM native `ff-app` plus `fg_vmm` and the
 libkrun shared objects in the same directory. At runtime the executable resolves
 that directory via `/proc/self/exe` (override with `FF_NATIVE_DIR`); there is no
 resource extraction.
 
-The intended deployment runs **as root** (`User=root`), so no file capabilities
-are needed. File capabilities are also silently ignored on `nosuid` filesystems
-such as `/tmp`.
+The hypervisor runs **unprivileged**. Privilege is delegated to the OS once
+(see `deploy/setup.sh` and `deploy/flc.service`):
 
-Development (`gradle run`, tests, E2E) is the opposite: the hypervisor runs as
-the developer's user, so the launcher must carry `cap_net_admin` (see §4). The
-launcher therefore also links an absolute vendored-lib `RUNPATH`, because a
-setcap'd binary ignores `$ORIGIN` in secure-execution mode. Run
-`sudo bash ff-jni/setup-caps.sh` after each launcher rebuild.
+- the `fg_vmm` launcher carries `cap_net_admin` — via `setcap` or systemd
+  `AmbientCapabilities=CAP_NET_ADMIN` — for TAP create/attach/open;
+- the service user is in the **`kvm`** group (`/dev/kvm`);
+- the VM storage dir is mounted `nosuid,nodev,noexec` host-wide (fstab/.mount).
+
+`cap_net_admin` is a secure-execution context, so the launcher links an absolute
+vendored-lib `RUNPATH` (a cap'd binary ignores `$ORIGIN`/`LD_LIBRARY_PATH`; see
+§4). File capabilities are silently ignored on `nosuid` filesystems such as
+`/tmp`.
+
+**Volumes + namespaces + KVM.** The launcher isolates per-VM volume bind mounts
+by entering a user+mount namespace (`unshare(CLONE_NEWUSER|CLONE_NEWNS)`) when
+unprivileged. This works with KVM and with pre-created TAP devices (verified),
+provided the namespace is created **before any threads** — the log-ring thread
+starts after `setup_namespaces()` for exactly this reason (previously
+`--volume` together with `--log-file` failed with `EPERM`).
+
+**Development** uses the same unprivileged model: run
+`sudo bash ff-jni/setup-caps.sh` after each launcher rebuild to re-apply
+`cap_net_admin` (Gradle copies strip file capabilities).
+
+## 15. Container rootfs is writable but "eventually ephemeral"
+
+The guest's rootfs is a host directory shared over virtiofs. Guests can write it
+(creation, overwrite, system paths) — but writes land in the shared directory and
+**persist across restarts**; they are discarded only when the image reference is
+upgraded (`update` re-extracts). Only explicitly mounted volumes are durable.
+Treat image-relative state as "eventually ephemeral".
+
+Two consequences drove the model:
+
+- **Read-only files.** The launcher is unprivileged, so guest-root writes are
+  checked against the service user's host DAC; files an image ships `0444`
+  (e.g. `/etc/resolv.conf`) could not be overwritten. The extractor now adds
+  owner bits (`S_IWUSR` on files, `S_IRWXU` on dirs) so containers can rewrite
+  read-only files and initialize system paths at boot. Ownership and group/other
+  bits are unchanged.
+- **Persistence threat model.** A guest can plant setuid binaries, device nodes
+  (via `mknod`) and executables in the shared dir; because the virtiofs
+  passthrough runs as the service user, host-side processes touching that dir
+  could weaponize them. Mounting the vm dir `nosuid,nodev,noexec` (host-wide)
+  neutralizes that. The hypervisor only *audits* the flags at startup and warns;
+  it never mounts. Planted **symlinks** are not affected by mount flags —
+  treat the vm dir as hostile (don't run symlink-following tools over it).

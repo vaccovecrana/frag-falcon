@@ -34,8 +34,10 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
 - Tests use **j8spec**: annotate classes with `@DefinedOrder` +
   `@RunWith(J8SpecRunner.class)` and declare examples in a `static { it("...", () -> {...}); }` block.
 - The Alpine boot test requires **`/dev/kvm`** access and **network** (it pulls the image).
-  Volume tests need a mount namespace: root on the hypervisor, or unprivileged user
-  namespaces for local runs.
+  Volume tests need a mount namespace: the launcher uses an unprivileged user
+  namespace, so no root is required (see CAVEATS §14).
+- Build-only CI (no KVM/caps/network): `gradle :ff-test:test -PskipPrivilegedTests`
+  (or `FF_SKIP_PRIVILEGED_TESTS=1`) excludes the boot/DHCP/E2E/image-pull tests.
 - `ff-jni`'s native code is built by `make` (invoked from Gradle's `nativeBuild` task);
   it needs `cc` and `JAVA_HOME` (set). Rebuild directly with `make -C ff-jni`.
 - The **network test** needs `cap_net_admin` on the launcher: run
@@ -86,10 +88,14 @@ in M3 (the C launcher owns libkrun).
    The native launcher `ff-jni/src/vmm/fg_vmm.c` is one process per VM; `FgProc`
    spawns it and `ff-test` waits on it.
 2. **Volumes are host-side bind mounts.** The launcher `unshare`s a mount namespace
-   (`CLONE_NEWNS` as root, `CLONE_NEWUSER|CLONE_NEWNS` unprivileged) and bind-mounts
-   each host dir into the rootfs dir at its guest path; libkrun's virtiofs follows
-   submounts, so the guest needs no mount step. libkrun's built-in init only applies
-   `tmpfs` mounts — do not expect it to mount virtiofs devices.
+   (`CLONE_NEWUSER|CLONE_NEWNS` unprivileged; `CLONE_NEWNS` if ever root) and
+   bind-mounts each host dir into the rootfs dir at its guest path; libkrun's
+   virtiofs follows submounts, so the guest needs no mount step. libkrun's built-in
+   init only applies `tmpfs` mounts — do not expect it to mount virtiofs devices.
+   The namespace is entered **before any thread is spawned** (`setup_namespaces()`
+   runs before the log-ring thread): `unshare(CLONE_NEWUSER)` fails in a
+   multithreaded process, which used to break `--volume` + `--log-file`.
+   Verified: userns + KVM + a pre-created persistent TAP all coexist.
 3. **Console ports must be named** `krun-stdin` / `krun-stdout` / `krun-stderr` —
    use `krun_console_builder_add_default_console`. Custom-named inout ports yield no
    workload stdout.
@@ -131,8 +137,14 @@ in M3 (the C launcher owns libkrun).
 Release = a flat `tar.gz` (`gradle :flc:distNativeTar`) containing the GraalVM
 native `ff-app`, `fg_vmm`, and the libkrun `.so`s. At runtime `FgNative` resolves
 their directory from `/proc/self/exe` (override `FF_NATIVE_DIR`; no resource
-extraction). Run as **root** — a `setcap`'d launcher ignores both
-`LD_LIBRARY_PATH` and `$ORIGIN`, and caps are ignored entirely on `nosuid` fs.
+extraction).
+
+The deployment is **rootless**: a service user owns the vm dir and runs `ff-app`;
+`fg_vmm` carries `cap_net_admin` (setcap or systemd `AmbientCapabilities`); the
+user is in the `kvm` group; the vm dir is mounted `nosuid,nodev,noexec` host-wide.
+A `setcap`'d launcher ignores both `LD_LIBRARY_PATH` and `$ORIGIN` (hence the
+absolute RUNPATH), and caps are ignored entirely on `nosuid` fs. See
+`deploy/setup.sh`, `deploy/flc.service`, and CAVEATS §14–§15.
 
 ## UI direction (when the UI milestone starts)
 

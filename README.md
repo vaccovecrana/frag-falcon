@@ -33,14 +33,27 @@ frag-falcon-<version>/
 ```
 
 Run it from that directory: the executable finds `fg_vmm` and the libkrun
-libraries beside itself. **Run as root** — the hypervisor manages TAP devices and
-bind mounts, and root needs no extra capabilities.
+libraries beside itself.
 
-## Options
+### Rootless deployment
+
+frag-falcon is designed to run **unprivileged**. Privilege is delegated to the
+OS once, not reimplemented in the hypervisor:
+
+- a dedicated service user owns the VM storage dir (`--vm-dir`);
+- the `fg_vmm` launcher carries `cap_net_admin` (for TAP devices) — `setcap`, or
+  systemd `AmbientCapabilities=CAP_NET_ADMIN`;
+- the service user is in the **`kvm`** group (for `/dev/kvm`);
+- the VM storage dir is mounted **`nosuid,nodev,noexec`** (host-wide, e.g. via
+  fstab) so files a guest plants in its rootfs (setuid binaries, device nodes,
+  executables) are inert to host-side processes. The hypervisor audits this at
+  startup and logs a warning if it is missing.
+
+`deploy/setup.sh <user> <vm-dir> [install-dir]` performs the one-time setup, and
+`deploy/flc.service` is a sample unit. The hypervisor never needs root.
 
 ```
 --vm-dir=PATH        VM storage directory (required)
---bridge=NAME        Linux bridge for VM TAPs (optional)
 --api-host=HOST      API bind address (default 127.0.0.1)
 --api-port=PORT      API port (default 7070)
 --log-format=FORMAT  text|json (default text)

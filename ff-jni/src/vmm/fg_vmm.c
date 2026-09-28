@@ -88,7 +88,11 @@ static void write_file(const char *path, const char *data) {
     }
 }
 
-static void setup_volumes(void) {
+/* Enters a private mount namespace (plus a user namespace when unprivileged)
+ * so the volume bind mounts below are isolated from the host. Must run while
+ * the process is still single-threaded: unshare(CLONE_NEWUSER) is rejected once
+ * other threads exist, so this is called before the log-ring thread starts. */
+static void setup_namespaces(void) {
     if (volume_count == 0) {
         return;
     }
@@ -113,7 +117,12 @@ static void setup_volumes(void) {
         fprintf(stderr, "[fg-vmm] make / private: %s\n", strerror(errno));
         exit(125);
     }
+}
 
+static void setup_volume_mounts(void) {
+    if (volume_count == 0) {
+        return;
+    }
     long root_fd = fg_root_open(rootfs_dir);
     if (root_fd < 0) {
         fprintf(stderr, "[fg-vmm] open rootfs %s: %s\n", rootfs_dir, strerror((int) -root_fd));
@@ -458,6 +467,8 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    setup_namespaces();
+
     setup_log_ring(log_file, log_lines);
 
     const char *vm_id = vm_id_arg;
@@ -485,7 +496,7 @@ int main(int argc, char **argv) {
     check_result(krun_init_log(1, KRUN_LOG_LEVEL_WARN, KRUN_LOG_STYLE_NEVER, 0, &krun_err),
                  "krun_init_log");
 
-    setup_volumes();
+    setup_volume_mounts();
 
     struct rlimit rlim;
     if (getrlimit(RLIMIT_NOFILE, &rlim) == 0) {

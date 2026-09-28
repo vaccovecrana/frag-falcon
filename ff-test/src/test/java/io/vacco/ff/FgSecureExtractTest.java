@@ -9,6 +9,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
 
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.*;
@@ -52,8 +54,9 @@ public class FgSecureExtractTest {
           String link = (String) entry[2];
           byte[] data = type == '0' ? ((String) entry[3]).getBytes(StandardCharsets.UTF_8) : new byte[0];
           long size = data.length;
+          int mode = entry.length > 4 ? (Integer) entry[4] : 0755;
           byte[] hdr = new byte[512];
-          header(hdr, name, link, type, size, 0755);
+          header(hdr, name, link, type, size, mode);
           fos.write(hdr);
           if (size > 0) {
             fos.write(data);
@@ -72,8 +75,16 @@ public class FgSecureExtractTest {
     return new Object[]{name, '0', "", content};
   }
 
+  private static Object file(String name, String content, int mode) {
+    return new Object[]{name, '0', "", content, mode};
+  }
+
   private static Object dir(String name) {
     return new Object[]{name, '5', "", ""};
+  }
+
+  private static Object dir(String name, int mode) {
+    return new Object[]{name, '5', "", "", mode};
   }
 
   private static Object symlink(String name, String target) {
@@ -148,6 +159,27 @@ public class FgSecureExtractTest {
       } catch (IllegalStateException expected) {
         assertFalse(new File(root, "steal").exists());
       }
+    });
+
+    it("adds owner-write to read-only files and owner-rwx to read-only dirs", () -> {
+      var root = freshRoot();
+      var tar = new File(FgTest.WORK, "normalize.tar");
+      writeTar(tar,
+        dir("etc", 0555),
+        file("etc/resolv.conf", "", 0444),
+        file("bin/tool", "x", 0555));
+      FgRoot.extractTar(root, tar);
+
+      var resolv = Files.getPosixFilePermissions(new File(root, "etc/resolv.conf").toPath());
+      assertTrue("read-only file must become owner-writable", resolv.contains(PosixFilePermission.OWNER_WRITE));
+      assertFalse("group/other bits must be untouched", resolv.contains(PosixFilePermission.GROUP_WRITE));
+
+      var etc = Files.getPosixFilePermissions(new File(root, "etc").toPath());
+      assertTrue("read-only dir must become owner-rwx", etc.contains(PosixFilePermission.OWNER_WRITE));
+      assertTrue("read-only dir must become owner-rwx", etc.contains(PosixFilePermission.OWNER_EXECUTE));
+
+      var tool = Files.getPosixFilePermissions(new File(root, "bin/tool").toPath());
+      assertTrue("read-only file must become owner-writable", tool.contains(PosixFilePermission.OWNER_WRITE));
     });
   }
 }

@@ -410,6 +410,18 @@ int fg_extract_tar(int root_fd, const char *tar_path) {
         int uid = (int) parse_octal(hdr + 108, 8);
         int gid = (int) parse_octal(hdr + 116, 8);
 
+        /* Owner-write normalization. The hypervisor/launcher run as an
+         * unprivileged user, so guest-root writes are checked against that
+         * user's host DAC. Add only the owner bits: writable files and
+         * owner-rwx directories, so containers can rewrite read-only files
+         * (e.g. /etc/resolv.conf) and initialize system paths at boot, like a
+         * writable container layer. Ownership/group/other bits are unchanged. */
+        if (type == '5') {
+            mode |= S_IRWXU;
+        } else if (type == '0' || type == '\0' || type == '7') {
+            mode |= S_IWUSR;
+        }
+
         /* Whiteouts (OCI): delete the named path instead of creating an entry. */
         const char *base = strrchr(name, '/');
         base = base ? base + 1 : name;
