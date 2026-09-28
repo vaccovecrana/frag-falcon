@@ -2,14 +2,12 @@ import com.github.gradle.node.npm.task.NpmTask
 
 plugins {
   id("io.vacco.oss.gitflow")
-  id("com.github.node-gradle.node") version "7.0.1"
+  id("com.github.node-gradle.node") version libs.versions.nodePl
 }
 
 configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
   sharedLibrary(true, false)
 }
-
-val api by configurations
 
 node {
   download.set(true)

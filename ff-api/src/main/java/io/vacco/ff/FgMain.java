@@ -2,6 +2,7 @@ package io.vacco.ff;
 
 import io.vacco.ff.service.FgContext;
 import io.vacco.ff.service.FgOptions;
+import io.vacco.shax.logging.ShLogger;
 
 public class FgMain {
 
@@ -16,8 +17,12 @@ public class FgMain {
         return;
       }
     }
+
+    ShLogger.setPrintStream(System.out);
     FgOptions.setFrom(args);
+
     var ctx = new FgContext();
+
     Runtime.getRuntime().addShutdownHook(new Thread(ctx::close, "ff-shutdown"));
     try {
       ctx.init();
@@ -26,5 +31,7 @@ public class FgMain {
       ctx.close();
       System.exit(1);
     }
+
   }
+
 }

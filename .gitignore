@@ -17,9 +17,10 @@ ff-jni/out/
 
 .idea/
 .gradle/
-gradle/
+gradle/wrapper
 gradlew*
 
 node_modules/
 
 vm-test/
+out.log

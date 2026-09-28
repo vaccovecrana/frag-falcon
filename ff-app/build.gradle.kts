@@ -1,6 +1,8 @@
+import java.io.FileOutputStream
+
 plugins {
   application
-  id("org.graalvm.buildtools.native") version "1.1.13"
+  id("org.graalvm.buildtools.native") version libs.versions.graalPl
 }
 
 dependencies {
@@ -9,6 +11,11 @@ dependencies {
 
 application {
   mainClass.set("io.vacco.ff.FgMain")
+}
+
+tasks.named<JavaExec>("run") {
+  environment("FF_NATIVE_DIR", project(":ff-jni").layout.buildDirectory.dir("native").get().asFile.absolutePath)
+  standardOutput = FileOutputStream(file("./out.log"))
 }
 
 graalvmNative {
