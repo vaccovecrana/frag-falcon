@@ -63,7 +63,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         </button>
         <a class="vf-pill" href={uiStackEdit(id)}>Edit</a>
         <button class="vf-pill" disabled={processing}
-                onClick={() => run(() => apiV1StackLogsPost({stackId: id}).then(m => setLogs(Object.fromEntries(m))))}>Logs
+                onClick={() => run(() => apiV1StackLogsPost({stackId: id}).then(m => setLogs(m as any)))}>Logs
         </button>
         <button class="vf-pill" disabled={processing}
                 onClick={() => run(() => apiV1StackIdDelete(id).then(() => window.location.replace(uiRoot)))}>Delete

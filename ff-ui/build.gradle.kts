@@ -36,3 +36,17 @@ tasks.processResources {
     expand("projectVersion" to version)
   }
 }
+
+/**
+ * Browser E2E suite against a running hypervisor. Not wired into `build`
+ * (it requires a live UI); run it explicitly:
+ *
+ *   FF_UI_URL=http://127.0.0.1:7070 gradle :ff-ui:e2eTest
+ */
+tasks.register<NpmTask>("e2eTest") {
+  description = "Runs the puppeteer/node:test browser suite against a running UI"
+  group = "verification"
+  dependsOn(tasks.npmInstall)
+  npmCommand.set(listOf("run", "test:e2e"))
+  environment.put("FF_UI_URL", System.getenv("FF_UI_URL") ?: "http://127.0.0.1:7070")
+}

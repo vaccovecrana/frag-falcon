@@ -35,25 +35,28 @@ test("keeps the YAML editor and the form fields in sync (both directions)", asyn
   await goto(page, "/stack/new")
 
   // form -> yaml
-  const img = await page.$(".ff-service-name")
-  assert.ok(img, "service card missing")
-  const imageInput = await page.$(".vf-panel input[list='ff-images']")
-  await imageInput.click({clickCount: 3})
-  await imageInput.type("docker.io/library/busybox:latest")
+  await page.evaluate(() => {
+    const el = document.querySelector(".vf-panel input[list='ff-images']")
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set
+    set.call(el, "docker.io/library/busybox:latest")
+    el.dispatchEvent(new Event("input", { bubbles: true }))
+  })
   await new Promise((r) => setTimeout(r, 300))
   const yaml1 = await page.$eval(".ff-yaml", (el) => el.value)
   assert.match(yaml1, /busybox:latest/)
 
   // yaml -> form
-  const ta = await page.$(".ff-yaml")
-  await page.$eval(".ff-yaml", (el) => {
-    el.value = ""
+  await page.evaluate(() => {
+    const ta = document.querySelector(".ff-yaml")
+    const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set
+    set.call(ta, "id: synced\nservices:\n  web:\n    image: docker.io/library/nginx:latest\n")
+    ta.dispatchEvent(new Event("input", { bubbles: true }))
   })
-  await ta.type("id: synced\nservices:\n  web:\n    image: docker.io/library/nginx:latest\n")
-  await new Promise((r) => setTimeout(r, 300))
+  await new Promise((r) => setTimeout(r, 400))
   const nameVal = await page.$eval(".ff-service-name", (el) => el.value)
+  const imageVal = await page.$eval(".vf-panel input[list='ff-images']", (el) => el.value)
   assert.equal(nameVal, "web")
-  assert.match(await text(page, "body"), /nginx/)
+  assert.match(imageVal, /nginx:latest/)
 })
 
 test("reports no console errors on the editor", async () => {
