@@ -1,20 +1,22 @@
 import {RenderableProps} from "preact"
-import {useContext} from "preact/hooks"
+import {useContext, useEffect, useRef} from "preact/hooks"
 import {UiContext, usrMsgClear} from "@ui/store"
 
-const resolveMessage = (error: any): string => {
-  if (typeof error === "string") {
-    return error
-  } else if (error && typeof error.error === "string") {
-    return error.error
-  } else if (error && typeof error.message === "string") {
-    return error.message
-  }
-  return "An unknown error occurred"
-}
+const AUTO_DISMISS_MS = 6000
 
 const FfLock = (props: RenderableProps<{}>) => {
   const {dispatch: d, state} = useContext(UiContext)
+  const msg = state.lastMessage
+  const timer = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    window.clearTimeout(timer.current)
+    if (msg && msg.severity === "info") {
+      timer.current = window.setTimeout(() => usrMsgClear(d), AUTO_DISMISS_MS)
+    }
+    return () => window.clearTimeout(timer.current)
+  }, [msg])
+
   return (
     <div>
       {props.children}
@@ -23,9 +25,9 @@ const FfLock = (props: RenderableProps<{}>) => {
           <div class="vf-lock-spinner"/>
         </div>
       )}
-      {state.lastMessage && (
-        <div class="vf-toast" role="status">
-          <span>{resolveMessage(state.lastMessage)}</span>
+      {msg && (
+        <div class={`vf-toast vf-toast--${msg.severity}`} role="alert">
+          <span class="vf-toast-msg">{msg.message}</span>
           <button
             class="vf-toast-close"
             aria-label="Close"

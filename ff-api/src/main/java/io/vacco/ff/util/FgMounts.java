@@ -55,7 +55,9 @@ public class FgMounts {
     }
   }
 
-  /** Finds the mount (longest mount-point prefix) covering {@code path}. */
+  /**
+   * Finds the mount (longest mount-point prefix) covering {@code path}.
+   */
   public static MountInfo check(File path) {
     try {
       return check(path.getCanonicalPath(), readMountInfo());

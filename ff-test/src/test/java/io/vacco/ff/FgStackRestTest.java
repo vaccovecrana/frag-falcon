@@ -1,11 +1,11 @@
 package io.vacco.ff;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import io.vacco.ff.api.FgApi;
+import io.vacco.ff.api.result.FgStackListResult;
+import io.vacco.ff.api.result.FgStackLogsResult;
 import io.vacco.ff.schema.FgService;
 import io.vacco.ff.schema.FgStack;
-import io.vacco.ff.schema.FgStackStatus;
 import io.vacco.ff.service.FgStackSvc;
 import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
@@ -69,20 +69,16 @@ public class FgStackRestTest {
 
         assertEquals(200, post(base + "/api/v1/stack", stack).statusCode());
 
-        List<FgStackStatus> list = G.fromJson(get(base + "/api/v1/stack").body(),
-          new TypeToken<List<FgStackStatus>>() {
-          }.getType());
-        assertTrue(list.stream().anyMatch(x -> stackId.equals(x.id)));
+        FgStackListResult list = G.fromJson(get(base + "/api/v1/stack").body(), FgStackListResult.class);
+        assertTrue(list.stacks.stream().anyMatch(x -> stackId.equals(x.id)));
 
         assertEquals(200, post(base + "/api/v1/stack/start",
           Map.of("stackId", stackId)).statusCode());
 
         var running = false;
         for (int i = 0; i < 300 && !running; i++) {
-          List<FgStackStatus> st = G.fromJson(get(base + "/api/v1/stack").body(),
-            new TypeToken<List<FgStackStatus>>() {
-            }.getType());
-          var mine = st.stream().filter(x -> stackId.equals(x.id)).findFirst().orElse(null);
+          FgStackListResult st = G.fromJson(get(base + "/api/v1/stack").body(), FgStackListResult.class);
+          var mine = st.stacks.stream().filter(x -> stackId.equals(x.id)).findFirst().orElse(null);
           running = mine != null && mine.services.values().stream()
             .anyMatch(y -> y.state == io.vacco.ff.schema.FgVmState.running);
           Thread.sleep(100);
@@ -91,7 +87,11 @@ public class FgStackRestTest {
 
         var logBody = "";
         for (int i = 0; i < 200; i++) {
-          logBody = post(base + "/api/v1/stack/logs", Map.of("stackId", stackId)).body();
+          var logs = G.fromJson(
+            post(base + "/api/v1/stack/logs", Map.of("stackId", stackId)).body(),
+            FgStackLogsResult.class
+          );
+          logBody = String.join("\n", logs.logs.values());
           if (logBody.contains("m5b-ok")) {
             break;
           }

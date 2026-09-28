@@ -1,8 +1,15 @@
 import {Context, createContext} from "preact"
 
+export type ToastSeverity = "error" | "info"
+
+export interface Toast {
+  message: string
+  severity: ToastSeverity
+}
+
 export interface UiState {
   uiLocked: boolean
-  lastMessage: any
+  lastMessage: Toast | undefined
 }
 
 export type UiDispatch = (action: UiAction) => void
@@ -14,7 +21,7 @@ export interface UiStore {
 
 export type UiAction =
   | { type: "lockUi", payload: boolean }
-  | { type: "usrMsg", payload: string }
+  | { type: "usrMsg", payload: Toast }
   | { type: "usrMsgClear" }
 
 export const hit = (act: UiAction, d: UiDispatch): Promise<void> => {
@@ -23,8 +30,10 @@ export const hit = (act: UiAction, d: UiDispatch): Promise<void> => {
 }
 
 export const lockUi = (locked: boolean, d: UiDispatch) => hit({type: "lockUi", payload: locked}, d)
-export const usrInfo = (payload: string, d: UiDispatch) => hit({type: "usrMsg", payload}, d)
-export const usrError = (payload: any, d: UiDispatch) => hit({type: "usrMsg", payload}, d)
+export const usrInfo = (message: string, d: UiDispatch) =>
+  hit({type: "usrMsg", payload: {message, severity: "info"}}, d)
+export const usrError = (message: string, d: UiDispatch) =>
+  hit({type: "usrMsg", payload: {message, severity: "error"}}, d)
 export const usrMsgClear = (d: UiDispatch) => hit({type: "usrMsgClear"}, d)
 
 export const UiReducer = (state0: UiState, action: UiAction): UiState => {

@@ -27,8 +27,11 @@ export const seedStack = async (stack) => {
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(stack),
   })
-  if (!res.ok) throw new Error(`seed failed (${res.status}): ${await res.text()}`)
-  return res.json()
+  const body = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(`seed failed (${res.status}): ${body.error || JSON.stringify(body)}`)
+  }
+  return body.stack
 }
 
 export const deleteStack = async (id) => {
@@ -36,7 +39,11 @@ export const deleteStack = async (id) => {
   })
 }
 
-export const listStacks = async () => (await fetch(apiUrl("/v1/stack")).then(r => r.json()))
+/** Unwraps the FgStackListResult envelope. */
+export const listStacks = async () => {
+  const body = await fetch(apiUrl("/v1/stack")).then(r => r.json())
+  return body.stacks || []
+}
 
 /** Launches Chrome and returns a fresh page wired to capture console/page errors. */
 export const openPage = async () => {

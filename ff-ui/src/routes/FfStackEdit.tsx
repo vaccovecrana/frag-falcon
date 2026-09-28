@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "preact/hooks"
-import { RoutableProps } from "preact-router"
-import { parse, stringify } from "yaml"
-import { apiV1BrGet, apiV1StackIdGet, apiV1StackPost, FgService, FgStack } from "@ui/rpc"
-import { uiRoot, VmIdNew } from "@ui/routes"
-import { usrError } from "@ui/store"
+import {useContext, useEffect, useRef, useState} from "preact/hooks"
+import {RoutableProps} from "preact-router"
+import {parse, stringify} from "yaml"
+import {apiV1BrGet, apiV1StackIdGet, apiV1StackPost, apiV1StackStartPost, FgService, FgStack} from "@ui/rpc"
+import {uiRoot, VmIdNew} from "@ui/routes"
+import {UiContext, usrError} from "@ui/store"
+import {messageOf, unwrap} from "@ui/api"
 import FfServiceCard from "@ui/components/FfServiceCard"
 
 const ID_PATTERN = /^[A-Za-z0-9-]+$/
@@ -23,7 +24,7 @@ const toEntries = (services: any): Entry[] => {
   const pairs: [string, FgService][] = services instanceof Map
     ? [...services.entries()]
     : Object.entries(services || {}) as [string, FgService][]
-  return pairs.map(([name, service]) => ({ key: nextKey(), name, service }))
+  return pairs.map(([name, service]) => ({key: nextKey(), name, service}))
 }
 
 const toStack = (id: string, bridge: string, entries: Entry[]): FgStack => ({
@@ -45,6 +46,7 @@ const yamlOf = (id: string, bridge: string, entries: Entry[]): string => {
 const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const isNew = !props.stackId || props.stackId === VmIdNew
   const id = isNew ? "" : props.stackId!
+  const {dispatch} = useContext(UiContext)
 
   const [stackId, setStackId] = useState(id)
   const [bridge, setBridge] = useState("")
@@ -58,7 +60,7 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const ready = useRef(false)
 
   useEffect(() => {
-    apiV1BrGet().then(setBridges).catch(() => {})
+    apiV1BrGet().then(r => setBridges(r.bridges || [])).catch(e => usrError(messageOf(e), dispatch))
     const refreshYaml = (sid: string, br: string, es: Entry[]) => {
       setYamlText(yamlOf(sid, br, es))
       ready.current = true
@@ -66,18 +68,23 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
     if (isNew) {
       const init: Entry[] = [{
         key: nextKey(), name: "app",
-        service: { image: "docker.io/library/alpine:latest", restart: "unless-stopped", command: ["/bin/sh", "-c", "sleep 3600"] },
+        service: {
+          image: "docker.io/library/alpine:latest",
+          restart: "unless-stopped",
+          command: ["/bin/sh", "-c", "sleep 3600"]
+        },
       }]
       setEntries(init)
       refreshYaml("", "", init)
     } else {
-      apiV1StackIdGet(id).then(s => {
+      apiV1StackIdGet(id).then(unwrap).then(r => {
+        const s = r.stack!
         const es = toEntries(s.services)
         setStackId(s.id || id)
         setBridge(s.bridge || "")
         setEntries(es)
         refreshYaml(s.id || id, s.bridge || "", es)
-      }).catch(e => usrError(e, () => {}))
+      }).catch(e => usrError(messageOf(e), dispatch))
     }
   }, [id, isNew])
 
@@ -85,19 +92,23 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const renderYaml = (sid: string, br: string, es: Entry[]) => setYamlText(yamlOf(sid, br, es))
 
   const addService = () => {
-    const es = [...entries, { key: nextKey(), name: `service-${entries.length + 1}`, service: { image: "", restart: "unless-stopped" } }]
+    const es = [...entries, {
+      key: nextKey(),
+      name: `service-${entries.length + 1}`,
+      service: {image: "", restart: "unless-stopped"}
+    }]
     setEntries(es)
     renderYaml(stackId, bridge, es)
   }
 
   const renameEntry = (key: string, next: string) => {
-    const es = entries.map(e => e.key === key ? { ...e, name: next } : e)
+    const es = entries.map(e => e.key === key ? {...e, name: next} : e)
     setEntries(es)
     renderYaml(stackId, bridge, es)
   }
 
   const patchEntry = (key: string, patch: Partial<FgService>) => {
-    const es = entries.map(e => e.key === key ? { ...e, service: { ...e.service, ...patch } } : e)
+    const es = entries.map(e => e.key === key ? {...e, service: {...e.service, ...patch}} : e)
     setEntries(es)
     renderYaml(stackId, bridge, es)
   }
@@ -130,7 +141,7 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
 
   const save = (thenStart: boolean) => {
     if (yamlError) {
-      usrError(`Fix the YAML error first: ${yamlError}`, () => {})
+      usrError(`Fix the YAML error first: ${yamlError}`, dispatch)
       return
     }
     if (isNew) {
@@ -162,17 +173,14 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
     setProcessing(true)
     const payload = toStack(stackId.trim(), bridge, entries)
     apiV1StackPost(payload)
-      .then(async saved => {
+      .then(unwrap)
+      .then(async r => {
         if (thenStart) {
-          await fetch("/api/v1/stack/start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ stackId: saved.id }),
-          })
+          await apiV1StackStartPost({stackId: r.stack!.id}).then(unwrap)
         }
       })
       .then(() => window.location.replace(uiRoot))
-      .catch(e => usrError(e, () => {}))
+      .catch(e => usrError(messageOf(e), dispatch))
       .finally(() => setProcessing(false))
   }
 
@@ -190,8 +198,8 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
         <button class="vf-pill" disabled={processing} onClick={() => save(false)}>Save</button>
       </div>
 
-      {formError && <div class="vf-error vf-mb-4">{formError}</div>}
-      {yamlError && <div class="vf-error vf-mb-4">{yamlError}</div>}
+      {formError && <div class="vf-error">{formError}</div>}
+      {yamlError && <div class="vf-error">{yamlError}</div>}
 
       <div class="ff-grid-2" style="max-width:720px">
         <div class="ff-field">

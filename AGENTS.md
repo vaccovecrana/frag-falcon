@@ -79,6 +79,11 @@ in M3 (the C launcher owns libkrun).
   (e.g. `fg_proc.c`, `fg_vmm.c`). This mirrors the old codebase.
 - **Tests live in `ff-test`**, not in the modules under test. Move/centralize any
   test code there.
+- **REST responses use `RvResult` envelopes.** Every controller endpoint returns
+  an `RvResponse<<X>Result>` whose body is an `RvResult` subclass (under
+  `ff-api/.../api/result/`) — set on **both** success and failure (failure:
+  `withError`, plus `validations` from `FgValidationException`). Never return an
+  empty error body. See CAVEATS §16.
 - **Incremental migration**: keep what is still useful, drop what libkrun now
   provides. Prefer porting/adapting old code over rewriting from scratch.
 - **Do not add comments** unless asked.

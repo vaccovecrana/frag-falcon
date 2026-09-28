@@ -8,7 +8,8 @@ import org.junit.runner.RunWith;
 import java.util.List;
 
 import static j8spec.J8Spec.it;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Per-image boot test: boots {@code grycap/cowsay} as a microVM attached to the

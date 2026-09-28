@@ -9,6 +9,7 @@ import io.vacco.ff.oci.FgOciProgress;
 import io.vacco.ff.oci.FgOciStore;
 import io.vacco.ff.schema.*;
 import io.vacco.ff.util.FgIo;
+import io.vacco.ronove.RvValidation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,11 +102,17 @@ public final class FgStackSvc implements AutoCloseable {
   public FgStack save(FgStack stack) {
     var id = stack.id;
     if (id == null || !ID.matcher(id).matches()) {
-      throw new IllegalArgumentException("Invalid stack id (letters, numbers, dash only): " + id);
+      throw new FgValidationException(
+        "Invalid stack id (letters, numbers, dash only): " + id,
+        RvValidation.of("ff.stack.invalidId").withName("id").withParam("id", String.valueOf(id))
+      );
     }
     if (stack.bridge != null && !stack.bridge.isBlank()
-        && !FgJni.getLinuxBridgeInterfaces().contains(stack.bridge)) {
-      throw new IllegalArgumentException("Unknown Linux bridge: " + stack.bridge);
+      && !FgJni.getLinuxBridgeInterfaces().contains(stack.bridge)) {
+      throw new FgValidationException(
+        "Unknown Linux bridge: " + stack.bridge,
+        RvValidation.of("ff.stack.unknownBridge").withName("bridge").withParam("bridge", stack.bridge)
+      );
     }
     FgIo.mkDirs(stackDir(id));
     FgIo.toJson(stack, stackJson(id), gson);

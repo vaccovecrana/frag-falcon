@@ -14,7 +14,9 @@ public class FgStack {
 
   public String id;
 
-  /** Linux bridge all services attach to; empty/absent means no NIC. */
+  /**
+   * Linux bridge all services attach to; empty/absent means no NIC.
+   */
   public String bridge;
 
   public Map<String, FgService> services = new LinkedHashMap<>();

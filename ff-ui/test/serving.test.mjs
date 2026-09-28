@@ -42,5 +42,6 @@ test("serves the stack API as JSON", async () => {
   if (!page) return
   const res = await fetch(UI_URL + "/api/v1/stack")
   assert.equal(res.status, 200)
-  assert.ok(Array.isArray(await res.json()))
+  const body = await res.json()
+  assert.ok(Array.isArray(body.stacks))
 })

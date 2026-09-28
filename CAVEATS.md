@@ -288,3 +288,38 @@ Two consequences drove the model:
   neutralizes that. The hypervisor only *audits* the flags at startup and warns;
   it never mounts. Planted **symlinks** are not affected by mount flags —
   treat the vm dir as hostile (don't run symlink-following tools over it).
+
+## 16. API error contract: `RvResult` envelopes
+
+Every REST endpoint returns a **JSON body on both success and failure** — a
+`RvResult` subclass defined under `ff-api/.../api/result/` (e.g.
+`FgStackListResult { List<FgStackStatus> stacks }`). On failure the same DTO is
+returned with `error` set and, for validation failures, `validations` populated
+(`RvValidation`: `key` + `params` + optional `name`). This is why there is no
+`fail(status, e)` helper that returns an empty body.
+
+Services signal validation failures with `FgValidationException` (carrying
+`RvValidation`s); the API layer maps them onto the result DTO. The frontend
+bundle carries sentence templates per `key` (`ff-ui/src/i18n.ts`), so the
+backend stays locale-agnostic. Note: the generated TypeScript types `params` as
+a `Map`, but the wire format is a plain JSON object — read it defensively
+(`ff-ui/src/i18n.ts`).
+
+The frontend unwraps envelopes in `ff-ui/src/api.ts` and raises any `error`/
+`validations` as an error **toast** (background polls stay silent).
+
+## 17. Test platform requirements (reproducing the suite)
+
+The E2E (`ff-ui/test/*.test.mjs`) and integration (`ff-test`) suites now
+**hard-require** the full platform — they fail rather than skip when it is
+missing:
+
+- a Linux bridge, default **`virbr0`** (libvirt's default network; `docker0` has
+  no DHCP server). Override with `FF_E2E_BRIDGE`;
+- **`/dev/kvm`** access (be in the `kvm` group);
+- **`cap_net_admin`** on `fg_vmm` (`sudo bash ff-jni/setup-caps.sh`, re-run after
+  any launcher rebuild);
+- network access (image pulls).
+
+Build-only CI (no KVM/caps/bridge) can exclude the privileged tests with
+`gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).

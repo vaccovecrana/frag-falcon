@@ -88,6 +88,10 @@ small { font-size: 0.85em; }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
+  background: var(--vf-nord0);
+  border: 1px solid var(--vf-border-2);
+  border-radius: 6px;
+  padding: 1px 5px;
 }
 
 img { max-width: 100%; }
@@ -165,6 +169,12 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   white-space: nowrap;
 }
 .vf-pill:hover { color: var(--vf-text); background: var(--vf-surface-2); border-color: var(--vf-border-2); }
+.vf-pill:disabled, .ff-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.vf-pill:disabled:hover { color: var(--vf-text-2); background: var(--vf-surface); border-color: var(--vf-border); }
+.ff-btn-danger:disabled:hover { background: rgba(191, 97, 106, 0.12); }
 .vf-pill--accent {
   color: var(--vf-accent-contrast);
   background: var(--vf-accent);
@@ -326,7 +336,7 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
 
 /* ---------- frag-falcon widgets ---------- */
 .ff-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ff-field { margin-bottom: 14px; }
+.ff-field { margin-bottom: 18px; }
 .ff-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .ff-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ff-input {
@@ -338,6 +348,7 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   border-radius: var(--vf-radius-sm);
 }
 .ff-input:focus { outline: 2px solid var(--vf-accent); outline-offset: 1px; }
+.ff-input:disabled { opacity: 0.6; cursor: not-allowed; }
 .ff-service-name { font-weight: 700; flex: 1 1 auto; min-width: 0; }
 /* Pills inside a panel share the panel's surface; lift them so add-actions
    stay visible. */
@@ -366,6 +377,7 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   border-radius: var(--vf-radius-sm);
   resize: vertical;
 }
+.ff-log { max-height: 360px; overflow: auto; }
 .ff-yaml { min-height: 560px; }
 @media (max-width: 860px) { .ff-edit { grid-template-columns: 1fr; } .ff-grid-2 { grid-template-columns: 1fr; } }
 
@@ -463,7 +475,7 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   border-radius: 8px;
 }
 @keyframes vf-shimmer { to { background-position: -200% 0; } }
-.vf-skeleton-card { height: 220px; border-radius: var(--vf-radius); }
+.vf-skeleton-card { height: 150px; border-radius: var(--vf-radius); }
 .vf-empty {
   border: 1px dashed var(--vf-border-2);
   border-radius: var(--vf-radius);
@@ -517,11 +529,18 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   color: var(--vf-text);
   font-size: 14px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  animation: vf-toast-in 0.18s ease-out;
 }
+.vf-toast-msg { flex: 1 1 auto; }
+.vf-toast--error { border-color: rgba(191, 97, 106, 0.6); background: color-mix(in srgb, var(--vf-nord11) 16%, var(--vf-surface-2)); }
+.vf-toast--info { border-color: rgba(136, 192, 208, 0.5); }
+@keyframes vf-toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .vf-toast { animation: none; } }
 .vf-toast-close {
   font-size: 18px;
   line-height: 1;
   color: var(--vf-text-3);
+  flex: 0 0 auto;
 }
 .vf-toast-close:hover { color: var(--vf-text); }
 

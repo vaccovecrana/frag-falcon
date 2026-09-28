@@ -6,7 +6,6 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
-import static io.vacco.ff.FgTest.log;
 import static j8spec.J8Spec.it;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -16,8 +15,10 @@ import static org.junit.Assert.assertTrue;
  * obtains an address via DHCP (libkrun's in-guest DHCP client) and can reach
  * the bridge gateway.
  *
- * <p>Requires the launcher to carry {@code cap_net_admin} (see
- * {@code ff-jni/setup-caps.sh}); otherwise the test no-ops.
+ * <p>Hard-requires the full platform: {@code virbr0}, {@code /dev/kvm}, and
+ * {@code cap_net_admin} on the launcher ({@code ff-jni/setup-caps.sh}). The
+ * test fails (does not skip) when the platform is missing; build-only CI can
+ * exclude it with {@code -PskipPrivilegedTests}.
  */
 @DefinedOrder
 @RunWith(J8SpecRunner.class)
@@ -28,10 +29,10 @@ public class FgNetBootTest {
 
   static {
     it("boots with a bridged TAP and obtains an address via DHCP", () -> {
-      if (!FgTest.hasNetCap()) {
-        log.warn("libkrun: skipping network test (no cap_net_admin; run ff-jni/setup-caps.sh)");
-        return;
-      }
+      assertTrue(
+        "this test requires cap_net_admin on the launcher; run ff-jni/setup-caps.sh",
+        FgTest.hasNetCap()
+      );
       var tap = "fftap" + ProcessHandle.current().pid();
 
       try {

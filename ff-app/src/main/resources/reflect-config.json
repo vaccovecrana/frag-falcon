@@ -7,6 +7,41 @@
     "unsafeAllocated": true
   },
   {
+    "name": "io.vacco.ff.api.result.FgBridgesResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.api.result.FgStackListResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.api.result.FgStackLogsResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.api.result.FgStackResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.api.result.FgStackStatusResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
     "name": "io.vacco.ff.schema.FgProvision",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
@@ -71,6 +106,20 @@
   },
   {
     "name": "io.vacco.ronove.RvResponse",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ronove.RvResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ronove.RvValidation",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true,

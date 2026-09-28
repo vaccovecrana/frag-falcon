@@ -8,7 +8,7 @@
 //   npm run visual
 //
 // Artifacts: ff-ui/build/test-artifacts/visual/<state>-<viewport>.png
-import {closeBrowser, deleteStack, goto, openPage, requireUi, seedStack, UI_URL} from "./harness.mjs"
+import {closeBrowser, deleteStack, goto, listStacks, openPage, requireUi, seedStack, UI_URL} from "./harness.mjs"
 import {mkdir} from "node:fs/promises"
 import {fileURLToPath} from "node:url"
 import path from "node:path"
@@ -18,8 +18,18 @@ const VIEWPORTS = [
   {name: "desktop", width: 1440, height: 950},
   {name: "mobile", width: 390, height: 844},
 ]
+
+const waitFor = async (predicate, timeout = 30000) => {
+  const start = Date.now()
+  for (; ;) {
+    if (await predicate()) return
+    if (Date.now() - start > timeout) throw new Error("visual capture: timed out waiting for condition")
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+}
 const ID_A = "visual-alpha"
 const ID_B = "visual-beta"
+const ID_ERR = "visual-error"
 
 const freeze = (page) =>
   page.addStyleTag({content: "*{animation:none!important;transition:none!important}"}).catch(() => {
@@ -74,13 +84,23 @@ const main = async () => {
     await seedStack({
       id: ID_A,
       services: {
-        web: {image: "docker.io/library/nginx:latest", restart: "unless-stopped", command: ["/bin/sh", "-c", "nginx -g 'daemon off;'"]},
+        web: {
+          image: "docker.io/library/nginx:latest",
+          restart: "unless-stopped",
+          command: ["/bin/sh", "-c", "nginx -g 'daemon off;'"]
+        },
         db: {image: "docker.io/library/postgres:16", restart: "always", environment: ["POSTGRES_PASSWORD=secret"]},
       },
     })
     await seedStack({
       id: ID_B,
-      services: {app: {image: "docker.io/library/alpine:latest", restart: "no", command: ["/bin/sh", "-c", "sleep 3600"]}},
+      services: {
+        app: {
+          image: "docker.io/library/alpine:latest",
+          restart: "no",
+          command: ["/bin/sh", "-c", "sleep 3600"]
+        }
+      },
     })
 
     await capture("landing", "/")
@@ -103,9 +123,52 @@ const main = async () => {
       })
     })
     await capture("editor-edit", `/stack/${ID_A}/edit`)
+
+    // Error toast: a server-side rejection the client cannot catch (unknown
+    // bridge), returns 400 + RvValidation -> error toast.
+    await capture("editor-toast-error", "/stack/new", async () => {
+      await page.evaluate(() => {
+        const ta = document.querySelector(".ff-yaml")
+        const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set
+        set.call(ta, "id: visual-toast\nbridge: nope0\nservices:\n  app:\n    image: docker.io/library/alpine:latest\n")
+        ta.dispatchEvent(new Event("input", {bubbles: true}))
+      })
+      await new Promise((r) => setTimeout(r, 300))
+      await clickText(page, "Save")
+      await page.waitForSelector(".vf-toast--error", {timeout: 5000}).catch(() => {
+      })
+    })
+
+    // Running state: boot a stack on virbr0 and capture pills + populated logs.
+    if (process.env.FF_VISUAL_BOOT !== "0") {
+      await seedStack({
+        id: ID_ERR,
+        bridge: "virbr0",
+        services: {
+          app: {
+            image: "docker.io/library/alpine:latest",
+            restart: "no",
+            command: ["/bin/sh", "-c", "echo visual-boot-ok; sleep 120"]
+          },
+        },
+      })
+      await page.goto(`${UI_URL}/stack/${ID_ERR}`, {waitUntil: "networkidle0"})
+      await clickText(page, "Start")
+      await waitFor(() => listStacks().then(ss => ss.find(s => s.id === ID_ERR)?.state === "running"), 90000)
+      await capture("detail-running", `/stack/${ID_ERR}`)
+      await capture("detail-logs-output", `/stack/${ID_ERR}`, async () => {
+        await clickText(page, "Logs")
+        await page.waitForSelector("textarea.ff-log", {timeout: 8000}).catch(() => {
+        })
+        await new Promise((r) => setTimeout(r, 12000))
+        await clickText(page, "Logs")
+        await new Promise((r) => setTimeout(r, 400))
+      })
+    }
   } finally {
     await deleteStack(ID_A)
     await deleteStack(ID_B)
+    await deleteStack(ID_ERR)
     await closeBrowser()
   }
   console.log(`\nwrote ${written.length} screenshots to ${VIS}`)

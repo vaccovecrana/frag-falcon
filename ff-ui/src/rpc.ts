@@ -15,13 +15,18 @@ const doJsonIo = <I, O>(url: string, method: string, body: I,
   return fetch(url, options)
     .then(response => Promise
       .resolve(response.json() as O)
-      .catch(cause => Promise.reject({ response, cause }))
+      .catch(cause => Promise.reject({response, cause}))
     )
 }
 
 /* ====================================== */
 /* ============= RPC types ============== */
+
 /* ====================================== */
+
+export interface FgBridgesResult extends RvResult {
+  bridges?: string[];
+}
 
 export interface FgProvision {
   layersDone?: number;
@@ -62,8 +67,20 @@ export interface FgStack {
   services?: Map<string, FgService>;
 }
 
+export interface FgStackListResult extends RvResult {
+  stacks?: FgStackStatus[];
+}
+
+export interface FgStackLogsResult extends RvResult {
+  logs?: Map<string, string>;
+}
+
 export interface FgStackRef {
   stackId?: string;
+}
+
+export interface FgStackResult extends RvResult {
+  stack?: FgStack;
 }
 
 export const enum FgStackState {
@@ -80,6 +97,10 @@ export interface FgStackStatus {
   services?: Map<string, FgServiceStatus>;
 }
 
+export interface FgStackStatusResult extends RvResult {
+  status?: FgStackStatus;
+}
+
 export const enum FgVmState {
   pending = "pending",
   provisioning = "provisioning",
@@ -87,6 +108,17 @@ export const enum FgVmState {
   running = "running",
   stopped = "stopped",
   failed = "failed",
+}
+
+export interface RvResult {
+  error?: string;
+  validations?: RvValidation[];
+}
+
+export interface RvValidation {
+  name?: string;
+  key?: string;
+  params?: Map<string, string>;
 }
 
 
@@ -101,93 +133,93 @@ Source controllers:
 
  */
 
-export const apiV1StackIdDelete = (stackId: string): Promise<FgStackStatus> => {
+export const apiV1StackIdDelete = (stackId: string): Promise<FgStackStatusResult> => {
   let path = "/api/v1/stack/{stackId}"
   path = path.replace("{ stackId }".replace(/\s+/g, ""), stackId.toString())
   return doJsonIo(path, "DELETE",
-      undefined
+    undefined
     ,
     new Map(),
     undefined
   )
 }
 
-export const apiV1BrGet = (): Promise<string[]> => {
+export const apiV1BrGet = (): Promise<FgBridgesResult> => {
   let path = "/api/v1/br"
   return doJsonIo(path, "GET",
-      undefined
+    undefined
     ,
     new Map(),
     undefined
   )
 }
 
-export const apiV1StackGet = (): Promise<FgStackStatus[]> => {
+export const apiV1StackGet = (): Promise<FgStackListResult> => {
   let path = "/api/v1/stack"
   return doJsonIo(path, "GET",
-      undefined
+    undefined
     ,
     new Map(),
     undefined
   )
 }
 
-export const apiV1StackIdGet = (stackId: string): Promise<FgStack> => {
+export const apiV1StackIdGet = (stackId: string): Promise<FgStackResult> => {
   let path = "/api/v1/stack/{stackId}"
   path = path.replace("{ stackId }".replace(/\s+/g, ""), stackId.toString())
   return doJsonIo(path, "GET",
-      undefined
+    undefined
     ,
     new Map(),
     undefined
   )
 }
 
-export const apiV1StackIdPatch = (stackId: string): Promise<FgStackStatus> => {
+export const apiV1StackIdPatch = (stackId: string): Promise<FgStackStatusResult> => {
   let path = "/api/v1/stack/{stackId}"
   path = path.replace("{ stackId }".replace(/\s+/g, ""), stackId.toString())
   return doJsonIo(path, "PATCH",
-      undefined
+    undefined
     ,
     new Map(),
     undefined
   )
 }
 
-export const apiV1StackPost = (arg0: FgStack): Promise<FgStack> => {
+export const apiV1StackPost = (arg0: FgStack): Promise<FgStackResult> => {
   let path = "/api/v1/stack"
   return doJsonIo(path, "POST",
-      JSON.stringify(arg0)
+    JSON.stringify(arg0)
     ,
     new Map(),
     "application/json"
   )
 }
 
-export const apiV1StackLogsPost = (arg0: FgStackRef): Promise<Map<string, string>> => {
+export const apiV1StackLogsPost = (arg0: FgStackRef): Promise<FgStackLogsResult> => {
   let path = "/api/v1/stack/logs"
   return doJsonIo(path, "POST",
-      JSON.stringify(arg0)
+    JSON.stringify(arg0)
     ,
     new Map(),
     "application/json"
   )
 }
 
-export const apiV1StackStartPost = (arg0: FgStackRef): Promise<FgStackStatus> => {
+export const apiV1StackStartPost = (arg0: FgStackRef): Promise<FgStackStatusResult> => {
   let path = "/api/v1/stack/start"
   return doJsonIo(path, "POST",
-      JSON.stringify(arg0)
+    JSON.stringify(arg0)
     ,
     new Map(),
     "application/json"
   )
 }
 
-export const apiV1StackStopPost = (arg0: FgStackRef): Promise<FgStackStatus> => {
+export const apiV1StackStopPost = (arg0: FgStackRef): Promise<FgStackStatusResult> => {
   let path = "/api/v1/stack/stop"
   return doJsonIo(path, "POST",
-      JSON.stringify(arg0)
+    JSON.stringify(arg0)
     ,
     new Map(),
     "application/json"

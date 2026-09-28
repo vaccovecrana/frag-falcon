@@ -7,7 +7,7 @@ const FfStackList = () => {
   const [stacks, setStacks] = useState<FgStackStatus[] | undefined>()
 
   useEffect(() => {
-    const load = () => apiV1StackGet().then(setStacks).catch(() => setStacks([]))
+    const load = () => apiV1StackGet().then(r => setStacks(r.stacks || [])).catch(() => setStacks([]))
     load()
     const t = setInterval(load, 2000)
     return () => clearInterval(t)

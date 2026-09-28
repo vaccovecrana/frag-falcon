@@ -17,7 +17,7 @@ const FfArrayInput = (
   const update = (next: string[]) => setList(next)
 
   return (
-    <div class="vf-mb-4">
+    <div class="ff-field">
       <label class="vf-form-label">{displayName}</label>
       {list.length > 0 && (
         <ul class="ff-list">

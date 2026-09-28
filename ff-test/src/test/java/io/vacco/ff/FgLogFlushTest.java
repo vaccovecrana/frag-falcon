@@ -7,7 +7,8 @@ import org.junit.runner.RunWith;
 import java.util.List;
 
 import static j8spec.J8Spec.it;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Regression: libkrun terminates the launcher with {@code _exit()}, which

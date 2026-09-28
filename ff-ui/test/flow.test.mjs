@@ -1,8 +1,6 @@
-import { test, before, after } from "node:test"
+import {after, before, test} from "node:test"
 import assert from "node:assert/strict"
-import {
-  requireUi, openPage, closeBrowser, goto, apiUrl, deleteStack, listStacks,
-} from "./harness.mjs"
+import {apiUrl, closeBrowser, deleteStack, goto, listStacks, openPage, requireUi,} from "./harness.mjs"
 
 const ID = "e2e-flow"
 
@@ -33,16 +31,18 @@ test("A) creates a stack with one service via the editor", async () => {
   await page.evaluate((id) => {
     const el = document.querySelector("input.ff-input")
     const d = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")
-    d.set.call(el, id); el.dispatchEvent(new Event("input", { bubbles: true }))
+    d.set.call(el, id);
+    el.dispatchEvent(new Event("input", {bubbles: true}))
   }, ID)
   // service image
   await page.evaluate(() => {
     const el = document.querySelector(".vf-panel input[list='ff-images']")
     const d = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")
-    d.set.call(el, "docker.io/library/alpine:latest"); el.dispatchEvent(new Event("input", { bubbles: true }))
+    d.set.call(el, "docker.io/library/alpine:latest");
+    el.dispatchEvent(new Event("input", {bubbles: true}))
   })
   await clickText(page, "Save")
-  await page.waitForFunction(() => location.pathname === "/", { timeout: 8000 })
+  await page.waitForFunction(() => location.pathname === "/", {timeout: 8000})
 
   const stacks = await listStacks()
   const mine = stacks.find(s => s.id === ID)
@@ -63,18 +63,18 @@ test("A2) seeds a second image change (update path)", async () => {
 
 test("E) clears provisioning on update (PATCH)", async () => {
   if (!page) return
-  const res = await fetch(apiUrl(`/v1/stack/${ID}`), { method: "PATCH" })
+  const res = await fetch(apiUrl(`/v1/stack/${ID}`), {method: "PATCH"})
   assert.equal(res.status, 200)
   const body = await res.json()
-  assert.equal(body.id, ID)
-  assert.equal(body.state, "stopped")
+  assert.equal(body.status.id, ID)
+  assert.equal(body.status.state, "stopped")
 })
 
 test("F) deletes the stack", async () => {
   if (!page) return
   await goto(page, `/stack/${ID}`)
   await clickText(page, "Delete")
-  await page.waitForFunction(() => location.pathname === "/", { timeout: 8000 })
+  await page.waitForFunction(() => location.pathname === "/", {timeout: 8000})
   const stacks = await listStacks()
   assert.ok(!stacks.some(s => s.id === ID), `stack ${ID} still present`)
 })

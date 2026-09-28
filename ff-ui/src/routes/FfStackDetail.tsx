@@ -1,20 +1,23 @@
-import {useEffect, useState} from "preact/hooks"
+import {useContext, useEffect, useState} from "preact/hooks"
 import {RoutableProps} from "preact-router"
 import {
   apiV1StackGet,
   apiV1StackIdDelete,
+  apiV1StackIdPatch,
   apiV1StackLogsPost,
   apiV1StackStartPost,
   apiV1StackStopPost,
   FgStackStatus,
 } from "@ui/rpc"
 import {uiRoot, uiStackEdit} from "@ui/routes"
-import {usrError} from "@ui/store"
+import {UiContext, usrError} from "@ui/store"
+import {messageOf, unwrap} from "@ui/api"
 import FfStatus from "@ui/components/FfStatus"
 import FfLogViewer from "@ui/components/FfLogViewer"
 
 const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
   const id = props.stackId!
+  const {dispatch} = useContext(UiContext)
   const [status, setStatus] = useState<FgStackStatus | undefined>()
   const [logs, setLogs] = useState<Record<string, string> | undefined>()
   const [processing, setProcessing] = useState(false)
@@ -22,9 +25,9 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
   useEffect(() => {
     const load = () => {
       apiV1StackGet()
-        .then(all => setStatus(all.find(s => s.id === id)))
-        .catch(e => usrError(e, () => {
-        }))
+        .then(r => setStatus(r.stacks?.find(s => s.id === id)))
+        .catch(() => {
+        }) // background poll: stay silent
     }
     load()
     const t = setInterval(load, 2000)
@@ -36,8 +39,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
 
   const run = (fn: () => Promise<any>) => {
     setProcessing(true)
-    fn().catch(e => usrError(e, () => {
-    })).finally(() => setProcessing(false))
+    fn().catch(e => usrError(messageOf(e), dispatch)).finally(() => setProcessing(false))
   }
 
   return (
@@ -52,21 +54,25 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
 
       <div class="vf-hero-actions vf-mb-4">
         <button class="vf-pill vf-pill--accent" disabled={processing}
-                onClick={() => run(() => apiV1StackStartPost({stackId: id}))}>Start
+                onClick={() => run(() => apiV1StackStartPost({stackId: id}).then(unwrap))}>Start
         </button>
         <button class="vf-pill" disabled={processing}
-                onClick={() => run(() => apiV1StackStopPost({stackId: id}))}>Stop
+                onClick={() => run(() => apiV1StackStopPost({stackId: id}).then(unwrap))}>Stop
         </button>
         <button class="vf-pill" disabled={processing || !canUpdate}
                 title={canUpdate ? "" : "Stop the stack first"}
-                onClick={() => run(() => fetch(`/api/v1/stack/${id}`, {method: "PATCH"}).then(r => r.json()))}>Update
+                onClick={() => run(() => apiV1StackIdPatch(id).then(unwrap))}>Update
         </button>
         <a class="vf-pill" href={uiStackEdit(id)}>Edit</a>
         <button class="vf-pill" disabled={processing}
-                onClick={() => run(() => apiV1StackLogsPost({stackId: id}).then(m => setLogs(m as any)))}>Logs
+                onClick={() => run(() => apiV1StackLogsPost({stackId: id})
+                  .then(unwrap)
+                  .then(r => setLogs(r.logs as any)))}>Logs
         </button>
         <button class="vf-pill" disabled={processing}
-                onClick={() => run(() => apiV1StackIdDelete(id).then(() => window.location.replace(uiRoot)))}>Delete
+                onClick={() => run(() => apiV1StackIdDelete(id)
+                  .then(unwrap)
+                  .then(() => window.location.replace(uiRoot)))}>Delete
         </button>
       </div>
 
