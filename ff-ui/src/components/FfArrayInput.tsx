@@ -17,8 +17,8 @@ const FfArrayInput = (
   const update = (next: string[]) => setList(next)
 
   return (
-    <div class="mb-4">
-      <label class="form-label">{displayName}</label>
+    <div class="vf-mb-4">
+      <label class="vf-form-label">{displayName}</label>
       {list.length > 0 && (
         <ul class="ff-list">
           {list.map((value, index) => (
@@ -44,7 +44,7 @@ const FfArrayInput = (
           ))}
         </ul>
       )}
-      <button class="vf-pill mt8" onClick={() => update([...list, ""])}>
+      <button class="vf-pill vf-mt8" onClick={() => update([...list, ""])}>
         + Add {displayName}
       </button>
     </div>

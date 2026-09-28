@@ -38,6 +38,10 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
   namespace, so no root is required (see CAVEATS §14).
 - Build-only CI (no KVM/caps/network): `gradle :ff-test:test -PskipPrivilegedTests`
   (or `FF_SKIP_PRIVILEGED_TESTS=1`) excludes the boot/DHCP/E2E/image-pull tests.
+- **UI visual audit**: `npm --prefix ff-ui run visual` (or `gradle :ff-ui:visual`)
+  captures each screen/state at desktop + mobile viewports to
+  `ff-ui/build/test-artifacts/visual/`. Opt-in; requires a running hypervisor
+  (use a fresh `--vm-dir` for a deterministic empty landing shot).
 - `ff-jni`'s native code is built by `make` (invoked from Gradle's `nativeBuild` task);
   it needs `cc` and `JAVA_HOME` (set). Rebuild directly with `make -C ff-jni`.
 - The **network test** needs `cap_net_admin` on the launcher: run

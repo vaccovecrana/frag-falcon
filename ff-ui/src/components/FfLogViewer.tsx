@@ -20,6 +20,7 @@ const FfLogViewer = ({logData}: { logData: string }) => {
       class="ff-log"
       ref={ref}
       value={stripAnsiColors(logData || "")}
+      placeholder="(no output)"
       rows={18}
       readOnly
       spellcheck={false}

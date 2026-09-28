@@ -50,3 +50,19 @@ tasks.register<NpmTask>("e2eTest") {
   npmCommand.set(listOf("run", "test:e2e"))
   environment.put("FF_UI_URL", System.getenv("FF_UI_URL") ?: "http://127.0.0.1:7070")
 }
+
+/**
+ * Captures per-screen screenshots (desktop + mobile) for visual inspection.
+ * Not part of `build`; requires a running hypervisor:
+ *
+ *   gradle :ff-ui:visual
+ *
+ * Artifacts land in ff-ui/build/test-artifacts/visual/.
+ */
+tasks.register<NpmTask>("visual") {
+  description = "Captures UI screenshots for visual inspection against a running UI"
+  group = "verification"
+  dependsOn(tasks.npmInstall)
+  npmCommand.set(listOf("run", "visual"))
+  environment.put("FF_UI_URL", System.getenv("FF_UI_URL") ?: "http://127.0.0.1:7070")
+}

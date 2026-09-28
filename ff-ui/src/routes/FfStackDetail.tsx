@@ -50,7 +50,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         </div>
       </div>
 
-      <div class="vf-hero-actions mb-4">
+      <div class="vf-hero-actions vf-mb-4">
         <button class="vf-pill vf-pill--accent" disabled={processing}
                 onClick={() => run(() => apiV1StackStartPost({stackId: id}))}>Start
         </button>
@@ -75,7 +75,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         <div class="vf-empty">No services.</div>
       ) : (
         services.map((s: any) => (
-          <div class="vf-panel mb-4" key={s.service}>
+          <div class="vf-panel vf-mb-4" key={s.service}>
             <div class="ff-row">
               <div class="vf-card-title">{s.service}</div>
               <FfStatus status={s.state}/>
@@ -84,7 +84,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
               id <code>{s.id}</code>{s.pid > 0 ? <> · pid <code>{s.pid}</code></> : null}
             </div>
             {s.provision && s.provision.layersTotal > 0 && s.state === "provisioning" && (
-              <div class="mt8">
+              <div class="vf-mt8">
                 <div class="vf-progress">
                   <div
                     style={{width: `${Math.round(100 * s.provision.layersDone / s.provision.layersTotal)}%`}}/>
@@ -95,10 +95,10 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
                 </small>
               </div>
             )}
-            {s.error && <div class="vf-error mt8">{s.error}</div>}
+            {s.error && <div class="vf-error vf-mt8">{s.error}</div>}
             {s.exposedPorts && s.exposedPorts.length > 0 && (
-              <div class="mt8">{s.exposedPorts.map((p: string) => <span
-                class="vf-intent vf-intent-fan_funded me-1">{p}</span>)}</div>
+              <div class="vf-mt8">{s.exposedPorts.map((p: string) => <span
+                class="vf-intent vf-intent-fan_funded vf-me-1">{p}</span>)}</div>
             )}
           </div>
         ))
@@ -108,8 +108,8 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         <>
           <h2 class="vf-section-title">Logs</h2>
           {Object.entries(logs).map(([svc, data]) => (
-            <div class="mb-4" key={svc}>
-              <div class="vf-card-meta mb-2">{svc}</div>
+            <div class="vf-mb-4" key={svc}>
+              <div class="vf-card-meta vf-mb-2">{svc}</div>
               <FfLogViewer logData={data}/>
             </div>
           ))}

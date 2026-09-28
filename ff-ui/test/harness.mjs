@@ -5,6 +5,7 @@ import path from "node:path"
 
 export const UI_URL = (process.env.FF_UI_URL || "http://127.0.0.1:7070").replace(/\/+$/, "")
 export const ARTIFACTS = fileURLToPath(new URL("../build/test-artifacts/", import.meta.url))
+export const VISUALS = fileURLToPath(new URL("../build/test-artifacts/visual/", import.meta.url))
 
 let browser
 
@@ -113,6 +114,14 @@ export const dumpArtifacts = async (page, name) => {
   })
   await writeFile(path.join(ARTIFACTS, `${name}.log`), (page.errors || []).join("\n") + "\n").catch(() => {
   })
+}
+
+/** Writes a screenshot to build/test-artifacts/visual (used by the visual audit). */
+export const snap = async (page, name, {fullPage = true} = {}) => {
+  await mkdir(VISUALS, {recursive: true})
+  const file = path.join(VISUALS, `${name}.png`)
+  await page.screenshot({path: file, fullPage})
+  return file
 }
 
 /**

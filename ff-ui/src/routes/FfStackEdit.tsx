@@ -185,17 +185,17 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
         </div>
       </div>
 
-      <div class="vf-hero-actions mb-4">
+      <div class="vf-hero-actions vf-mb-4">
         <button class="vf-pill vf-pill--accent" disabled={processing} onClick={() => save(true)}>Deploy</button>
         <button class="vf-pill" disabled={processing} onClick={() => save(false)}>Save</button>
       </div>
 
-      {formError && <div class="vf-error mb-4">{formError}</div>}
-      {yamlError && <div class="vf-error mb-4">{yamlError}</div>}
+      {formError && <div class="vf-error vf-mb-4">{formError}</div>}
+      {yamlError && <div class="vf-error vf-mb-4">{yamlError}</div>}
 
       <div class="ff-grid-2" style="max-width:720px">
         <div class="ff-field">
-          <label class="form-label">Stack id</label>
+          <label class="vf-form-label">Stack id</label>
           <input
             class="ff-input"
             placeholder="my-stack"
@@ -206,10 +206,10 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
               renderYaml(e.target.value, bridge, entries)
             }}
           />
-          <div class="form-text vf-muted">Letters, numbers and dash only. Cannot be changed later.</div>
+          <div class="vf-form-text vf-muted">Letters, numbers and dash only. Cannot be changed later.</div>
         </div>
         <div class="ff-field">
-          <label class="form-label">Bridge</label>
+          <label class="vf-form-label">Bridge</label>
           <select
             class="ff-input"
             value={bridge}
@@ -221,7 +221,7 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
             <option value="">(none)</option>
             {bridges.map(b => <option value={b}>{b}</option>)}
           </select>
-          <div class="form-text vf-muted">Linux bridge the stack's VMs attach to.</div>
+          <div class="vf-form-text vf-muted">Linux bridge the stack's VMs attach to.</div>
         </div>
       </div>
 

@@ -82,28 +82,33 @@ GET    /api/v1/br               list Linux bridges
 
 ## systemd
 
-`/etc/systemd/system/frag-falcon.service`:
-
-```ini
-[Unit]
-Description=frag-falcon microVM hypervisor
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/frag-falcon
-ExecStart=/opt/frag-falcon/ff-app --vm-dir=/var/lib/frag-falcon --bridge=br0 --api-host=0.0.0.0 --api-port=7070
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=multi-user.target
-```
+A rootless sample unit ships in `deploy/flc.service` (service user, `kvm` group,
+`AmbientCapabilities=CAP_NET_ADMIN`). Provision it once with
+`sudo bash deploy/setup.sh <user> <vm-dir> [install-dir]`, which also prints the
+`nosuid,nodev,noexec` mount for the vm-dir.
 
 Note: VMs are **not** killed when the service stops — they are independent
 launcher processes and are re-adopted on the next start.
+
+## UI
+
+The Preact SPA is bundled into `flc` (see `ff-ui/`). Browser E2E tests and a
+visual-audit capture run against a live hypervisor:
+
+```bash
+# with a hypervisor running on 127.0.0.1:7070
+npm --prefix ff-ui run test:e2e   # assertions (or: gradle :ff-ui:e2eTest)
+npm --prefix ff-ui run visual     # per-screen screenshots (or: gradle :ff-ui:visual)
+```
+
+The visual capture walks each screen/state at desktop (1440×950) and mobile
+(390×844) viewports and writes full-page PNGs to
+`ff-ui/build/test-artifacts/visual/<state>-<viewport>.png`. For a deterministic
+*empty* landing shot, run the hypervisor with a fresh `--vm-dir`. `FF_UI_URL`
+overrides the target.
+
+Build-only CI can skip the KVM/caps/network tests:
+`gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).
 
 ## Layout
 

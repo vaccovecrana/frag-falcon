@@ -18,7 +18,7 @@ const FfServiceCard = (
   },
 ) => {
   return (
-    <div class="vf-panel mb-4">
+    <div class="vf-panel vf-mb-4">
       <div class="ff-row">
         <input
           class="ff-input ff-service-name"
@@ -31,7 +31,7 @@ const FfServiceCard = (
       </div>
 
       <div class="ff-field">
-        <label class="form-label">Image</label>
+        <label class="vf-form-label">Image</label>
         <input
           class="ff-input"
           list="ff-images"
@@ -45,7 +45,7 @@ const FfServiceCard = (
       </div>
 
       <div class="ff-field">
-        <label class="form-label">Restart policy</label>
+        <label class="vf-form-label">Restart policy</label>
         <select
           class="ff-input"
           value={service.restart || "unless-stopped"}
@@ -57,7 +57,7 @@ const FfServiceCard = (
 
       <div class="ff-grid-2">
         <div class="ff-field">
-          <label class="form-label">vCPUs</label>
+          <label class="vf-form-label">vCPUs</label>
           <input
             class="ff-input" type="number" min={1}
             value={service.resources?.vcpus ?? 1}
@@ -67,7 +67,7 @@ const FfServiceCard = (
           />
         </div>
         <div class="ff-field">
-          <label class="form-label">RAM (MiB)</label>
+          <label class="vf-form-label">RAM (MiB)</label>
           <input
             class="ff-input" type="number" min={128} step={128}
             value={service.resources?.ramMib ?? 512}

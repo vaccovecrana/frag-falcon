@@ -3,7 +3,8 @@
     "build:fonts": "node tools/gen-fonts.mjs",
     "build:scss": "sass res/main.scss build/ui/index.css --silence-deprecation=if-function",
     "build": "npm run build:fonts && tsc --noEmit && rspack build --mode production && npm run build:scss",
-    "test:e2e": "node --test test/*.test.mjs"
+    "test:e2e": "node --test test/*.test.mjs",
+    "visual": "node test/visual.mjs"
   },
   "author": "Vaccove Crana, LLC.",
   "dependencies": {

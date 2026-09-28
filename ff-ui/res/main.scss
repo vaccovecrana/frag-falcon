@@ -141,10 +141,11 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   color: var(--vf-text);
   font-weight: 700;
   font-size: 16px;
+  white-space: nowrap;
 }
 .vf-brand img { width: 28px; height: 28px; display: block; }
 .vf-brand-sub { color: var(--vf-text-3); font-weight: 500; }
-.vf-nav { display: flex; align-items: center; gap: 8px; }
+.vf-nav { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 
 /* ---------- pills / buttons ---------- */
 .vf-pill {
@@ -337,7 +338,12 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   border-radius: var(--vf-radius-sm);
 }
 .ff-input:focus { outline: 2px solid var(--vf-accent); outline-offset: 1px; }
-.ff-service-name { font-weight: 700; }
+.ff-service-name { font-weight: 700; flex: 1 1 auto; min-width: 0; }
+/* Pills inside a panel share the panel's surface; lift them so add-actions
+   stay visible. */
+.vf-panel .vf-pill { background: var(--vf-surface-2); border-color: var(--vf-border-2); }
+.vf-panel .vf-pill:hover { background: var(--vf-border-2); }
+.vf-panel .ff-row + .vf-card-meta { margin-top: 4px; }
 .ff-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ff-list-item { display: flex; gap: 8px; align-items: center; }
 .ff-btn-danger {
@@ -361,7 +367,7 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   resize: vertical;
 }
 .ff-yaml { min-height: 560px; }
-@media (max-width: 860px) { .ff-edit { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .ff-edit { grid-template-columns: 1fr; } .ff-grid-2 { grid-template-columns: 1fr; } }
 
 
 /* ---------- progress ---------- */
@@ -568,7 +574,23 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
 /* ---------- utilities ---------- */
 .vf-ml8 { margin-left: 8px; }
 .vf-mt16 { margin-top: 16px; }
+.vf-mt8 { margin-top: 8px; }
+.vf-mb-2 { margin-bottom: 8px; }
+.vf-mb-4 { margin-bottom: 20px; }
+.vf-me-1 { margin-inline-end: 4px; }
 .vf-muted { color: var(--vf-text-3); }
+
+/* Form field labels/hints (mirror the section-title treatment) */
+.vf-form-label {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: var(--vf-text-3);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.vf-form-text { font-size: 12px; line-height: 1.4; margin-top: 6px; }
 
 @media (max-width: 860px) {
   .vf-detail { grid-template-columns: 1fr; }
@@ -578,4 +600,5 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   .vf-footer-inner { grid-template-columns: 1fr; }
   .vf-meta-grid { grid-template-columns: repeat(2, 1fr); }
   .vf-nav .vf-nav-hide-sm { display: none; }
+  .vf-brand-sub { display: none; }
 }
