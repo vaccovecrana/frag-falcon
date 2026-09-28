@@ -1,117 +1,140 @@
-import {useEffect, useState} from "preact/hooks"
-import {RoutableProps} from "preact-router"
-import {parse, stringify} from "yaml"
-import {apiV1BrGet, apiV1StackIdGet, apiV1StackPost, FgService, FgStack} from "@ui/rpc"
-import {uiRoot, VmIdNew} from "@ui/routes"
-import {usrError} from "@ui/store"
+import { useEffect, useRef, useState } from "preact/hooks"
+import { RoutableProps } from "preact-router"
+import { parse, stringify } from "yaml"
+import { apiV1BrGet, apiV1StackIdGet, apiV1StackPost, FgService, FgStack } from "@ui/rpc"
+import { uiRoot, VmIdNew } from "@ui/routes"
+import { usrError } from "@ui/store"
 import FfServiceCard from "@ui/components/FfServiceCard"
 
-const NEW_STACK: FgStack = {
-  id: "",
-  services: new Map<string, FgService>([
-    ["app", {
-      image: "docker.io/library/alpine:latest",
-      restart: "unless-stopped",
-      command: ["/bin/sh", "-c", "sleep 3600"]
-    }],
-  ]),
+const ID_PATTERN = /^[A-Za-z0-9-]+$/
+
+/**
+ * UI-only service entry: a stable key decoupled from the service name so that
+ * renaming a service does not remount its DOM (which would drop input focus).
+ * Entries are converted to/from the {@code Map<name, FgService>} wire shape only
+ * at boundaries (load, YAML parse, save/render).
+ */
+type Entry = { key: string, name: string, service: FgService }
+
+let keySeq = 0
+const nextKey = () => `svc-${++keySeq}`
+
+const toEntries = (services: any): Entry[] => {
+  const pairs: [string, FgService][] = services instanceof Map
+    ? [...services.entries()]
+    : Object.entries(services || {}) as [string, FgService][]
+  return pairs.map(([name, service]) => ({ key: nextKey(), name, service }))
 }
 
-/** YAML <-> JSON conversion preserving the map shape ronove expects. */
-const toPlain = (stack: FgStack): any => ({
-  id: stack.id,
-  services: Object.fromEntries((stack.services as any) || []),
+const toStack = (id: string, bridge: string, entries: Entry[]): FgStack => ({
+  id,
+  bridge: bridge || undefined,
+  // ronove's TS types use Map, but the wire format is a plain JSON object
+  // (JSON.stringify(new Map()) === "{}"), so send an object and cast.
+  services: Object.fromEntries(entries.map(e => [e.name, e.service])) as any,
 })
 
-const fromPlain = (obj: any): FgStack => ({
-  id: obj.id,
-  services: new Map<string, FgService>(Object.entries(obj.services || {})),
-})
-
-const ID_PATTERN = /^[A-Za-z0-9-]+$/
+const yamlOf = (id: string, bridge: string, entries: Entry[]): string => {
+  const obj: any = {}
+  if (id) obj.id = id
+  if (bridge) obj.bridge = bridge
+  obj.services = Object.fromEntries(entries.map(e => [e.name, e.service]))
+  return stringify(obj)
+}
 
 const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
   const isNew = !props.stackId || props.stackId === VmIdNew
   const id = isNew ? "" : props.stackId!
 
-  const [stack, setStack] = useState<FgStack>(NEW_STACK)
-  const [yamlText, setYamlText] = useState(stringify(toPlain(NEW_STACK)))
+  const [stackId, setStackId] = useState(id)
+  const [bridge, setBridge] = useState("")
+  const [entries, setEntries] = useState<Entry[]>([])
+  const [yamlText, setYamlText] = useState("")
   const [yamlError, setYamlError] = useState("")
   const [formError, setFormError] = useState("")
   const [bridges, setBridges] = useState<string[]>([])
   const [processing, setProcessing] = useState(false)
 
+  const ready = useRef(false)
+
   useEffect(() => {
-    apiV1BrGet().then(setBridges).catch(() => {
-    })
-    if (!isNew) {
+    apiV1BrGet().then(setBridges).catch(() => {})
+    const refreshYaml = (sid: string, br: string, es: Entry[]) => {
+      setYamlText(yamlOf(sid, br, es))
+      ready.current = true
+    }
+    if (isNew) {
+      const init: Entry[] = [{
+        key: nextKey(), name: "app",
+        service: { image: "docker.io/library/alpine:latest", restart: "unless-stopped", command: ["/bin/sh", "-c", "sleep 3600"] },
+      }]
+      setEntries(init)
+      refreshYaml("", "", init)
+    } else {
       apiV1StackIdGet(id).then(s => {
-        setStack(s)
-        setYamlText(stringify(toPlain(s)))
-      }).catch(e => usrError(e, () => {
-      }))
+        const es = toEntries(s.services)
+        setStackId(s.id || id)
+        setBridge(s.bridge || "")
+        setEntries(es)
+        refreshYaml(s.id || id, s.bridge || "", es)
+      }).catch(e => usrError(e, () => {}))
     }
   }, [id, isNew])
 
-  // Form -> YAML: whenever the service model changes, re-render YAML.
-  const mutate = (fn: (s: FgStack) => void) => {
-    const next = fromPlain(toPlain(stack))
-    fn(next)
-    setStack(next)
-    setYamlText(stringify(toPlain(next)))
+  // Form changes: recompute YAML from the current entries.
+  const renderYaml = (sid: string, br: string, es: Entry[]) => setYamlText(yamlOf(sid, br, es))
+
+  const addService = () => {
+    const es = [...entries, { key: nextKey(), name: `service-${entries.length + 1}`, service: { image: "", restart: "unless-stopped" } }]
+    setEntries(es)
+    renderYaml(stackId, bridge, es)
   }
 
-  // YAML -> form: parse on edit and refresh the model.
+  const renameEntry = (key: string, next: string) => {
+    const es = entries.map(e => e.key === key ? { ...e, name: next } : e)
+    setEntries(es)
+    renderYaml(stackId, bridge, es)
+  }
+
+  const patchEntry = (key: string, patch: Partial<FgService>) => {
+    const es = entries.map(e => e.key === key ? { ...e, service: { ...e.service, ...patch } } : e)
+    setEntries(es)
+    renderYaml(stackId, bridge, es)
+  }
+
+  const removeEntry = (key: string) => {
+    const es = entries.filter(e => e.key !== key)
+    setEntries(es)
+    renderYaml(stackId, bridge, es)
+  }
+
+  // YAML -> form: reuse existing entry keys by position so inputs keep focus.
   const onYamlEdit = (text: string) => {
     setYamlText(text)
     setFormError("")
     try {
       const obj = parse(text) || {}
-      setStack(fromPlain(obj))
+      setStackId(obj.id || "")
+      setBridge(obj.bridge || "")
+      const names = Object.keys(obj.services || {})
+      setEntries(names.map((name, i) => ({
+        key: entries[i]?.key || nextKey(),
+        name,
+        service: (obj.services as any)[name] || {},
+      })))
       setYamlError("")
     } catch (e: any) {
       setYamlError(e.message || String(e))
     }
   }
 
-  const serviceNames = [...(stack.services as any).keys()] as string[]
-
-  const addService = () => {
-    let n = 1
-    while ((stack.services as any).has(`service-${n}`)) n++
-    mutate(s => serviceMap(s).set(`service-${n}`, {image: "", restart: "unless-stopped"}))
-  }
-
-  const renameService = (from: string, to: string) => {
-    if (from === to) return
-    mutate(s => {
-      const m = serviceMap(s)
-      const entries = [...m.entries()].map(([k, v]) => [k === from ? to : k, v] as [string, FgService])
-      m.clear()
-      entries.forEach(([k, v]) => m.set(k, v))
-    })
-  }
-
-  const removeService = (name: string) => {
-    mutate(s => serviceMap(s).delete(name))
-  }
-
-  const patchService = (name: string, patch: Partial<FgService>) => {
-    mutate(s => {
-      const cur = serviceMap(s).get(name) || {}
-      serviceMap(s).set(name, {...cur, ...patch} as FgService)
-    })
-  }
-
   const save = (thenStart: boolean) => {
     if (yamlError) {
-      usrError(`Fix the YAML error first: ${yamlError}`, () => {
-      })
+      usrError(`Fix the YAML error first: ${yamlError}`, () => {})
       return
     }
-    const payload = fromPlain(toPlain(stack))
-    const wantId = (payload.id || "").trim()
     if (isNew) {
+      const wantId = stackId.trim()
       if (!wantId) {
         setFormError("A stack id is required (letters, numbers and dash only).")
         return
@@ -120,37 +143,36 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
         setFormError(`Invalid stack id [${wantId}]: letters, numbers and dash only.`)
         return
       }
-      payload.id = wantId
     }
-    if (!payload.services || (payload.services as any).size === 0) {
+    if (entries.length === 0) {
       setFormError("Add at least one service before saving.")
       return
     }
-    for (const [name, svc] of (payload.services as any).entries()) {
-      if (!name.trim()) {
+    for (const e of entries) {
+      if (!e.name.trim()) {
         setFormError("Service names cannot be empty.")
         return
       }
-      if (!(svc as FgService).image?.trim()) {
-        setFormError(`Service [${name}] needs an image.`)
+      if (!e.service.image?.trim()) {
+        setFormError(`Service [${e.name}] needs an image.`)
         return
       }
     }
     setFormError("")
     setProcessing(true)
+    const payload = toStack(stackId.trim(), bridge, entries)
     apiV1StackPost(payload)
       .then(async saved => {
         if (thenStart) {
           await fetch("/api/v1/stack/start", {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({stackId: saved.id}),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stackId: saved.id }),
           })
         }
       })
       .then(() => window.location.replace(uiRoot))
-      .catch(e => usrError(e, () => {
-      }))
+      .catch(e => usrError(e, () => {}))
       .finally(() => setProcessing(false))
   }
 
@@ -171,38 +193,51 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
       {formError && <div class="vf-error mb-4">{formError}</div>}
       {yamlError && <div class="vf-error mb-4">{yamlError}</div>}
 
-      <div class="ff-field" style="max-width:420px">
-        <label class="form-label">Stack id</label>
-        <input
-          class="ff-input"
-          placeholder="my-stack"
-          disabled={!isNew}
-          value={stack.id || ""}
-          onInput={(e: any) => {
-            const next = fromPlain(toPlain(stack))
-            next.id = e.target.value
-            setStack(next)
-            setYamlText(stringify(toPlain(next)))
-          }}
-        />
-        <div class="form-text vf-muted">Letters, numbers and dash only. Cannot be changed later.</div>
+      <div class="ff-grid-2" style="max-width:720px">
+        <div class="ff-field">
+          <label class="form-label">Stack id</label>
+          <input
+            class="ff-input"
+            placeholder="my-stack"
+            disabled={!isNew}
+            value={stackId}
+            onInput={(e: any) => {
+              setStackId(e.target.value)
+              renderYaml(e.target.value, bridge, entries)
+            }}
+          />
+          <div class="form-text vf-muted">Letters, numbers and dash only. Cannot be changed later.</div>
+        </div>
+        <div class="ff-field">
+          <label class="form-label">Bridge</label>
+          <select
+            class="ff-input"
+            value={bridge}
+            onChange={(e: any) => {
+              setBridge(e.target.value)
+              renderYaml(stackId, e.target.value, entries)
+            }}
+          >
+            <option value="">(none)</option>
+            {bridges.map(b => <option value={b}>{b}</option>)}
+          </select>
+          <div class="form-text vf-muted">Linux bridge the stack's VMs attach to.</div>
+        </div>
       </div>
-
-      {bridges.length > 0 && <div class="vf-card-meta mb-4">Bridge: {bridges.join(", ")}</div>}
 
       <div class="ff-edit">
         <div>
           <h2 class="vf-section-title">Services</h2>
-          {serviceNames.map(name => (
+          {entries.map(e => (
             <FfServiceCard
-              key={name}
-              name={name}
-              service={(stack.services as any).get(name)}
+              key={e.key}
+              name={e.name}
+              service={e.service || {}}
               images={[]}
-              canRemove={serviceNames.length > 1}
-              onRename={(next) => renameService(name, next)}
-              onChange={(patch) => patchService(name, patch)}
-              onRemove={() => removeService(name)}
+              canRemove={entries.length > 1}
+              onRename={(next) => renameEntry(e.key, next)}
+              onChange={(patch) => patchEntry(e.key, patch)}
+              onRemove={() => removeEntry(e.key)}
             />
           ))}
           <button class="vf-pill" onClick={addService}>+ Add service</button>
@@ -224,5 +259,3 @@ const FfStackEdit = (props: RoutableProps & { stackId?: string }) => {
 }
 
 export default FfStackEdit
-
-const serviceMap = (s: FgStack): Map<string, FgService> => s.services as any

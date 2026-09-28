@@ -1,6 +1,7 @@
 package io.vacco.ff.service;
 
 import com.google.gson.Gson;
+import io.vacco.ff.net.FgJni;
 import io.vacco.ff.net.FgProc;
 import io.vacco.ff.oci.FgEnvVar;
 import io.vacco.ff.oci.FgImage;
@@ -47,7 +48,6 @@ public final class FgStackSvc implements AutoCloseable {
   }
 
   private final File vmDir;
-  private final String bridge;
   private final Gson gson;
   private final FgOciStore store;
   private final ExecutorService ops = Executors.newCachedThreadPool(r ->
@@ -57,9 +57,8 @@ public final class FgStackSvc implements AutoCloseable {
   private final ExecutorService supervisor = Executors.newSingleThreadExecutor(r ->
     new Thread(r, "ff-supervisor"));
 
-  public FgStackSvc(File vmDir, String bridge, Gson gson) {
+  public FgStackSvc(File vmDir, Gson gson) {
     this.vmDir = vmDir;
-    this.bridge = bridge;
     this.gson = gson;
     this.store = new FgOciStore(new File(vmDir, "oci"));
     FgIo.mkDirs(vmDir);
@@ -103,6 +102,10 @@ public final class FgStackSvc implements AutoCloseable {
     var id = stack.id;
     if (id == null || !ID.matcher(id).matches()) {
       throw new IllegalArgumentException("Invalid stack id (letters, numbers, dash only): " + id);
+    }
+    if (stack.bridge != null && !stack.bridge.isBlank()
+        && !FgJni.getLinuxBridgeInterfaces().contains(stack.bridge)) {
+      throw new IllegalArgumentException("Unknown Linux bridge: " + stack.bridge);
     }
     FgIo.mkDirs(stackDir(id));
     FgIo.toJson(stack, stackJson(id), gson);
@@ -151,7 +154,7 @@ public final class FgStackSvc implements AutoCloseable {
           mon.vm = vm;
           mon.dir = dir;
           monitored.put(k, mon);
-          FgVmSvc.start(vm, dir, store, bridge, progressListener(id, service));
+          FgVmSvc.start(vm, dir, store, progressListener(id, service));
           live.remove(k);
         } catch (Exception e) {
           live.put(
@@ -299,8 +302,8 @@ public final class FgStackSvc implements AutoCloseable {
       }
       vm.command = cmd;
     }
-    vm.network = bridge != null
-      ? FgNetConfig.of(bridge, FgVmId.tapName(vmid), FgVmId.macString(vmid))
+    vm.network = stack.bridge != null && !stack.bridge.isBlank()
+      ? FgNetConfig.of(stack.bridge, FgVmId.tapName(vmid), FgVmId.macString(vmid))
       : null;
     // Reuse enriched image metadata if the service was already provisioned.
     var img = FgVmSvc.loadImage(serviceDir(id, service));
@@ -361,7 +364,7 @@ public final class FgStackSvc implements AutoCloseable {
       mon.lastStart = now;
       try {
         log.info("restart: {}/{} (policy={})", mon.stackId, mon.service, mon.policy);
-        FgVmSvc.start(mon.vm, mon.dir, store, bridge, FgOciProgress.NOOP);
+        FgVmSvc.start(mon.vm, mon.dir, store, FgOciProgress.NOOP);
       } catch (Exception e) {
         log.error("restart error: {}/{} {}", mon.stackId, mon.service, mon.policy, e);
       }

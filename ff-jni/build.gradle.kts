@@ -20,6 +20,25 @@ val installNative = tasks.register<Sync>("installNative") {
   filePermissions { unix("0755") }
 }
 
+/**
+ * Re-applies cap_net_admin to every launcher copy after a build. Sync/copy tasks
+ * overwrite the binary and silently drop its file capabilities, which makes
+ * unprivileged dev runs fail with "Operation not permitted" on tap creation.
+ *
+ * Run it with the privileges setcap needs, e.g.:
+ *   sudo bash ff-jni/setup-caps.sh
+ * or, if the invoking shell already has passwordless sudo/root:
+ *   gradle :ff-jni:setupCaps
+ *
+ * A no-op in production, where the flat tarball is run as root and needs no caps.
+ */
+val setupCaps = tasks.register<Exec>("setupCaps") {
+  dependsOn(nativeBuild, installNative, tasks.processResources)
+  workingDir = projectDir
+  commandLine("bash", "setup-caps.sh")
+  isIgnoreExitValue = true
+}
+
 tasks.processResources {
   dependsOn(nativeBuild)
   from("out") {

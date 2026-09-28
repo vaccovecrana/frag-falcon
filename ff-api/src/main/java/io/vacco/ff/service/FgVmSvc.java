@@ -63,7 +63,7 @@ public class FgVmSvc {
    *
    * @return the launcher pid
    */
-  public static int start(FgVm vm, File vmRoot, FgOciStore store, String bridge, FgOciProgress progress) {
+  public static int start(FgVm vm, File vmRoot, FgOciStore store, FgOciProgress progress) {
     var vmid = vm.tag.id;
     var running = FgProc.pidOf(vmid);
     if (running > 0) {
@@ -79,7 +79,7 @@ public class FgVmSvc {
       build(vm, vmRoot, store, progress);
     }
     if (vm.network != null && vm.network.tapName != null) {
-      FgTap.up(vm.network.tapName, bridge);
+      FgTap.up(vm.network.tapName, vm.network.brIf);
     }
     return FgProc.spawn(vmid, FgVmLaunch.args(vm, vmRoot), logOf(vmRoot).toPath());
   }

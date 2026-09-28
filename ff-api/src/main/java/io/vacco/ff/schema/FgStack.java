@@ -13,10 +13,19 @@ import java.util.Map;
 public class FgStack {
 
   public String id;
+
+  /** Linux bridge all services attach to; empty/absent means no NIC. */
+  public String bridge;
+
   public Map<String, FgService> services = new LinkedHashMap<>();
 
   public FgStack id(String id) {
     this.id = id;
+    return this;
+  }
+
+  public FgStack bridge(String bridge) {
+    this.bridge = bridge;
     return this;
   }
 

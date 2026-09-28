@@ -51,7 +51,7 @@ public class FgVmLifecycleTest {
 
       var store = new FgOciStore(new File(FgTest.WORK, "m5a-oci"));
       try {
-        var pid = FgVmSvc.start(vm, vmRoot, store, BRIDGE, FgOciProgress.NOOP);
+        var pid = FgVmSvc.start(vm, vmRoot, store, FgOciProgress.NOOP);
         assertTrue("expected a launcher pid", pid > 0);
 
         var running = false;

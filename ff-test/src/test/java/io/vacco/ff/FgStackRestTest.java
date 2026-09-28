@@ -56,11 +56,11 @@ public class FgStackRestTest {
       }
       var base = "http://127.0.0.1:" + (17070 + (int) (ProcessHandle.current().pid() % 1000));
       var vmDir = FgTest.freshDir("m5b");
-      var svc = new FgStackSvc(vmDir, BRIDGE, G);
+      var svc = new FgStackSvc(vmDir, G);
       var stackId = "m5brest";
 
       try (svc; var _ = new FgApi(svc, G, "127.0.0.1", URI.create(base).getPort())) {
-        var stack = new FgStack().id(stackId);
+        var stack = new FgStack().id(stackId).bridge(BRIDGE);
         var s = new FgService();
         s.image = "alpine:latest";
         s.restart = "no";

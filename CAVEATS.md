@@ -68,21 +68,39 @@ and production lets the (root) hypervisor own the tap lifecycle.
 
 ---
 
-## 4. File capabilities break `LD_LIBRARY_PATH`
+## 4. File capabilities break `LD_LIBRARY_PATH` and `$ORIGIN`
 
-A binary with file capabilities (e.g. `cap_net_admin+ep` on `fg_vmm`) runs in
-the loader's **secure-execution mode**, where `LD_LIBRARY_PATH`/`LD_PRELOAD` are
-ignored. To make the launcher work both rootless (setcap) and as root
-(`LD_LIBRARY_PATH`), it:
+A binary with file capabilities (e.g. `cap_net_admin+ep` on `fg_vmm`) runs in the
+loader's **secure-execution mode**, where `LD_LIBRARY_PATH`/`LD_PRELOAD` are
+ignored **and `$ORIGIN` in `RPATH`/`RUNPATH` is ignored too**. To make the
+launcher work in both modes, it:
 
 - links `libkrunfw.so.5` **directly** (a `DT_NEEDED` entry, via
   `-Wl,--no-as-needed`) so libkrun's `dlopen("libkrunfw.so.5")` finds the
   already-loaded soname, and
-- builds with an absolute `RUNPATH` to the vendored libs (honoured in secure
-  mode; `LD_LIBRARY_PATH` still takes precedence for root/production).
+- builds with **both** an absolute `RUNPATH` to the vendored lib dir
+  (`$(abspath $(LIBDIR))`, honoured in secure mode) **and** `$ORIGIN` (for the
+  flat distribution run as root).
+
+This split exists because there are two supported modes:
+
+- **Production**: operators untar a flat distribution and run `flc` as root. No
+  capabilities are involved, so `$ORIGIN` resolves the sibling libs.
+- **Development/tests** (`gradle run`, `gradle :ff-test:test`, `npm run
+  test:e2e`): the hypervisor runs as the developer's user and the launcher needs
+  `cap_net_admin`. Secure-execution mode then makes `$ORIGIN` useless, which is
+  why the launcher carries the absolute vendored-lib `RUNPATH`.
 
 `FgProc` also honours `FF_VMM_BIN` / `FF_VMM_LIBDIR` so dev/tests run the
 setcap'd built launcher instead of the temp extraction.
+
+**Gradle copies silently drop the capability.** Any `Sync`/`copy` (e.g.
+`installNative`, `processResources`) overwrites `fg_vmm` and strips its caps, so
+unprivileged runs then fail with `Operation not permitted` on tap creation.
+Re-apply with `sudo bash ff-jni/setup-caps.sh` after every launcher rebuild (it
+caps every known copy); `gradle :ff-jni:setupCaps` does the same when the
+invoking shell already has root/passwordless sudo.
+
 
 ---
 
@@ -215,8 +233,11 @@ that directory via `/proc/self/exe` (override with `FF_NATIVE_DIR`); there is no
 resource extraction.
 
 The intended deployment runs **as root** (`User=root`), so no file capabilities
-are needed. That matters because a cap'd binary runs in the loader's
-secure-execution mode, which makes it ignore both `LD_LIBRARY_PATH` **and** an
-`$ORIGIN` RUNPATH — so a `setcap`'d launcher cannot find `libkrun.so.2` beside
-it. Root sidesteps this entirely. (File capabilities are also silently ignored
-on `nosuid` filesystems such as `/tmp`.)
+are needed. File capabilities are also silently ignored on `nosuid` filesystems
+such as `/tmp`.
+
+Development (`gradle run`, tests, E2E) is the opposite: the hypervisor runs as
+the developer's user, so the launcher must carry `cap_net_admin` (see §4). The
+launcher therefore also links an absolute vendored-lib `RUNPATH`, because a
+setcap'd binary ignores `$ORIGIN` in secure-execution mode. Run
+`sudo bash ff-jni/setup-caps.sh` after each launcher rebuild.
