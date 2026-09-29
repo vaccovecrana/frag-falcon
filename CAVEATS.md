@@ -182,6 +182,15 @@ must never be exposed publicly; run it behind a private LAN segment or a VPN.
   (single mechanism for fresh and re-adopted VMs) and has no exit code.
 - A VM's id is `toHex((stackId + serviceId).hashCode())` (no bookkeeping);
   unlike a random id, a cross-service collision is theoretically possible.
+- **`entrypoint`/`command` follow Docker semantics**, resolved in one place
+  (`FgVmLaunch.command`): a service `entrypoint` replaces the image
+  `Entrypoint`; a service `command` replaces the image `Cmd` **while keeping the
+  image `Entrypoint`**. Both unset → image `Entrypoint` + image `Cmd`; image
+  `Cmd` only (no entrypoint) → the command is `argv[0]`. The stack service
+  overrides are carried through `FgVm` unmerged so the resolver has both the
+  image metadata (`image.json`) and the overrides. Without this, a compose file
+  that sets only `command` (as dockge exports) would drop the image entrypoint
+  and fail to run the workload.
 
 ---
 

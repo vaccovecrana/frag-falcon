@@ -299,16 +299,10 @@ public final class FgStackSvc implements AutoCloseable {
         vm.env.add(eq < 0 ? FgEnvVar.of(e, null) : FgEnvVar.of(e.substring(0, eq), e.substring(eq + 1)));
       }
     }
-    if (svc.entrypoint != null || svc.command != null) {
-      var cmd = new ArrayList<String>();
-      if (svc.entrypoint != null) {
-        cmd.addAll(svc.entrypoint);
-      }
-      if (svc.command != null) {
-        cmd.addAll(svc.command);
-      }
-      vm.command = cmd;
-    }
+    // Carry the service's entrypoint/command overrides through unmerged;
+    // FgVmLaunch resolves them against the image config (Docker semantics).
+    vm.entrypoint = svc.entrypoint;
+    vm.command = svc.command;
     vm.network = stack.bridge != null && !stack.bridge.isBlank()
       ? FgNetConfig.of(stack.bridge, FgVmId.tapName(vmid), FgVmId.macString(vmid))
       : null;

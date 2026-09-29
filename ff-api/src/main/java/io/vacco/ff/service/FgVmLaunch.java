@@ -71,22 +71,25 @@ public class FgVmLaunch {
     return e.val == null ? e.key : e.key + "=" + e.val;
   }
 
+  /**
+   * Resolves the guest argv following Docker/compose semantics: a service
+   * {@code entrypoint} replaces the image one; a service {@code command}
+   * replaces the image {@code Cmd} while keeping the image {@code Entrypoint}.
+   * This is the single place the full command array is resolved.
+   */
   public static List<String> command(FgVm vm) {
-    if (vm.command != null && !vm.command.isEmpty()) {
-      return new ArrayList<>(vm.command);
-    }
     var out = new ArrayList<String>();
-    if (vm.image != null) {
-      if (vm.image.entryPoint != null) {
-        for (var s : vm.image.entryPoint) {
-          out.add(s);
-        }
-      }
-      if (vm.image.cmd != null) {
-        for (var s : vm.image.cmd) {
-          out.add(s);
-        }
-      }
+    List<String> entrypoint = vm.entrypoint != null
+      ? vm.entrypoint
+      : (vm.image != null && vm.image.entryPoint != null ? List.of(vm.image.entryPoint) : null);
+    List<String> cmd = vm.command != null
+      ? vm.command
+      : (vm.image != null && vm.image.cmd != null ? List.of(vm.image.cmd) : null);
+    if (entrypoint != null) {
+      out.addAll(entrypoint);
+    }
+    if (cmd != null) {
+      out.addAll(cmd);
     }
     if (out.isEmpty()) {
       out.add("/bin/sh");

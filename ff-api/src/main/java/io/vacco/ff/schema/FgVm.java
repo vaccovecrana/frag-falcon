@@ -18,7 +18,14 @@ public class FgVm {
   public FgNetConfig network;
 
   /**
-   * Optional command override (entrypoint + args); when set it replaces the image's.
+   * Service-level entrypoint override. {@code null} inherits the image's
+   * {@code Entrypoint}; an empty list clears it (Docker semantics).
+   */
+  public List<String> entrypoint;
+
+  /**
+   * Service-level command override (replaces the image's {@code Cmd} while
+   * keeping the image {@code Entrypoint}). {@code null} inherits the image's.
    */
   public List<String> command;
 
