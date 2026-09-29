@@ -35,7 +35,13 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
   }, [id])
 
   const services = status?.services ? Object.values(status.services as any) : []
-  const canUpdate = services.length > 0 && services.every((s: any) => s.state !== "running")
+  const running = services.filter((s: any) => s.state === "running").length
+  const provisioning = services.some((s: any) => s.state === "provisioning" || s.state === "starting")
+  const canStart = !processing && !provisioning && running === 0
+  const canStop = !processing && !provisioning && running > 0
+  const canUpdate = !processing && !provisioning && services.length > 0
+    && services.every((s: any) => s.state !== "running")
+  const idle = !processing && !provisioning
 
   const run = (fn: () => Promise<any>) => {
     setProcessing(true)
@@ -53,23 +59,25 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
       </div>
 
       <div class="vf-hero-actions vf-mb-4">
-        <button class="vf-pill vf-pill--accent" disabled={processing}
+        <button class="vf-pill vf-pill--accent" disabled={!canStart}
+                title={canStart ? "" : "Already running or provisioning"}
                 onClick={() => run(() => apiV1StackStartPost({stackId: id}).then(unwrap))}>Start
         </button>
-        <button class="vf-pill" disabled={processing}
+        <button class="vf-pill" disabled={!canStop}
+                title={canStop ? "" : "Nothing is running"}
                 onClick={() => run(() => apiV1StackStopPost({stackId: id}).then(unwrap))}>Stop
         </button>
-        <button class="vf-pill" disabled={processing || !canUpdate}
+        <button class="vf-pill" disabled={!canUpdate}
                 title={canUpdate ? "" : "Stop the stack first"}
                 onClick={() => run(() => apiV1StackIdPatch(id).then(unwrap))}>Update
         </button>
         <a class="vf-pill" href={uiStackEdit(id)}>Edit</a>
-        <button class="vf-pill" disabled={processing}
+        <button class="vf-pill" disabled={!idle}
                 onClick={() => run(() => apiV1StackLogsPost({stackId: id})
                   .then(unwrap)
                   .then(r => setLogs(r.logs as any)))}>Logs
         </button>
-        <button class="vf-pill" disabled={processing}
+        <button class="vf-pill" disabled={!idle}
                 onClick={() => run(() => apiV1StackIdDelete(id)
                   .then(unwrap)
                   .then(() => window.location.replace(uiRoot)))}>Delete

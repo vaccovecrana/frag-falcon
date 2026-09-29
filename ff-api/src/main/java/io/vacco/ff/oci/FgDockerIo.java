@@ -6,16 +6,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
-import static io.vacco.ff.oci.FgOciIo.*;
+import static io.vacco.ff.util.FgIo.delete;
+import static io.vacco.ff.util.FgIo.mkDirs;
 import static java.lang.String.format;
 import static java.lang.String.join;
 
@@ -57,28 +58,45 @@ public class FgDockerIo {
     }
   }
 
-  private static JsonObject getJsonResponse(String urlString, String authToken, String... acceptHeaders) {
+  private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
+
+  /**
+   * GETs a registry URL (following redirects) and returns the streaming
+   * response. Shared by manifest/config JSON and blob downloads.
+   */
+  private static HttpResponse<InputStream> registryGet(String urlString, String authToken, String accept) {
     try {
-      var requestBuilder = HttpRequest.newBuilder()
-        .uri(URI.create(urlString))
-        .header("Accept", join(",", acceptHeaders))
-        .GET();
+      var builder = HttpRequest.newBuilder().uri(URI.create(urlString)).GET();
+      if (accept != null) {
+        builder.header("Accept", accept);
+      }
       if (authToken != null) {
-        requestBuilder.header("Authorization", "Bearer " + authToken);
+        builder.header("Authorization", "Bearer " + authToken);
       }
-      var response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
-      int statusCode = response.statusCode();
-      if (statusCode == 401) {
+      var response = client.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
+      int code = response.statusCode();
+      if (code == 401) {
         throw new IOException("Unauthorized request. Check token.");
-      } else if (statusCode == 302 || statusCode == 301 || statusCode == 307) {
-        var newUrl = response.headers().firstValue("Location").orElseThrow(() ->
-          new IOException("Redirected but no Location header found."));
-        return getJsonResponse(newUrl, authToken, acceptHeaders);
       }
-      var raw = response.body();
-      return JsonParser.parseString(raw).getAsJsonObject();
-    } catch (IOException | InterruptedException e) {
+      if (REDIRECTS.contains(code)) {
+        var location = response.headers().firstValue("Location").orElseThrow(() ->
+          new IOException("Redirected but no Location header found."));
+        return registryGet(location, authToken, accept);
+      }
+      return response;
+    } catch (IOException e) {
+      throw new IllegalStateException(format("Unable to GET [%s]", urlString), e);
+    } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
+      throw new IllegalStateException(format("Interrupted while GETting [%s]", urlString), e);
+    }
+  }
+
+  private static JsonObject getJsonResponse(String urlString, String authToken, String... acceptHeaders) {
+    var response = registryGet(urlString, authToken, join(",", acceptHeaders));
+    try (var body = response.body()) {
+      return JsonParser.parseString(new String(body.readAllBytes())).getAsJsonObject();
+    } catch (IOException e) {
       throw new IllegalStateException(format("Unable to load JSON content: [%s]", urlString), e);
     }
   }
@@ -94,32 +112,17 @@ public class FgDockerIo {
   private static void downloadBlob(String registryUrl, String repository, String blobSum,
                                    File outputFile, String authToken, FgOciProgress progress,
                                    long[] bytesDone, long totalBytes) {
-    try {
-      var blobUrl = registryUrl + repository + "/blobs/" + blobSum;
-      log.info("Downloading layer: {}", blobUrl);
-      var url = url(blobUrl);
-      var connection = (HttpURLConnection) url.openConnection();
-      connection.setRequestMethod("GET");
-      if (authToken != null) {
-        connection.setRequestProperty("Authorization", "Bearer " + authToken);
-      }
-      int responseCode = connection.getResponseCode();
-      if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
-        throw new IOException("Unauthorized request. Check token.");
-      } else if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
-        var newUrl = connection.getHeaderField("Location");
-        downloadBlob(newUrl, repository, blobSum, outputFile, authToken, progress, bytesDone, totalBytes);
-        return;
-      }
-      try (var in = new BufferedInputStream(connection.getInputStream());
-           var out = new FileOutputStream(outputFile)) {
-        var buffer = new byte[8192];
-        int bytesRead;
-        while ((bytesRead = in.read(buffer)) != -1) {
-          out.write(buffer, 0, bytesRead);
-          bytesDone[0] += bytesRead;
-          progress.onBytes(bytesDone[0], totalBytes);
-        }
+    var blobUrl = registryUrl + repository + "/blobs/" + blobSum;
+    log.info("Downloading layer: {}", blobUrl);
+    var response = registryGet(blobUrl, authToken, null);
+    try (var in = new BufferedInputStream(response.body());
+         var out = new FileOutputStream(outputFile)) {
+      var buffer = new byte[8192];
+      int bytesRead;
+      while ((bytesRead = in.read(buffer)) != -1) {
+        out.write(buffer, 0, bytesRead);
+        bytesDone[0] += bytesRead;
+        progress.onBytes(bytesDone[0], totalBytes);
       }
     } catch (IOException e) {
       var msg = format("Unable to download blob [%s, %s, %s, %s]", registryUrl, repository, blobSum, outputFile);
@@ -140,16 +143,11 @@ public class FgDockerIo {
   }
 
   private static String requestAuthToken(String registryTld, String... args) {
-    try {
-      var baseUrl = format("https://%s/token?%s", registryTld, join("&", args));
-      var url = url(baseUrl);
-      var connection = (HttpURLConnection) url.openConnection();
-      connection.setRequestMethod("GET");
-      try (var is = connection.getInputStream()) {
-        var response = new String(is.readAllBytes());
-        var jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-        return jsonResponse.get("token").getAsString();
-      }
+    var baseUrl = format("https://%s/token?%s", registryTld, join("&", args));
+    var response = registryGet(baseUrl, null, null);
+    try (var body = response.body()) {
+      var jsonResponse = JsonParser.parseString(new String(body.readAllBytes())).getAsJsonObject();
+      return jsonResponse.get("token").getAsString();
     } catch (IOException e) {
       throw new IllegalStateException(format("Unable to request auth token: [%s, %s]", registryTld, Arrays.toString(args)), e);
     }
@@ -217,23 +215,26 @@ public class FgDockerIo {
     progress.onLayers(0, layers.size());
     progress.onBytes(0, totalBytes);
 
-    var unzippedDir = store.tmpDir("unzipped");
+    var unzippedDir = store.newTmpDir("unzipped");
     delete(rootfsDir, e -> log.warn("Unable to clear rootfs directory [{}]", rootfsDir, e));
     mkDirs(rootfsDir);
 
-    for (int li = 0; li < layers.size(); li++) {
-      var layerObj = layers.get(li).getAsJsonObject();
-      var blobSum = layerObj.has("digest")
-        ? layerObj.get("digest").getAsString()
-        : layerObj.get("blobSum").getAsString();
+    try {
+      for (int li = 0; li < layers.size(); li++) {
+        var layerObj = layers.get(li).getAsJsonObject();
+        var blobSum = layerObj.has("digest")
+          ? layerObj.get("digest").getAsString()
+          : layerObj.get("blobSum").getAsString();
 
-      var blobFile = cachedBlob(store, registryUrl, repoName, blobSum, authToken, progress, bytesDone, totalBytes);
-      var extractedFile = new File(unzippedDir, blobFile.getName());
-      expand(blobFile, extractedFile);
-      FgRoot.extractTar(rootfsDir, extractedFile);
-      progress.onLayers(li + 1, layers.size());
+        var blobFile = cachedBlob(store, registryUrl, repoName, blobSum, authToken, progress, bytesDone, totalBytes);
+        var extractedFile = new File(unzippedDir, blobFile.getName());
+        expand(blobFile, extractedFile);
+        FgRoot.extractTar(rootfsDir, extractedFile);
+        progress.onLayers(li + 1, layers.size());
+      }
+    } finally {
+      delete(unzippedDir, e -> log.warn("Unable to delete unzipped directory [{}]", unzippedDir, e));
     }
-    delete(unzippedDir, e -> log.warn("Unable to delete unzipped directory [{}]", unzippedDir, e));
 
     return FgImage.of(rootfsDir.getAbsolutePath(), entryPoint, cmd, env, workingDir)
       .withExposedPorts(exposedPorts);

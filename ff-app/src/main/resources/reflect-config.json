@@ -14,6 +14,13 @@
     "unsafeAllocated": true
   },
   {
+    "name": "io.vacco.ff.api.result.FgHostResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
     "name": "io.vacco.ff.api.result.FgStackListResult",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,

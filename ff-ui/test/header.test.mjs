@@ -31,3 +31,12 @@ test("reports no console errors on the landing page", async () => {
   await goto(page, "/")
   assert.deepEqual(page.errors, [])
 })
+
+test("renders the host name in the browser tab title", async () => {
+  if (!page) return
+  await goto(page, "/")
+  await page.waitForFunction(() => document.title.startsWith("frag-falcon · "), {timeout: 5000})
+    .catch(() => {})
+  const title = await page.title()
+  assert.match(title, /^frag-falcon · \S+/)
+})

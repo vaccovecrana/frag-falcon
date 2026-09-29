@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Low-level VM lifecycle services. Stack orchestration (M5b) resolves the VM
@@ -24,6 +26,29 @@ public class FgVmSvc {
 
   private static final Gson GSON = new Gson();
   private static final Logger log = LoggerFactory.getLogger(FgVmSvc.class);
+
+  /**
+   * Serializes provisioning per image reference. Two services pulling the same
+   * image (or a double-launch of the same service) share the blob store and can
+   * otherwise expand/extract concurrently, racing on the shared layer cache.
+   */
+  private static final ConcurrentHashMap<String, ReentrantLock> provisioningLocks = new ConcurrentHashMap<>();
+
+  private static String imageKey(String imageRef) {
+    var ref = imageRef;
+    if (!ref.contains("/")) {
+      ref = "docker.io/library/" + ref;
+    } else if (!ref.substring(0, ref.indexOf('/')).contains(".")
+        && !ref.substring(0, ref.indexOf('/')).contains(":")) {
+      ref = "docker.io/" + ref;
+    }
+    var last = ref.substring(ref.lastIndexOf('/') + 1);
+    return last.contains(":") ? ref : ref + ":latest";
+  }
+
+  private static ReentrantLock lockFor(String imageRef) {
+    return provisioningLocks.computeIfAbsent(imageKey(imageRef), _ -> new ReentrantLock());
+  }
 
   public static File rootfsOf(File vmRoot) {
     return new File(vmRoot, "rootfs");
@@ -76,7 +101,20 @@ public class FgVmSvc {
         vm.image = img;
       }
     } else {
-      build(vm, vmRoot, store, progress);
+      var lock = lockFor(vm.image.source);
+      lock.lock();
+      try {
+        if (!isProvisioned(vm, vmRoot)) {
+          build(vm, vmRoot, store, progress);
+        } else {
+          var img = loadImage(vmRoot);
+          if (img != null) {
+            vm.image = img;
+          }
+        }
+      } finally {
+        lock.unlock();
+      }
     }
     if (vm.network != null && vm.network.tapName != null) {
       FgTap.up(vm.network.tapName, vm.network.brIf);

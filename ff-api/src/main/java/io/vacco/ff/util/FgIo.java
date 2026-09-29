@@ -7,6 +7,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -14,11 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.PosixFilePermission;
 import java.util.function.Consumer;
 
 import static java.lang.String.format;
-import static java.nio.file.Files.setPosixFilePermissions;
 
 public class FgIo {
 
@@ -36,16 +38,21 @@ public class FgIo {
       Files.walkFileTree(f.toPath(), new SimpleFileVisitor<>() {
         @Override
         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-          Files.delete(file);
+          Files.deleteIfExists(file);
           return FileVisitResult.CONTINUE;
         }
 
         @Override
-        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-          if (exc != null) {
-            throw exc;
+        public FileVisitResult visitFileFailed(Path file, IOException exc) {
+          return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+          try {
+            Files.deleteIfExists(dir);
+          } catch (IOException ignored) {
           }
-          Files.delete(dir);
           return FileVisitResult.CONTINUE;
         }
       });
@@ -70,13 +77,11 @@ public class FgIo {
     }
   }
 
-  public static void addPermissions(Path path, PosixFilePermission... perms) {
+  public static URL url(String url) {
     try {
-      var permissions = Files.getPosixFilePermissions(path);
-      permissions.addAll(java.util.Arrays.asList(perms));
-      setPosixFilePermissions(path, permissions);
-    } catch (IOException e) {
-      throw new IllegalStateException(format("Unable to set path permissions: [%s]", path), e);
+      return new URI(url).toURL();
+    } catch (URISyntaxException | MalformedURLException e) {
+      throw new IllegalStateException(format("Invalid URL: [%s]", url), e);
     }
   }
 

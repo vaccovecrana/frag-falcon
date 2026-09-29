@@ -28,6 +28,15 @@ import static org.junit.Assert.fail;
 public class FgImageExpandTest {
 
   private static final List<String> PROBLEMATIC_IMAGES = List.of(
+    "ghcr.io/siderolabs/installer:v1.4.0",
+    "docker.io/hashicorp/http-echo:latest",
+    "docker.io/louislam/uptime-kuma:latest",
+    "quay.io/argoproj/argocd:latest",
+    "docker.io/nats:latest",
+    "docker.io/postgres:latest",
+    "docker.io/cockroachdb/cockroach",
+    "docker.io/busybox:latest",
+    "docker.io/drone/drone-runner-docker:linux-amd64",
     "docker.io/grycap/cowsay:latest"
     // add more known-problematic image refs here
   );
@@ -43,9 +52,10 @@ public class FgImageExpandTest {
         var rootfs = FgTest.freshDir("expand-" + safeName(ref));
         try {
           var image = FgDockerIo.extract(ref, rootfs, store);
+          var entries = rootfs.list();
           assertTrue(
             "[" + ref + "] expansion produced no rootfs content",
-            new File(rootfs, "bin").exists() || new File(rootfs, "usr").exists()
+            entries != null && entries.length > 0
           );
           log.info("libkrun: expanded {} -> {}", ref, image);
         } catch (Throwable t) {

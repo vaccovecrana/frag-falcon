@@ -7,6 +7,7 @@ import io.vacco.ff.schema.FgStackRef;
 import io.vacco.ff.schema.FgStackStatus;
 import io.vacco.ff.service.FgStackSvc;
 import io.vacco.ff.service.FgValidationException;
+import io.vacco.ff.util.FgIo;
 import io.vacco.ronove.RvResponse;
 import io.vacco.ronove.RvResult;
 import jakarta.ws.rs.*;
@@ -35,25 +36,18 @@ public class FgApiHdl {
     this.svc = svc;
   }
 
-  private static <R extends RvResult> RvResponse<R> ok(R body) {
-    return new RvResponse<R>().withStatus(Response.Status.OK).withBody(body);
-  }
-
-  private static <R extends RvResult> RvResponse<R> fail(Response.Status status, R body, Exception e) {
-    log.warn("request failed: {}", e.toString());
-    if (e instanceof FgValidationException ve) {
-      body.withValidations(ve.validations);
-    }
-    body.withError(e);
-    return new RvResponse<R>().withStatus(status).withBody(body);
-  }
-
   private static <R extends RvResult> RvResponse<R> handle(
     Response.Status errorStatus, R body, Function<R, R> op) {
     try {
-      return ok(op.apply(body));
+      return new RvResponse<R>().withStatus(Response.Status.OK).withBody(op.apply(body));
     } catch (Exception e) {
-      return fail(errorStatus, body, e);
+      log.warn("request failed: {}", e.toString());
+      if (e instanceof FgValidationException ve) {
+        body.withValidations(ve.validations);
+      }
+      body.withError(e);
+      var status = e instanceof FgStackSvc.FgBusyException ? Response.Status.CONFLICT : errorStatus;
+      return new RvResponse<R>().withStatus(status).withBody(body);
     }
   }
 
@@ -157,6 +151,17 @@ public class FgApiHdl {
     var body = new FgBridgesResult();
     return handle(Response.Status.INTERNAL_SERVER_ERROR, body, r -> {
       r.bridges = FgJni.getLinuxBridgeInterfaces();
+      return r;
+    });
+  }
+
+  @GET
+  @Path(FgRoute.apiV1Host)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgHostResult> apiV1HostGet() {
+    var body = new FgHostResult();
+    return handle(Response.Status.INTERNAL_SERVER_ERROR, body, r -> {
+      r.name = FgIo.hostName();
       return r;
     });
   }

@@ -11,5 +11,6 @@ public class FgRoute {
     apiV1StackStart = "/api/v1/stack/start",
     apiV1StackStop = "/api/v1/stack/stop",
     apiV1StackLogs = "/api/v1/stack/logs",
-    apiV1Br = "/api/v1/br";
+    apiV1Br = "/api/v1/br",
+    apiV1Host = "/api/v1/host";
 }

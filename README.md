@@ -78,6 +78,7 @@ POST   /api/v1/stack/start      start a stack (topological order)
 POST   /api/v1/stack/stop       stop a stack (reverse order)
 POST   /api/v1/stack/logs       per-service log tails
 GET    /api/v1/br               list Linux bridges
+GET    /api/v1/host             hypervisor host name (browser tab title)
 ```
 
 ## systemd

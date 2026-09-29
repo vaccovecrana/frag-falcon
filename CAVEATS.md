@@ -339,3 +339,25 @@ missing:
 
 Build-only CI (no KVM/caps/bridge) can exclude the privileged tests with
 `gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).
+
+## 18. Operation locking and concurrent provisioning
+
+Mutating a stack service is serialized by a **per stack-service lock**
+(`FgStackSvc.active`, a `ConcurrentHashMap.newKeySet()`): `start`, `stop`,
+`update`, `delete`, and the supervisor's restart all claim the key
+`stackId/service` before doing work. A second concurrent request is rejected
+with **HTTP 409** (`FgStackSvc.FgBusyException` → `RvResult` body), so UI
+double-clicks and rapid API calls can't race. `status()` reflects an in-flight
+operation as `provisioning` so the UI can disable its actions.
+
+Provisioning is additionally serialized **per image reference**
+(`FgVmSvc.provisioningLocks`): two services pulling the same image share the
+blob store, so their extractions must not overlap. Each extraction also uses a
+**unique** temp dir under the shared `oci/tmp` (`FgOciStore.newTmpDir`), removed
+in a `finally`; `FgIo.delete` is race-tolerant (`deleteIfExists`), so a
+concurrent delete never logs a stack trace.
+
+Before this, `start()` (stack-op worker) and the supervisor's `tick()` could
+both launch the same service, and the two extractions clobbered the shared
+`tmp/unzipped` dir (`NoSuchFileException`). See
+`FgOciConcurrencyTest`, `FgImageExpandTest`.

@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,6 +56,14 @@ public final class FgStackSvc implements AutoCloseable {
     new Thread(r, "ff-stack-op"));
   private final Map<String, Mon> monitored = new ConcurrentHashMap<>();
   private final Map<String, FgServiceStatus> live = new ConcurrentHashMap<>();
+
+  /**
+   * Per stack-service operation lock. Claimed atomically on the API thread
+   * before work is dispatched, so concurrent start/stop/update/delete (UI
+   * double-clicks, rapid API calls, or the supervisor restarting a service that
+   * is already being started) serialize instead of racing.
+   */
+  private final Set<String> active = ConcurrentHashMap.newKeySet();
   private final ExecutorService supervisor = Executors.newSingleThreadExecutor(r ->
     new Thread(r, "ff-supervisor"));
 
@@ -142,15 +151,39 @@ public final class FgStackSvc implements AutoCloseable {
 
   /* ----- lifecycle ---------------------------------------------------- */
 
+  /** Thrown when an operation is already in flight for a stack service. */
+  public static class FgBusyException extends RuntimeException {
+    public final String stackId, service;
+
+    public FgBusyException(String stackId, String service) {
+      super("Operation already in progress for " + stackId + "/" + service);
+      this.stackId = stackId;
+      this.service = service;
+    }
+  }
+
+  private boolean claim(String id, String service) {
+    return active.add(key(id, service));
+  }
+
+  private void release(String id, String service) {
+    active.remove(key(id, service));
+  }
+
   public FgStackStatus start(String id) {
     var stack = load(id);
     var order = FgStackPlan.startOrder(stack);
+    for (var service : order) {
+      if (!claim(id, service)) {
+        throw new FgBusyException(id, service);
+      }
+    }
     ops.submit(() -> {
       for (var service : order) {
+        var k = key(id, service);
         try {
           var vm = toVm(stack, service);
           var dir = serviceDir(id, service);
-          var k = key(id, service);
           var mon = new Mon();
           mon.stackId = id;
           mon.service = service;
@@ -165,11 +198,13 @@ public final class FgStackSvc implements AutoCloseable {
           live.remove(k);
         } catch (Exception e) {
           live.put(
-            key(id, service),
+            k,
             FgServiceStatus.of(
               service, FgVmId.of(id, service), FgVmState.failed, -1).withError(e.getMessage()
             )
           );
+        } finally {
+          release(id, service);
         }
       }
     });
@@ -179,13 +214,22 @@ public final class FgStackSvc implements AutoCloseable {
   public FgStackStatus stop(String id) {
     var stack = load(id);
     for (var service : FgStackPlan.stopOrder(stack)) {
-      var k = key(id, service);
-      var mon = monitored.get(k);
-      if (mon != null) {
-        mon.desired = false;
+      if (!claim(id, service)) {
+        throw new FgBusyException(id, service);
       }
-      FgVmSvc.stop(toVm(stack, service));
-      live.remove(k);
+    }
+    for (var service : FgStackPlan.stopOrder(stack)) {
+      var k = key(id, service);
+      try {
+        var mon = monitored.get(k);
+        if (mon != null) {
+          mon.desired = false;
+        }
+        FgVmSvc.stop(toVm(stack, service));
+        live.remove(k);
+      } finally {
+        release(id, service);
+      }
     }
     return status(id);
   }
@@ -198,23 +242,39 @@ public final class FgStackSvc implements AutoCloseable {
   public FgStackStatus update(String id) {
     var stack = load(id);
     for (var service : stack.serviceNames()) {
-      var dir = serviceDir(id, service);
-      FgIo.delete(FgVmSvc.rootfsOf(dir), e -> {
-      });
-      FgIo.delete(FgVmSvc.imageOf(dir), e -> {
-      });
+      if (!claim(id, service)) {
+        throw new FgBusyException(id, service);
+      }
+    }
+    for (var service : stack.serviceNames()) {
+      try {
+        var dir = serviceDir(id, service);
+        FgIo.delete(FgVmSvc.rootfsOf(dir), e -> {
+        });
+        FgIo.delete(FgVmSvc.imageOf(dir), e -> {
+        });
+      } finally {
+        release(id, service);
+      }
     }
     return status(id);
   }
 
   public void delete(String id) {
-    stop(id);
-    for (var service : load(id).serviceNames()) {
-      monitored.remove(key(id, service));
+    if (!claim(id, id)) {
+      throw new FgBusyException(id, id);
     }
-    FgIo.delete(stackDir(id), e -> {
-      throw new IllegalStateException("Unable to delete stack " + id, e);
-    });
+    try {
+      stop(id);
+      for (var service : load(id).serviceNames()) {
+        monitored.remove(key(id, service));
+      }
+      FgIo.delete(stackDir(id), e -> {
+        throw new IllegalStateException("Unable to delete stack " + id, e);
+      });
+    } finally {
+      release(id, id);
+    }
   }
 
   /* ----- status / logs ------------------------------------------------ */
@@ -237,9 +297,13 @@ public final class FgStackSvc implements AutoCloseable {
         s.state = l.state;
         s.provision = l.provision;
         s.error = l.error;
-        if (l.state == FgVmState.provisioning) {
-          provisioning = true;
-        }
+      } else if (pid <= 0 && active.contains(key(id, service))) {
+        // An operation (start/restart/stop/update) is in flight but has not yet
+        // reported progress: reflect it so the UI can disable its actions.
+        s.state = FgVmState.provisioning;
+      }
+      if (s.state == FgVmState.provisioning) {
+        provisioning = true;
       }
       st.services.put(service, s);
       if (s.state == FgVmState.running) {
@@ -362,12 +426,17 @@ public final class FgStackSvc implements AutoCloseable {
       if (now - mon.lastStart < RESTART_BACKOFF_MS) {
         continue;
       }
+      if (!claim(mon.stackId, mon.service)) {
+        continue; // an operation (likely the start that is still provisioning) is in flight
+      }
       mon.lastStart = now;
       try {
         log.info("restart: {}/{} (policy={})", mon.stackId, mon.service, mon.policy);
         FgVmSvc.start(mon.vm, mon.dir, store, FgOciProgress.NOOP);
       } catch (Exception e) {
         log.error("restart error: {}/{} {}", mon.stackId, mon.service, mon.policy, e);
+      } finally {
+        release(mon.stackId, mon.service);
       }
     }
   }
