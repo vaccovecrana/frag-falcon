@@ -188,9 +188,16 @@ must never be exposed publicly; run it behind a private LAN segment or a VPN.
   image `Entrypoint`**. Both unset → image `Entrypoint` + image `Cmd`; image
   `Cmd` only (no entrypoint) → the command is `argv[0]`. The stack service
   overrides are carried through `FgVm` unmerged so the resolver has both the
-  image metadata (`image.json`) and the overrides. Without this, a compose file
+  image metadata (`image.json`)   and the overrides. Without this, a compose file
   that sets only `command` (as dockge exports) would drop the image entrypoint
   and fail to run the workload.
+- **`environment` also follows Docker semantics**, resolved in `FgVmLaunch.env`:
+  image `ENV` is inherited and service `environment:` entries override per key.
+  The merged list is **de-duplicated** (service wins) because the guest init
+  keeps the *first* occurrence of a key — without dedupe a pre-baked `PATH`/
+  `LD_LIBRARY_PATH` would silently ignore the user's override. A bare key
+  (no `=`, e.g. `- FOO`) is emitted as `FOO=` (empty value, present) with a
+  warning; it is **not** a host-environment passthrough.
 
 ---
 

@@ -1,5 +1,6 @@
 package io.vacco.ff;
 
+import io.vacco.ff.oci.FgEnvVar;
 import io.vacco.ff.oci.FgImage;
 import io.vacco.ff.schema.FgVm;
 import io.vacco.ff.service.FgVmLaunch;
@@ -120,6 +121,59 @@ public class FgVmLaunchTest {
       vm.image.entryPoint = null;
       vm.image.cmd = null;
       assertEquals(List.of("/bin/sh"), FgVmLaunch.command(vm));
+    });
+
+    it("service environment overrides a pre-baked image variable (PATH)", () -> {
+      var vm = vmWith(null);
+      vm.image.env = List.of(FgEnvVar.of("PATH", "/image/bin"), FgEnvVar.of("LANG", "C"));
+      vm.env = List.of(FgEnvVar.of("PATH", "/custom/bin"));
+      assertEquals(List.of("PATH=/custom/bin", "LANG=C"), FgVmLaunch.env(vm));
+    });
+
+    it("merges image env with new service keys, image order preserved", () -> {
+      var vm = vmWith(null);
+      vm.image.env = List.of(FgEnvVar.of("PATH", "/image/bin"));
+      vm.env = List.of(FgEnvVar.of("FOO", "bar"), FgEnvVar.of("BAZ", "qux"));
+      assertEquals(List.of("PATH=/image/bin", "FOO=bar", "BAZ=qux"), FgVmLaunch.env(vm));
+    });
+
+    it("keeps image env when the service adds none", () -> {
+      var vm = vmWith(null);
+      vm.image.env = List.of(FgEnvVar.of("PATH", "/image/bin"));
+      assertEquals(List.of("PATH=/image/bin"), FgVmLaunch.env(vm));
+    });
+
+    it("emits a bare service key as an empty value", () -> {
+      var vm = vmWith(null);
+      vm.env = List.of(FgEnvVar.of("FOO", null));
+      assertEquals(List.of("FOO="), FgVmLaunch.env(vm));
+    });
+
+    it("a bare service key overrides an image value with empty", () -> {
+      var vm = vmWith(null);
+      vm.image.env = List.of(FgEnvVar.of("FOO", "image"));
+      vm.env = List.of(FgEnvVar.of("FOO", null));
+      assertEquals(List.of("FOO="), FgVmLaunch.env(vm));
+    });
+
+    it("preserves an explicit empty value", () -> {
+      var vm = vmWith(null);
+      vm.env = List.of(FgEnvVar.of("FOO", ""));
+      assertEquals(List.of("FOO="), FgVmLaunch.env(vm));
+    });
+
+    it("emits each merged env var exactly once via args", () -> {
+      var vm = vmWith(null);
+      vm.image.env = List.of(FgEnvVar.of("PATH", "/image/bin"));
+      vm.env = List.of(FgEnvVar.of("PATH", "/custom/bin"), FgEnvVar.of("FOO", "bar"));
+      var args = FgVmLaunch.args(vm, new File("/tmp/none"));
+      var envs = new java.util.ArrayList<String>();
+      for (int i = 0; i < args.size(); i++) {
+        if ("--env".equals(args.get(i))) {
+          envs.add(args.get(i + 1));
+        }
+      }
+      assertEquals(List.of("PATH=/custom/bin", "FOO=bar"), envs);
     });
   }
 }
