@@ -19,6 +19,8 @@ import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static io.vacco.shax.logging.ShArgument.kv;
+
 /**
  * Low-level VM lifecycle services. Stack orchestration (M5b) resolves the VM
  * and its directory; these methods operate on an explicit {@code vmRoot}.
@@ -101,8 +103,10 @@ public class FgVmSvc {
     var img = FgIo.fromJson(f, FgImage.class, GSON);
     var violations = FgValid.validateImage(img);
     if (!violations.isEmpty()) {
-      log.warn("image metadata [{}] is invalid ({}); will re-provision: {}",
-        f, violations.size(), violations);
+      log.warn(
+        "image metadata [{}] is invalid ({}); will re-provision: {}",
+        kv("image", f), violations.size(), kv("violations", violations)
+      );
       return null;
     }
     return img;
