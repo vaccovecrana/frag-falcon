@@ -13,7 +13,9 @@ import java.util.List;
  */
 public class FgValidationException extends RuntimeException {
 
-  public final List<RvValidation> validations = new ArrayList<>();
+  private static final long serialVersionUID = 1L;
+
+  public final transient List<RvValidation> validations = new ArrayList<>();
 
   public FgValidationException(String message, RvValidation... validations) {
     super(message);

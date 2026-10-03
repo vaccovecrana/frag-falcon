@@ -21,6 +21,5 @@ dependencies {
   api(project(":ff-ui"))
   api(libs.gson)
   api(libs.shax)
-  api(libs.yavi)
   api(libs.ronovemx)
 }

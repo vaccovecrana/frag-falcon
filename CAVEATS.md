@@ -360,6 +360,13 @@ missing:
 Build-only CI (no KVM/caps/bridge) can exclude the privileged tests with
 `gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).
 
+`scripts/e2e.sh` automates the browser suite: it builds the bundle + app,
+applies the launcher capability, starts a backend on a throwaway `--vm-dir`,
+runs `npm run test:e2e`, and tears the backend down on exit. Override the port,
+vm-dir or bridge via `FF_E2E_PORT`, `FF_E2E_VM_DIR`, `FF_E2E_BRIDGE`; set
+`SUDOPW` to auto-apply caps, `SHOW_LOG=1` to follow the backend log, and
+`KEEP_VM_DIR=1` to inspect the run's storage.
+
 ## 18. Operation locking and concurrent provisioning
 
 Mutating a stack service is serialized by a **per stack-service lock**

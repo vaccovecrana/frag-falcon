@@ -101,7 +101,10 @@ The Preact SPA is bundled into `flc` (see `ff-ui/`). Browser E2E tests and a
 visual-audit capture run against a live hypervisor:
 
 ```bash
-# with a hypervisor running on 127.0.0.1:7070
+# one-shot: builds, starts a throwaway backend, runs the suite, tears down
+scripts/e2e.sh
+
+# or, with a hypervisor already running on 127.0.0.1:7070
 npm --prefix ff-ui run test:e2e   # assertions (or: gradle :ff-ui:e2eTest)
 npm --prefix ff-ui run visual     # per-screen screenshots (or: gradle :ff-ui:visual)
 ```

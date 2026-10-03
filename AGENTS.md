@@ -42,6 +42,10 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
   captures each screen/state at desktop + mobile viewports to
   `ff-ui/build/test-artifacts/visual/`. Opt-in; requires a running hypervisor
   (use a fresh `--vm-dir` for a deterministic empty landing shot).
+- **UI E2E**: `scripts/e2e.sh` builds, starts a throwaway backend (fresh
+  `--vm-dir`, launcher caps applied), runs `npm run test:e2e`, and tears it
+  down. Overrides: `FF_E2E_PORT`, `FF_E2E_VM_DIR`, `FF_E2E_BRIDGE`, `SUDOPW`,
+  `SHOW_LOG=1`, `KEEP_VM_DIR=1`.
 - `ff-jni`'s native code is built by `make` (invoked from Gradle's `nativeBuild` task);
   it needs `cc` and `JAVA_HOME` (set). Rebuild directly with `make -C ff-jni`.
 - The **network test** needs `cap_net_admin` on the launcher: run

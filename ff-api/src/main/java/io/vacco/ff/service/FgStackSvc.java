@@ -120,12 +120,14 @@ public final class FgStackSvc implements AutoCloseable {
     return stack;
   }
 
-  /** Runs the yavi rules and throws a validation error listing every violation. */
+  /** Runs the validation rules and throws a validation error listing every violation. */
   private static void validate(FgStack stack) {
     var violations = FgValid.validate(stack);
     if (!violations.isEmpty()) {
-      var validations = FgValid.validationsOf(violations).toArray(RvValidation[]::new);
-      throw new FgValidationException("Invalid stack definition: " + violations.size() + " error(s)", validations);
+      throw new FgValidationException(
+        "Invalid stack definition: " + violations.size() + " error(s)",
+        violations.toArray(RvValidation[]::new)
+      );
     }
   }
 

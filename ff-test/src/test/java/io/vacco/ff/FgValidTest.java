@@ -37,7 +37,7 @@ public class FgValidTest {
   }
 
   private static List<String> keys(FgStack s) {
-    return FgValid.validationsOf(FgValid.validate(s)).stream().map(v -> v.key).toList();
+    return FgValid.validate(s).stream().map(v -> v.key).toList();
   }
 
   static {
@@ -124,7 +124,7 @@ public class FgValidTest {
     });
 
     it("carries a name and positional params for the UI", () -> {
-      var vs = FgValid.validationsOf(FgValid.validate(stack("bad id!", svc("alpine"))));
+      var vs = FgValid.validate(stack("bad id!", svc("alpine")));
       var v = vs.stream().filter(x -> x.key.equals("ff.stack.invalidId")).findFirst().orElseThrow();
       assertEquals("id", v.name);
       assertNotNull(v.params);

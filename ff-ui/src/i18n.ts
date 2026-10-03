@@ -36,6 +36,18 @@ const TEMPLATES: Record<string, string> = {
     "An entry in '{0}' is blank.",
   "ff.stack.service.dependsOn.unknown":
     "Depends on unknown service '{0}'.",
+  "ff.image.missing": "Image metadata is missing.",
+  "ff.image.source.missing": "Image metadata has no source reference.",
+  "ff.image.source.invalid": "'{0}' is not a valid image reference.",
+  "ff.image.rootDir.missing": "Image root directory '{0}' is missing.",
+  "ff.image.workingDir.relative": "Image working directory '{0}' must be absolute.",
+  "ff.image.command.blank": "Image {0} contains a blank entry.",
+  "ff.image.env.invalid": "'{0}' is not a valid environment variable name.",
+  "ff.image.env.duplicate": "Duplicate image environment variable '{0}'.",
+  "ff.image.exposedPorts.invalid": "'{0}' is not a valid exposed port (expected PORT/tcp or PORT/udp).",
+  "ff.volume.missing": "A volume is missing.",
+  "ff.volume.host.missing": "Host directory '{0}' does not exist.",
+  "ff.volume.guest.absolute": "Guest path '{0}' must be absolute.",
 }
 
 const interpolate = (template: string, params?: Map<string, string> | Record<string, string>) => {

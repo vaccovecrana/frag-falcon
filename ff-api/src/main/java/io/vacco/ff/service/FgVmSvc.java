@@ -11,6 +11,7 @@ import io.vacco.ff.schema.FgVm;
 import io.vacco.ff.schema.FgVmState;
 import io.vacco.ff.schema.FgVmStatus;
 import io.vacco.ff.util.FgIo;
+import io.vacco.ronove.util.RvValidation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,9 +68,18 @@ public class FgVmSvc {
 
   /**
    * Provisions the rootfs from the VM's OCI image (image layers pulled lazily here).
+   * Fails hard if the extracted metadata is invalid, so a corrupt image never
+   * reaches boot or gets persisted.
    */
   public static FgVm build(FgVm vm, File vmRoot, FgOciStore store, FgOciProgress progress) {
     vm.image = FgDockerIo.extract(vm.image.source, rootfsOf(vmRoot), store, progress);
+    var violations = FgValid.validateImage(vm.image);
+    if (!violations.isEmpty()) {
+      throw new FgValidationException(
+        "Invalid image metadata for " + vm.image.source + ": " + violations.size() + " error(s)",
+        violations.toArray(RvValidation[]::new)
+      );
+    }
     FgIo.toJson(vm.image, imageOf(vmRoot), GSON);
     return vm;
   }
@@ -78,9 +88,24 @@ public class FgVmSvc {
     return rootfsOf(vmRoot).isDirectory() && imageOf(vmRoot).isFile();
   }
 
+  /**
+   * Loads the persisted image metadata, or {@code null} if it is missing or
+   * invalid. Invalid metadata is treated as "not provisioned" so the next start
+   * re-extracts, self-healing a corrupt/empty {@code image.json}.
+   */
   public static FgImage loadImage(File vmRoot) {
     var f = imageOf(vmRoot);
-    return f.exists() ? FgIo.fromJson(f, FgImage.class, GSON) : null;
+    if (!f.exists()) {
+      return null;
+    }
+    var img = FgIo.fromJson(f, FgImage.class, GSON);
+    var violations = FgValid.validateImage(img);
+    if (!violations.isEmpty()) {
+      log.warn("image metadata [{}] is invalid ({}); will re-provision: {}",
+        f, violations.size(), violations);
+      return null;
+    }
+    return img;
   }
 
   /**
