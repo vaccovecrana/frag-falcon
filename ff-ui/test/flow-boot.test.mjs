@@ -62,13 +62,10 @@ test("B) boots the stack", async () => {
 test("C) shows service logs", async () => {
   if (!canBoot) return
   await goto(page, `/stack/${ID}`)
-  await page.waitForSelector("textarea.ff-log", {timeout: 20000}).catch(() => {
-  })
+  // Logs are polled automatically while the stack runs; just wait for the marker.
+  await page.waitForSelector("textarea.ff-log", {timeout: 30000})
   const start = Date.now()
   for (; ;) {
-    // Logs are fetched on demand (not polled), so re-click to refresh.
-    await clickText(page, "Logs")
-    await page.waitForSelector("textarea.ff-log", {timeout: 20000})
     const log = await page.$eval("textarea.ff-log", el => el.value)
     if (log.includes(MARKER)) return
     if (Date.now() - start > 60000) throw new Error(`marker "${MARKER}" not in logs:\n${log}`)

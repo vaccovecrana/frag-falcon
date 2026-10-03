@@ -105,11 +105,6 @@ const main = async () => {
 
     await capture("landing", "/")
     await capture("detail", `/stack/${ID_A}`)
-    await capture("detail-logs", `/stack/${ID_A}`, async () => {
-      await clickText(page, "Logs")
-      await page.waitForSelector("textarea.ff-log", {timeout: 8000}).catch(() => {
-      })
-    })
     await capture("editor-new", "/stack/new")
     await capture("editor-expanded", "/stack/new", async () => {
       await clickText(page, "+ Add service")
@@ -157,12 +152,10 @@ const main = async () => {
       await waitFor(() => listStacks().then(ss => ss.find(s => s.id === ID_ERR)?.state === "running"), 90000)
       await capture("detail-running", `/stack/${ID_ERR}`)
       await capture("detail-logs-output", `/stack/${ID_ERR}`, async () => {
-        await clickText(page, "Logs")
-        await page.waitForSelector("textarea.ff-log", {timeout: 8000}).catch(() => {
+        // Logs poll automatically; give the guest time to emit and the poll to catch up.
+        await page.waitForSelector("textarea.ff-log", {timeout: 30000}).catch(() => {
         })
         await new Promise((r) => setTimeout(r, 12000))
-        await clickText(page, "Logs")
-        await new Promise((r) => setTimeout(r, 400))
       })
     }
   } finally {

@@ -44,7 +44,7 @@ test("surfaces a backend rejection as an error toast", async () => {
   await page.evaluate(() =>
     [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Save").click())
   await page.waitForSelector(".vf-toast--error", {timeout: 5000})
-  assert.match(await text(page, ".vf-toast"), /[Uu]nknown Linux bridge/)
+  assert.match(await text(page, ".vf-toast"), /[Uu]nknown Linux bridge 'nope0'/)
 })
 
 test("rejects a malformed service image from the backend with a mapped message", async () => {

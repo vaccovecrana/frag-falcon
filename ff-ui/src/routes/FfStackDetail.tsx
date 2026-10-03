@@ -22,10 +22,28 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
   const [logs, setLogs] = useState<Record<string, string> | undefined>()
   const [processing, setProcessing] = useState(false)
 
+  const fetchLogs = () =>
+    apiV1StackLogsPost({stackId: id})
+      .then(unwrap)
+      .then(r => setLogs(r.logs as any))
+      .catch(() => {
+      })
+
   useEffect(() => {
+    let lastRunning = false
     const load = () => {
       apiV1StackGet()
-        .then(r => setStatus(r.stacks?.find(s => s.id === id)))
+        .then(r => {
+          const st = r.stacks?.find(s => s.id === id)
+          setStatus(st)
+          const services = st?.services ? Object.values(st.services as any) : []
+          const anyRunning = services.some((s: any) => s.state === "running")
+          // Poll logs while running, plus one final fetch when it stops.
+          if (anyRunning || lastRunning) {
+            fetchLogs()
+          }
+          lastRunning = anyRunning
+        })
         .catch(() => {
         }) // background poll: stay silent
     }
@@ -73,11 +91,6 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         </button>
         <a class="vf-pill" href={uiStackEdit(id)}>Edit</a>
         <button class="vf-pill" disabled={!idle}
-                onClick={() => run(() => apiV1StackLogsPost({stackId: id})
-                  .then(unwrap)
-                  .then(r => setLogs(r.logs as any)))}>Logs
-        </button>
-        <button class="vf-pill" disabled={!idle}
                 onClick={() => run(() => apiV1StackIdDelete(id)
                   .then(unwrap)
                   .then(() => window.location.replace(uiRoot)))}>Delete
@@ -118,7 +131,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         ))
       )}
 
-      {logs && (
+      {logs && Object.keys(logs).length > 0 && (
         <>
           <h2 class="vf-section-title">Logs</h2>
           {Object.entries(logs).map(([svc, data]) => (

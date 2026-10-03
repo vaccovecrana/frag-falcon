@@ -76,14 +76,12 @@ test("rejects a second concurrent action with 409", async () => {
   await new Promise((r) => setTimeout(r, 2000))
 })
 
-test("loads per-service logs on demand", async () => {
+test("has no Logs button (logs are polled automatically)", async () => {
   if (!page) return
   await goto(page, `/stack/${ID}`)
-  const btn = await page.evaluateHandle(() =>
-    [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "Logs"))
-  await btn.asElement().click()
-  await page.waitForSelector("textarea.ff-log", {timeout: 10000})
-  assert.ok(await exists(page, "textarea.ff-log"))
+  const hasLogsBtn = await page.evaluate(() =>
+    [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Logs"))
+  assert.equal(hasLogsBtn, false, "the Logs button should be removed")
 })
 
 test("reports no console errors on the detail page", async () => {

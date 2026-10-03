@@ -112,7 +112,7 @@ public final class FgStackSvc implements AutoCloseable {
       && !FgJni.getLinuxBridgeInterfaces().contains(stack.bridge)) {
       throw new FgValidationException(
         "Unknown Linux bridge: " + stack.bridge,
-        RvValidation.of("ff.stack.unknownBridge").withName("bridge").withParam("bridge", stack.bridge)
+        RvValidation.of("ff.stack.unknownBridge").withName("bridge").withParam("0", stack.bridge)
       );
     }
     FgIo.mkDirs(stackDir(stack.id));
