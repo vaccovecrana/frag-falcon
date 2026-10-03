@@ -26,7 +26,7 @@ test("renders the detail actions and service card", async () => {
   if (!page) return
   await goto(page, `/stack/${ID}`)
   assert.match(await text(page, "h1"), new RegExp(ID))
-  assert.ok(await exists(page, ".vf-panel"), "service panel missing")
+  assert.ok(await exists(page, ".vf-panel-grid .vf-panel"), "service panel missing or not grid-wrapped")
   assert.match(await text(page, ".vf-panel"), /app/)
 })
 

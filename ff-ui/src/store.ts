@@ -36,6 +36,26 @@ export const usrError = (message: string, d: UiDispatch) =>
   hit({type: "usrMsg", payload: {message, severity: "error"}}, d)
 export const usrMsgClear = (d: UiDispatch) => hit({type: "usrMsgClear"}, d)
 
+/**
+ * Deduplicating error reporter for recurring background polls. The returned
+ * function toasts only when the failure message changes; a `null` clears the
+ * last-seen message (call it on a successful tick) so a later identical failure
+ * is surfaced again. This keeps a sustained outage to a single toast instead of
+ * one per poll interval.
+ */
+export const dedupeError = (d: UiDispatch) => {
+  let last: string | undefined
+  return (message: string | null): void => {
+    if (message === null) {
+      last = undefined
+      return
+    }
+    if (message === last) return
+    last = message
+    usrError(message, d)
+  }
+}
+
 export const UiReducer = (state0: UiState, action: UiAction): UiState => {
   switch (action.type) {
     case "usrMsg":

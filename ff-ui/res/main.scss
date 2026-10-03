@@ -330,6 +330,19 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
 .ff-yaml { min-height: 560px; }
 @media (max-width: 860px) { .ff-edit { grid-template-columns: 1fr; } .ff-grid-2 { grid-template-columns: 1fr; } }
 
+/* Detail layout: service cards and log panes flow in responsive grids so the
+   desktop view packs 2-2 per row instead of one full-width block each. Cells
+   stretch to equal height per row. */
+.vf-panel-grid, .vf-log-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--vf-gap);
+  align-items: stretch;
+}
+@media (min-width: 700px) { .vf-panel-grid, .vf-log-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .vf-panel-grid, .vf-log-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.vf-panel-grid > .vf-panel { height: 100%; }
+
 
 /* ---------- progress ---------- */
 .vf-progress {

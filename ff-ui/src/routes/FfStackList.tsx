@@ -1,13 +1,25 @@
-import {useEffect, useState} from "preact/hooks"
+import {useContext, useEffect, useRef, useState} from "preact/hooks"
 import {apiV1StackGet, FgStackStatus} from "@ui/rpc"
 import {uiStack, uiStackNew} from "@ui/routes"
+import {dedupeError, UiContext} from "@ui/store"
+import {messageOf} from "@ui/api"
 import FfStatus from "@ui/components/FfStatus"
 
 const FfStackList = () => {
   const [stacks, setStacks] = useState<FgStackStatus[] | undefined>()
+  const {dispatch} = useContext(UiContext)
+  const pollError = useRef(dedupeError(dispatch))
 
   useEffect(() => {
-    const load = () => apiV1StackGet().then(r => setStacks(r.stacks || [])).catch(() => setStacks([]))
+    const load = () => apiV1StackGet()
+      .then(r => {
+        setStacks(r.stacks || [])
+        pollError.current(null)
+      })
+      .catch(e => {
+        setStacks([])
+        pollError.current(messageOf(e))
+      })
     load()
     const t = setInterval(load, 2000)
     return () => clearInterval(t)

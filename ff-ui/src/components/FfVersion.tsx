@@ -1,14 +1,20 @@
-import {useEffect, useState} from "preact/hooks"
+import {useContext, useEffect, useState} from "preact/hooks"
 import {apiV1HostGet} from "@ui/rpc"
+import {UiContext, usrError} from "@ui/store"
+import {messageOf} from "@ui/api"
 
 const FfVersion = () => {
   const [version, setVersion] = useState("")
+  const {dispatch} = useContext(UiContext)
 
   useEffect(() => {
     fetch("/version")
       .then(r => r.text())
       .then(v => setVersion(v.trim()))
-      .catch(() => setVersion(""))
+      .catch(e => {
+        setVersion("")
+        usrError(messageOf(e), dispatch)
+      })
   }, [])
 
   useEffect(() => {
@@ -18,7 +24,7 @@ const FfVersion = () => {
           document.title = `frag-falcon · ${r.name}`
         }
       })
-      .catch(() => {})
+      .catch(e => usrError(messageOf(e), dispatch))
   }, [])
 
   return <span class="vf-muted">v{version}</span>

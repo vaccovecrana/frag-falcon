@@ -1,4 +1,4 @@
-import {useContext, useEffect, useState} from "preact/hooks"
+import {useContext, useEffect, useRef, useState} from "preact/hooks"
 import {RoutableProps} from "preact-router"
 import {
   apiV1StackGet,
@@ -10,7 +10,7 @@ import {
   FgStackStatus,
 } from "@ui/rpc"
 import {uiRoot, uiStackEdit} from "@ui/routes"
-import {UiContext, usrError} from "@ui/store"
+import {dedupeError, UiContext, usrError} from "@ui/store"
 import {messageOf, unwrap} from "@ui/api"
 import FfStatus from "@ui/components/FfStatus"
 import FfLogViewer from "@ui/components/FfLogViewer"
@@ -21,13 +21,16 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
   const [status, setStatus] = useState<FgStackStatus | undefined>()
   const [logs, setLogs] = useState<Record<string, string> | undefined>()
   const [processing, setProcessing] = useState(false)
+  const pollError = useRef(dedupeError(dispatch))
 
   const fetchLogs = () =>
     apiV1StackLogsPost({stackId: id})
       .then(unwrap)
-      .then(r => setLogs(r.logs as any))
-      .catch(() => {
+      .then(r => {
+        setLogs(r.logs as any)
+        pollError.current(null)
       })
+      .catch(e => pollError.current(messageOf(e)))
 
   useEffect(() => {
     let lastRunning = false
@@ -36,6 +39,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         .then(r => {
           const st = r.stacks?.find(s => s.id === id)
           setStatus(st)
+          pollError.current(null)
           const services = st?.services ? Object.values(st.services as any) : []
           const anyRunning = services.some((s: any) => s.state === "running")
           // Poll logs while running, plus one final fetch when it stops.
@@ -44,8 +48,7 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
           }
           lastRunning = anyRunning
         })
-        .catch(() => {
-        }) // background poll: stay silent
+        .catch(e => pollError.current(messageOf(e))) // background poll: dedupe toasts
     }
     load()
     const t = setInterval(load, 2000)
@@ -101,45 +104,49 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
       {services.length === 0 ? (
         <div class="vf-empty">No services.</div>
       ) : (
-        services.map((s: any) => (
-          <div class="vf-panel vf-mb-4" key={s.service}>
-            <div class="ff-row">
-              <div class="vf-card-title">{s.service}</div>
-              <FfStatus status={s.state}/>
-            </div>
-            <div class="vf-card-meta">
-              id <code>{s.id}</code>{s.pid > 0 ? <> · pid <code>{s.pid}</code></> : null}
-            </div>
-            {s.provision && s.provision.layersTotal > 0 && s.state === "provisioning" && (
-              <div class="vf-mt8">
-                <div class="vf-progress">
-                  <div
-                    style={{width: `${Math.round(100 * s.provision.layersDone / s.provision.layersTotal)}%`}}/>
-                </div>
-                <small class="vf-muted">
-                  Layer {s.provision.layersDone}/{s.provision.layersTotal}
-                  {s.provision.bytesTotal > 0 ? ` · ${Math.round(100 * s.provision.bytesDone / s.provision.bytesTotal)}%` : ""}
-                </small>
+        <div class="vf-panel-grid vf-mb-4">
+          {services.map((s: any) => (
+            <div class="vf-panel" key={s.service}>
+              <div class="ff-row">
+                <div class="vf-card-title">{s.service}</div>
+                <FfStatus status={s.state}/>
               </div>
-            )}
-            {s.error && <div class="vf-error vf-mt8">{s.error}</div>}
-            {s.exposedPorts && s.exposedPorts.length > 0 && (
-              <div class="vf-mt8">{s.exposedPorts.map((p: string) => <span
-                class="vf-intent vf-intent-fan_funded vf-me-1">{p}</span>)}</div>
-            )}
-          </div>
-        ))
+              <div class="vf-card-meta">
+                id <code>{s.id}</code>{s.pid > 0 ? <> · pid <code>{s.pid}</code></> : null}
+              </div>
+              {s.provision && s.provision.layersTotal > 0 && s.state === "provisioning" && (
+                <div class="vf-mt8">
+                  <div class="vf-progress">
+                    <div
+                      style={{width: `${Math.round(100 * s.provision.layersDone / s.provision.layersTotal)}%`}}/>
+                  </div>
+                  <small class="vf-muted">
+                    Layer {s.provision.layersDone}/{s.provision.layersTotal}
+                    {s.provision.bytesTotal > 0 ? ` · ${Math.round(100 * s.provision.bytesDone / s.provision.bytesTotal)}%` : ""}
+                  </small>
+                </div>
+              )}
+              {s.error && <div class="vf-error vf-mt8">{s.error}</div>}
+              {s.exposedPorts && s.exposedPorts.length > 0 && (
+                <div class="vf-mt8">{s.exposedPorts.map((p: string) => <span
+                  class="vf-intent vf-intent-fan_funded vf-me-1">{p}</span>)}</div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {logs && Object.keys(logs).length > 0 && (
         <>
           <h2 class="vf-section-title">Logs</h2>
-          {Object.entries(logs).map(([svc, data]) => (
-            <div class="vf-mb-4" key={svc}>
-              <div class="vf-card-meta vf-mb-2">{svc}</div>
-              <FfLogViewer logData={data}/>
-            </div>
-          ))}
+          <div class="vf-log-grid">
+            {Object.entries(logs).map(([svc, data]) => (
+              <div key={svc}>
+                <div class="vf-card-meta vf-mb-2">{svc}</div>
+                <FfLogViewer logData={data}/>
+              </div>
+            ))}
+          </div>
         </>
       )}
     </section>

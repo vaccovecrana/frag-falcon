@@ -41,7 +41,7 @@ gradle :ff-test:test --rerun-tasks   # force re-run (boot test is not cheap)
 - **UI visual audit**: `npm --prefix ff-ui run visual` (or `gradle :ff-ui:visual`)
   captures each screen/state at desktop + mobile viewports to
   `ff-ui/build/test-artifacts/visual/`. Opt-in; requires a running hypervisor
-  (use a fresh `--vm-dir` for a deterministic empty landing shot).
+  (use a fresh `--vm-dir` for a deterministic empty landing shot). When inspecting screenshots, do so in batches of 10.
 - **UI E2E**: `scripts/e2e.sh` builds, starts a throwaway backend (fresh
   `--vm-dir`, launcher caps applied), runs `npm run test:e2e`, and tears it
   down. Overrides: `FF_E2E_PORT`, `FF_E2E_VM_DIR`, `FF_E2E_BRIDGE`, `SUDOPW`,
