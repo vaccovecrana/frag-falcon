@@ -73,7 +73,19 @@ test("E) clears provisioning on update (PATCH)", async () => {
 test("F) deletes the stack", async () => {
   if (!page) return
   await goto(page, `/stack/${ID}`)
+  // The Delete button asks for confirmation first. The dialog must be handled
+  // inside the listener (accepting it) so the click's synchronous confirm()
+  // returns — capturing the prompt for the assertion.
+  let prompt
+  page.once("dialog", (d) => {
+    prompt = {type: d.type(), message: d.message()}
+    d.accept().catch(() => {
+    })
+  })
   await clickText(page, "Delete")
+  assert.ok(prompt, "expected a confirmation dialog")
+  assert.equal(prompt.type, "confirm")
+  assert.match(prompt.message, new RegExp(`Delete stack "${ID}"`))
   await page.waitForFunction(() => location.pathname === "/", {timeout: 8000})
   const stacks = await listStacks()
   assert.ok(!stacks.some(s => s.id === ID), `stack ${ID} still present`)

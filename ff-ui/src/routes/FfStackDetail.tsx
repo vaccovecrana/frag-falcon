@@ -94,9 +94,12 @@ const FfStackDetail = (props: RoutableProps & { stackId?: string }) => {
         </button>
         <a class="vf-pill" href={uiStackEdit(id)}>Edit</a>
         <button class="vf-pill" disabled={!idle}
-                onClick={() => run(() => apiV1StackIdDelete(id)
-                  .then(unwrap)
-                  .then(() => window.location.replace(uiRoot)))}>Delete
+                onClick={() => {
+                  if (!window.confirm(`Delete stack "${id}"? This stops and removes its services.`)) return
+                  run(() => apiV1StackIdDelete(id)
+                    .then(unwrap)
+                    .then(() => window.location.replace(uiRoot)))
+                }}>Delete
         </button>
       </div>
 
