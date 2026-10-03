@@ -8,9 +8,14 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Per-VM process management: spawns a detached launcher (whose process name is
- * the VM id) and re-discovers it via {@code /proc}. The native launcher and
+ * Per-VM process management: spawns a daemonized launcher (whose process name
+ * is the VM id) and re-discovers it via {@code /proc}. The native launcher and
  * libkrun shared objects live in {@link FgNative#home()}.
+ *
+ * <p>The launcher is double-forked (see {@code spawn_process}), so it is
+ * reparented to init/subreaper and survives the hypervisor going away. A
+ * consequence is that the host cannot {@code waitpid()} on it: guest exit is
+ * observed through {@link #pidOf} process-name discovery, never by blocking.
  */
 public class FgProc {
 
@@ -52,15 +57,6 @@ public class FgProc {
 
   public static int terminate(int pid) {
     return FgJni.terminate(pid);
-  }
-
-  /**
-   * Waits for a spawned launcher to exit.
-   *
-   * @return the guest exit code, -1 on wait error, -2 on timeout
-   */
-  public static int waitProcess(int pid, int timeoutMs) {
-    return FgJni.waitProcess(pid, timeoutMs);
   }
 
   public static boolean isAlive(int pid) {

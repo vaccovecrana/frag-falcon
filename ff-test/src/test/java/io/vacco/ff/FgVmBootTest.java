@@ -63,8 +63,18 @@ public class FgVmBootTest {
       args.addAll(List.of("--", "/bin/sh", "-c", "sleep 3; echo done"));
 
       var log = new File(FgTest.WORK, "it-disc.log");
-      var pid = FgProc.spawn("it-disc", args, log.toPath());
+      // Launch directly so this process stays the parent and can waitFor().
+      var pb = new ProcessBuilder();
+      pb.command().add(FgProc.launcherPath().toAbsolutePath().toString());
+      pb.command().add("--vm-id");
+      pb.command().add("it-disc");
+      pb.command().addAll(args);
+      pb.environment().put("LD_LIBRARY_PATH", FgProc.launcherLibDir().toAbsolutePath().toString());
+      pb.redirectErrorStream(true);
+      pb.redirectOutput(ProcessBuilder.Redirect.to(log));
+      var p = pb.start();
       try {
+        var pid = (int) p.pid();
         var found = -1;
         for (int i = 0; i < 100 && found < 0; i++) {
           found = FgProc.pidOf("it-disc");
@@ -72,7 +82,7 @@ public class FgVmBootTest {
         }
         assertEquals("FF_VMID discovery should find the running VM", pid, found);
       } finally {
-        FgProc.waitProcess(pid, 120_000);
+        p.waitFor();
       }
     });
   }

@@ -130,7 +130,15 @@ in M3 (the C launcher owns libkrun).
 9. **Logs are bounded by the launcher.** The launcher keeps the last `--log-lines`
    (default 4096) console lines and rewrites `vm.log` atomically; `FgVmLaunch` passes
    `--log-file`/`--log-lines`. The API returns (at most) that tail.
-10. Read `CAVEATS.md` before touching libkrun integration, the launcher, or networking.
+10. **The launcher is daemonized.** `spawn_process` double-forks it (reparented to
+    init/subreaper), so it is not a descendant of the hypervisor and survives a
+    restart; a new `flc` re-adopts it via `/proc/<pid>/comm` in `reconcile()`. The
+    host therefore **can't `waitpid()`** on a launcher — there is no `waitProcess`;
+    liveness is `pidOf`. When launching via `gradle run`, Ctrl-C tears down the app
+    JVM's process tree (dev-only); use `flc`/systemd to test restart survival. Java
+    boot tests bypass the daemonizing spawn and launch `fg_vmm` directly so they can
+    `waitFor()` the exit code. See `CAVEATS.md` §19.
+11. Read `CAVEATS.md` before touching libkrun integration, the launcher, or networking.
 
 ## Technology choices
 

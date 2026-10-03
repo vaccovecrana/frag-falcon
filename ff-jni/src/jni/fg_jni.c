@@ -57,27 +57,6 @@ JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_terminate(JNIEnv *env, jclass 
     return terminate_process((pid_t) pid);
 }
 
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_waitProcess(JNIEnv *env, jclass cls, jint pid, jint timeoutMs) {
-    (void) env;
-    (void) cls;
-    int status;
-    long waited = 0;
-    for (;;) {
-        pid_t r = waitpid((pid_t) pid, &status, WNOHANG);
-        if (r == (pid_t) pid) {
-            return WIFEXITED(status) ? WEXITSTATUS(status) : (128 + WTERMSIG(status));
-        }
-        if (r < 0) {
-            return -1;
-        }
-        usleep(50000);
-        waited += 50;
-        if (timeoutMs > 0 && waited >= timeoutMs) {
-            return -2;
-        }
-    }
-}
-
 JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_reapChildren(JNIEnv *env, jclass cls) {
     (void) env;
     (void) cls;

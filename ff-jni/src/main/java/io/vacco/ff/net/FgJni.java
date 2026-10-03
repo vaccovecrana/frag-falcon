@@ -22,8 +22,6 @@ public class FgJni {
 
   public static native int terminate(int pid);
 
-  public static native int waitProcess(int pid, int timeoutMs);
-
   public static native int reapChildren();
 
   /**

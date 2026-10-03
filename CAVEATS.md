@@ -388,3 +388,31 @@ Before this, `start()` (stack-op worker) and the supervisor's `tick()` could
 both launch the same service, and the two extractions clobbered the shared
 `tmp/unzipped` dir (`NoSuchFileException`). See
 `FgOciConcurrencyTest`, `FgImageExpandTest`.
+
+## 19. VM launchers are daemonized (survive a hypervisor restart)
+
+`FgProc.spawn` → `spawn_process` **double-forks** the launcher: an intermediate
+child `setsid()`s, forks the real launcher, reports its pid back over a pipe,
+and exits at once. The launcher is therefore reparented to init/subreaper and is
+**not** a descendant of the hypervisor process. This is what lets VMs survive the
+hypervisor going away: a restarted `flc` re-adopts running VMs from `/proc` by
+process name (`/proc/<pid>/comm` == the VM id; see `FgProc.pidOf`) in
+`FgStackSvc.reconcile()`, and reports them `running`.
+
+Because the launcher is reparented, the host **cannot `waitpid()` on it** — guest
+exit is observed only through `comm` discovery. There is no `waitProcess`; a
+supervisor tick sees the process gone and restarts per `restart:` policy.
+
+**Development caveat — `gradle run`.** When the backend is launched via
+`gradle run` and stopped with Ctrl-C, the **Gradle daemon tears down the app
+JVM's process tree** (`ProcessHandle.descendants()`-style reaping on
+cancellation) rather than just the JVM. The double fork reparents the launcher
+out of that tree, so it **should** survive — but a build tool is not a VM
+supervisor and its teardown semantics are not a supported VM lifecycle. **Use
+`flc` (the installed launcher) or systemd to verify restart survival**, not
+`gradle run`. Treat child VMs under `gradle run` as tied to the build session.
+
+The Java boot tests (`FgTest.runVm`, `FgVmBootTest`) deliberately **do not** use
+the daemonizing `spawn`: they launch `fg_vmm` directly via `ProcessBuilder` so
+the test process stays the parent and can `waitFor()` the guest exit code.
+

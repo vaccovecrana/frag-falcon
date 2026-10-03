@@ -85,11 +85,19 @@ public class FgTest {
     if (logFile.exists()) {
       logFile.delete();
     }
-    int pid = FgProc.spawn(vmId, args, logFile.toPath());
-    if (pid <= 0) {
-      throw new IllegalStateException("spawn failed for " + vmId + ": " + pid);
-    }
-    int code = FgProc.waitProcess(pid, 120_000);
+    // Launch the launcher directly (not through FgProc.spawn) so this test process
+    // stays its parent and can waitFor() the guest exit code. Production uses the
+    // daemonizing spawn; tests deliberately keep a controllable child.
+    var pb = new ProcessBuilder();
+    pb.command().add(FgProc.launcherPath().toAbsolutePath().toString());
+    pb.command().add("--vm-id");
+    pb.command().add(vmId);
+    pb.command().addAll(args);
+    pb.environment().put("LD_LIBRARY_PATH", FgProc.launcherLibDir().toAbsolutePath().toString());
+    pb.redirectErrorStream(true);
+    pb.redirectOutput(ProcessBuilder.Redirect.to(logFile));
+    var p = pb.start();
+    int code = p.waitFor();
     var out = logFile.exists() ? Files.readString(logFile.toPath()) : "";
     log.info("libkrun: vm={} exit={} console:\n{}", vmId, code, out);
     return new RunResult(code, out);
