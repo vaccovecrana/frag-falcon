@@ -198,6 +198,18 @@ must never be exposed publicly; run it behind a private LAN segment or a VPN.
   `LD_LIBRARY_PATH` would silently ignore the user's override. A bare key
   (no `=`, e.g. `- FOO`) is emitted as `FOO=` (empty value, present) with a
   warning; it is **not** a host-environment passthrough.
+- **Stack definitions are validated before they are saved or started**
+  (`FgValid`, yavi-based rules). The rules enforce: a valid stack id; a non-empty
+  service map; per service a non-blank syntactically-valid image reference, a
+  known `restart` policy, well-formed volumes (`HOST:GUEST[:ro]`, absolute guest
+  path, existing host dir, unique guest paths), well-formed environment entries
+  (unique keys), non-blank `entrypoint`/`command`/`depends_on`, and sane
+  `resources` (vCPUs ≥ 1, RAM ≥ 128 MiB); plus cross-service rules (every
+  `depends_on` target exists; no dependency cycles). Failures are bridged to
+  `RvValidation`s (our `ff.stack.*` keys, positional `params`) and returned as a
+  **400** with the `RvResult` envelope, so the UI renders them via its i18n
+  templates. This catches malformed definitions at the edge, before any
+  provisioning/boot work.
 
 ---
 
@@ -269,6 +281,14 @@ The hypervisor runs **unprivileged**. Privilege is delegated to the OS once
 vendored-lib `RUNPATH` (a cap'd binary ignores `$ORIGIN`/`LD_LIBRARY_PATH`; see
 §4). File capabilities are silently ignored on `nosuid` filesystems such as
 `/tmp`.
+
+**The hypervisor refuses to start without it.** `FgContext.init()` checks
+`CAP_NET_ADMIN` up front (via `FgNetCap`: the process effective set, or the
+`cap_net_admin` file capability on `fg_vmm`) and aborts with an actionable error
+if absent — a launcher that cannot create TAPs cannot run any stack. This
+replaces the previous behavior where a missing capability caused the supervisor
+to retry a doomed start in a loop. A failed start now also clears the service's
+monitor, so `restart:` governs post-success exits only.
 
 **Volumes + namespaces + KVM.** The launcher isolates per-VM volume bind mounts
 by entering a user+mount namespace (`unshare(CLONE_NEWUSER|CLONE_NEWNS)`) when

@@ -2,6 +2,8 @@ package io.vacco.ff.service;
 
 import com.google.gson.Gson;
 import io.vacco.ff.api.FgApi;
+import io.vacco.ff.net.FgNetCap;
+import io.vacco.ff.net.FgProc;
 import io.vacco.ff.util.FgIo;
 import io.vacco.ff.util.FgMounts;
 import io.vacco.shax.logging.ShOption;
@@ -37,6 +39,20 @@ public class FgContext implements Closeable {
         FgOptions.vmDir, mount.mountPoint(), mount.options(), mount.missing()
       );
     }
+
+    var cap = FgNetCap.check();
+    if (!cap.ok()) {
+      log.error(
+        "vm launcher [{}] cannot create TAP devices: CAP_NET_ADMIN is not available. "
+          + "Grant it once, then restart:\n"
+          + "  sudo setcap cap_net_admin+ep {}\n"
+          + "or run under systemd with AmbientCapabilities=CAP_NET_ADMIN, or as root. "
+          + "See deploy/setup.sh.",
+        FgProc.launcherPath(), FgProc.launcherPath()
+      );
+      throw new IllegalStateException("CAP_NET_ADMIN unavailable for " + FgProc.launcherPath());
+    }
+    log.info("vm launcher capability ok ({})", cap.source());
 
     svc = new FgStackSvc(FgOptions.vmDir, new Gson());
     api = new FgApi(svc, new Gson(), FgOptions.host, FgOptions.port);

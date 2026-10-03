@@ -9,7 +9,7 @@ import io.vacco.ff.oci.FgOciProgress;
 import io.vacco.ff.oci.FgOciStore;
 import io.vacco.ff.schema.*;
 import io.vacco.ff.util.FgIo;
-import io.vacco.ronove.RvValidation;
+import io.vacco.ronove.util.RvValidation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 /**
  * Stack orchestration: persistence (JSON), topological start / reverse stop,
@@ -34,7 +33,6 @@ public final class FgStackSvc implements AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(FgStackSvc.class);
 
-  private static final Pattern ID = Pattern.compile("[A-Za-z0-9-]+");
   private static final long RESTART_BACKOFF_MS = 1000;
   private static final long POLL_INTERVAL_MS = 1000;
 
@@ -109,13 +107,7 @@ public final class FgStackSvc implements AutoCloseable {
   /* ----- persistence -------------------------------------------------- */
 
   public FgStack save(FgStack stack) {
-    var id = stack.id;
-    if (id == null || !ID.matcher(id).matches()) {
-      throw new FgValidationException(
-        "Invalid stack id (letters, numbers, dash only): " + id,
-        RvValidation.of("ff.stack.invalidId").withName("id").withParam("id", String.valueOf(id))
-      );
-    }
+    validate(stack);
     if (stack.bridge != null && !stack.bridge.isBlank()
       && !FgJni.getLinuxBridgeInterfaces().contains(stack.bridge)) {
       throw new FgValidationException(
@@ -123,9 +115,18 @@ public final class FgStackSvc implements AutoCloseable {
         RvValidation.of("ff.stack.unknownBridge").withName("bridge").withParam("bridge", stack.bridge)
       );
     }
-    FgIo.mkDirs(stackDir(id));
-    FgIo.toJson(stack, stackJson(id), gson);
+    FgIo.mkDirs(stackDir(stack.id));
+    FgIo.toJson(stack, stackJson(stack.id), gson);
     return stack;
+  }
+
+  /** Runs the yavi rules and throws a validation error listing every violation. */
+  private static void validate(FgStack stack) {
+    var violations = FgValid.validate(stack);
+    if (!violations.isEmpty()) {
+      var validations = FgValid.validationsOf(violations).toArray(RvValidation[]::new);
+      throw new FgValidationException("Invalid stack definition: " + violations.size() + " error(s)", validations);
+    }
   }
 
   public FgStack load(String id) {
@@ -153,6 +154,7 @@ public final class FgStackSvc implements AutoCloseable {
 
   /** Thrown when an operation is already in flight for a stack service. */
   public static class FgBusyException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
     public final String stackId, service;
 
     public FgBusyException(String stackId, String service) {
@@ -172,6 +174,7 @@ public final class FgStackSvc implements AutoCloseable {
 
   public FgStackStatus start(String id) {
     var stack = load(id);
+    validate(stack);
     var order = FgStackPlan.startOrder(stack);
     for (var service : order) {
       if (!claim(id, service)) {
@@ -197,6 +200,10 @@ public final class FgStackSvc implements AutoCloseable {
           FgVmSvc.start(vm, dir, store, progressListener(id, service));
           live.remove(k);
         } catch (Exception e) {
+          // A failed start (bad image, missing bridge, launch error) is not a
+          // crash to be restarted: stop monitoring so the supervisor does not
+          // retry it in a loop. `restart:` governs post-success exits only.
+          monitored.remove(k);
           live.put(
             k,
             FgServiceStatus.of(

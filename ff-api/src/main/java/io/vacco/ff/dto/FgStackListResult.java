@@ -1,7 +1,7 @@
-package io.vacco.ff.api.result;
+package io.vacco.ff.dto;
 
 import io.vacco.ff.schema.FgStackStatus;
-import io.vacco.ronove.RvResult;
+import io.vacco.ronove.util.RvResult;
 
 import java.util.List;
 

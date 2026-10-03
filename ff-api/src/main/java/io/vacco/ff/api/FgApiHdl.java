@@ -1,15 +1,17 @@
 package io.vacco.ff.api;
 
-import io.vacco.ff.api.result.*;
+import io.vacco.ff.dto.*;
 import io.vacco.ff.net.FgJni;
 import io.vacco.ff.schema.FgStack;
 import io.vacco.ff.schema.FgStackRef;
 import io.vacco.ff.schema.FgStackStatus;
+import io.vacco.ff.schema.FgVm;
 import io.vacco.ff.service.FgStackSvc;
 import io.vacco.ff.service.FgValidationException;
 import io.vacco.ff.util.FgIo;
-import io.vacco.ronove.RvResponse;
-import io.vacco.ronove.RvResult;
+import io.vacco.ronove.api.RvGraal;
+import io.vacco.ronove.util.RvResponse;
+import io.vacco.ronove.util.RvResult;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -23,9 +25,10 @@ import java.util.function.Function;
  * definitions; there are no per-VM endpoints.
  *
  * <p>Every endpoint returns a {@link RvResult} subclass as the response body —
- * populated on success, and carrying {@link io.vacco.ronove.RvValidation} hints
+ * populated on success, and carrying {@link io.vacco.ronove.util.RvValidation} hints
  * on failure — so browser clients never receive an empty error body.
  */
+@RvGraal(include = FgVm.class)
 public class FgApiHdl {
 
   private static final Logger log = LoggerFactory.getLogger(FgApiHdl.class);

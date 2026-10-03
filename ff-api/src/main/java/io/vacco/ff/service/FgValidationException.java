@@ -1,6 +1,6 @@
 package io.vacco.ff.service;
 
-import io.vacco.ronove.RvValidation;
+import io.vacco.ronove.util.RvValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;

@@ -47,6 +47,23 @@ test("surfaces a backend rejection as an error toast", async () => {
   assert.match(await text(page, ".vf-toast"), /[Uu]nknown Linux bridge/)
 })
 
+test("rejects a malformed service image from the backend with a mapped message", async () => {
+  if (!page) return
+  await goto(page, "/stack/new")
+  // A syntactically invalid image passes the client form but fails yavi on the server.
+  await page.evaluate(() => {
+    const ta = document.querySelector(".ff-yaml")
+    const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set
+    set.call(ta, "id: e2e-bad-image\nservices:\n  app:\n    image: Not An Image\n")
+    ta.dispatchEvent(new Event("input", {bubbles: true}))
+  })
+  await new Promise((r) => setTimeout(r, 300))
+  await page.evaluate(() =>
+    [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Save").click())
+  await page.waitForSelector(".vf-toast--error", {timeout: 5000})
+  assert.match(await text(page, ".vf-toast"), /not a valid image reference/)
+})
+
 test("keeps the YAML editor and the form fields in sync (both directions)", async () => {
   if (!page) return
   await goto(page, "/stack/new")

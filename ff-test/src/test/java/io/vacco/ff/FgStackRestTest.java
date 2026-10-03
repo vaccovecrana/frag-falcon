@@ -2,8 +2,8 @@ package io.vacco.ff;
 
 import com.google.gson.Gson;
 import io.vacco.ff.api.FgApi;
-import io.vacco.ff.api.result.FgStackListResult;
-import io.vacco.ff.api.result.FgStackLogsResult;
+import io.vacco.ff.dto.FgStackListResult;
+import io.vacco.ff.dto.FgStackLogsResult;
 import io.vacco.ff.schema.FgService;
 import io.vacco.ff.schema.FgStack;
 import io.vacco.ff.service.FgStackSvc;
@@ -68,6 +68,15 @@ public class FgStackRestTest {
         stack.services.put("svc", s);
 
         assertEquals(200, post(base + "/api/v1/stack", stack).statusCode());
+
+        var bad = new FgStack().id("m5bbad");
+        var bs = new FgService();
+        bs.image = "Not An Image";
+        bad.services.put("svc", bs);
+        var badRes = post(base + "/api/v1/stack", bad);
+        assertEquals(400, badRes.statusCode());
+        assertTrue("expected validation keys in the error body",
+          badRes.body().contains("ff.stack.service.image.invalid"));
 
         FgStackListResult list = G.fromJson(get(base + "/api/v1/stack").body(), FgStackListResult.class);
         assertTrue(list.stacks.stream().anyMatch(x -> stackId.equals(x.id)));

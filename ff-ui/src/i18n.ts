@@ -7,9 +7,35 @@ import {RvResult} from "@ui/rpc"
  */
 const TEMPLATES: Record<string, string> = {
   "ff.stack.invalidId":
-    "Invalid stack id '{id}'. Use letters, numbers and dashes only.",
+    "Invalid stack id '{0}'. Use letters, numbers and dashes only.",
   "ff.stack.unknownBridge":
-    "Unknown Linux bridge '{bridge}'. Pick one of the detected bridges.",
+    "Unknown Linux bridge '{0}'. Pick one of the detected bridges.",
+  "ff.stack.missing": "No stack definition was provided.",
+  "ff.stack.services.empty": "A stack needs at least one service.",
+  "ff.stack.services.cyclic": "Service dependencies form a cycle: {0}",
+  "ff.stack.service.missing": "Service '{0}' is not defined correctly.",
+  "ff.stack.service.image.required": "Service '{0}' needs an image.",
+  "ff.stack.service.image.invalid": "'{0}' is not a valid image reference.",
+  "ff.stack.service.restart.invalid":
+    "'{0}' is not a valid restart policy (use always, unless-stopped, on-failure or no).",
+  "ff.stack.service.volumes.invalid":
+    "'{0}' is not a valid volume (expected HOST:GUEST[:ro]).",
+  "ff.stack.service.volumes.guestAbsolute":
+    "Guest path '{0}' must be absolute.",
+  "ff.stack.service.volumes.mode":
+    "'{0}' is not a valid volume mode (only 'ro' is supported).",
+  "ff.stack.service.volumes.duplicateGuest":
+    "Duplicate guest path '{0}'.",
+  "ff.stack.service.volumes.hostMissing":
+    "Host directory '{0}' does not exist.",
+  "ff.stack.service.environment.invalid":
+    "'{0}' is not a valid environment entry (expected KEY or KEY=VALUE).",
+  "ff.stack.service.environment.duplicate":
+    "Duplicate environment variable '{0}'.",
+  "ff.stack.service.list.blank":
+    "An entry in '{0}' is blank.",
+  "ff.stack.service.dependsOn.unknown":
+    "Depends on unknown service '{0}'.",
 }
 
 const interpolate = (template: string, params?: Map<string, string> | Record<string, string>) => {

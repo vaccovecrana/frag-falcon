@@ -52,6 +52,10 @@ OS once, not reimplemented in the hypervisor:
 `deploy/setup.sh <user> <vm-dir> [install-dir]` performs the one-time setup, and
 `deploy/flc.service` is a sample unit. The hypervisor never needs root.
 
+`flc` **refuses to start** if the launcher lacks `CAP_NET_ADMIN` (checked via
+`setcap`, systemd `AmbientCapabilities`, or the process effective set), since it
+could not create the per-VM TAP devices a stack needs.
+
 ```
 --vm-dir=PATH        VM storage directory (required)
 --api-host=HOST      API bind address (default 127.0.0.1)

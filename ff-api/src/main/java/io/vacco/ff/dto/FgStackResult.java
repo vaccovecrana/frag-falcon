@@ -1,7 +1,7 @@
-package io.vacco.ff.api.result;
+package io.vacco.ff.dto;
 
 import io.vacco.ff.schema.FgStack;
-import io.vacco.ronove.RvResult;
+import io.vacco.ronove.util.RvResult;
 
 public class FgStackResult extends RvResult {
 

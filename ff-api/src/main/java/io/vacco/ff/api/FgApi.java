@@ -36,7 +36,7 @@ public class FgApi implements Closeable {
       xc.withStatus(MxStatus._500).commitText("internal error");
     };
 
-    var rpc = new RvMxAdapter<>(new FgApiHdl(svc), errorHdl, g::fromJson, g::toJson).build();
+    var rpc = new RvMxAdapter(errorHdl, g::fromJson, g::toJson).build(new FgApiHdl(svc));
     var uiHdl = new FgUiHdl();
     var router = new MxRouter().prefix(FgRoute.apiRoot, rpc).noMatch(uiHdl);
 
