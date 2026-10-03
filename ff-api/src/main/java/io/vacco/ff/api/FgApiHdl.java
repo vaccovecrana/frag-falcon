@@ -12,6 +12,7 @@ import io.vacco.ff.util.FgIo;
 import io.vacco.ronove.api.RvGraal;
 import io.vacco.ronove.util.RvResponse;
 import io.vacco.ronove.util.RvResult;
+import io.vacco.shax.logging.ShLogConfig;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -28,7 +29,7 @@ import java.util.function.Function;
  * populated on success, and carrying {@link io.vacco.ronove.util.RvValidation} hints
  * on failure — so browser clients never receive an empty error body.
  */
-@RvGraal(include = FgVm.class)
+@RvGraal(include = {FgVm.class, ShLogConfig.class})
 public class FgApiHdl {
 
   private static final Logger log = LoggerFactory.getLogger(FgApiHdl.class);

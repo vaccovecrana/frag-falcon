@@ -173,5 +173,19 @@
     "allDeclaredFields": true,
     "allDeclaredMethods": true,
     "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.shax.logging.ShLogConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.shax.logging.ShLogLevel",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
   }
 ]
