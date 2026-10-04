@@ -1,94 +1,172 @@
 package io.vacco.ff.api;
 
-import io.vacco.ff.schema.*;
-import io.vacco.ff.service.FgVmSvc;
-import io.vacco.ronove.RvResponse;
+import io.vacco.ff.dto.*;
+import io.vacco.ff.net.FgJni;
+import io.vacco.ff.schema.FgStack;
+import io.vacco.ff.schema.FgStackRef;
+import io.vacco.ff.schema.FgStackStatus;
+import io.vacco.ff.schema.FgVm;
+import io.vacco.ff.service.FgStackSvc;
+import io.vacco.ff.service.FgValidationException;
+import io.vacco.ff.util.FgIo;
+import io.vacco.ronove.api.RvGraal;
+import io.vacco.ronove.util.RvResponse;
+import io.vacco.ronove.util.RvResult;
+import io.vacco.shax.logging.ShLogConfig;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static java.util.Objects.requireNonNull;
-import static io.vacco.ff.api.FgRoute.*;
+import java.util.function.Function;
 
+/**
+ * Stack-oriented REST controller. VMs are managed only through stack
+ * definitions; there are no per-VM endpoints.
+ *
+ * <p>Every endpoint returns a {@link RvResult} subclass as the response body —
+ * populated on success, and carrying {@link io.vacco.ronove.util.RvValidation} hints
+ * on failure — so browser clients never receive an empty error body.
+ */
+@RvGraal(include = {FgVm.class, ShLogConfig.class})
 public class FgApiHdl {
 
-  private final FgVmSvc vmSvc;
+  private static final Logger log = LoggerFactory.getLogger(FgApiHdl.class);
 
-  public FgApiHdl(FgVmSvc vmSvc) {
-    this.vmSvc = requireNonNull(vmSvc);
+  private final FgStackSvc svc;
+
+  public FgApiHdl(FgStackSvc svc) {
+    this.svc = svc;
   }
 
-  @GET @Path(apiV1Vm)
-  public RvResponse<FgVmList> apiV1VmGet() {
-    var r = new RvResponse<FgVmList>().withBody(vmSvc.vmList());
-    return r.body.errors == null || r.body.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  private static <R extends RvResult> RvResponse<R> handle(
+    Response.Status errorStatus, R body, Function<R, R> op) {
+    try {
+      return new RvResponse<R>().withStatus(Response.Status.OK).withBody(op.apply(body));
+    } catch (Exception e) {
+      log.warn("request failed: {}", e.toString());
+      if (e instanceof FgValidationException ve) {
+        body.withValidations(ve.validations);
+      }
+      body.withError(e);
+      var status = e instanceof FgStackSvc.FgBusyException ? Response.Status.CONFLICT : errorStatus;
+      return new RvResponse<R>().withStatus(status).withBody(body);
+    }
   }
 
-  @GET @Path(apiV1VmId)
-  public RvResponse<FgVmCreate> apiV1VmIdGet(@PathParam(VmId) String vmId) {
-    var r = new RvResponse<FgVmCreate>().withBody(vmSvc.vmGet(vmId));
-    var noErrors = r.body.errors == null || r.body.errors.isEmpty();
-    var noWarnings = r.body.warnings == null || r.body.warnings.isEmpty();
-    return noErrors && noWarnings
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @GET
+  @Path(FgRoute.apiV1Stack)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackListResult> apiV1StackGet() {
+    var body = new FgStackListResult();
+    return handle(Response.Status.INTERNAL_SERVER_ERROR, body, r -> {
+      r.stacks = svc.list();
+      return r;
+    });
   }
 
-  @POST @Path(apiV1Vm)
-  public RvResponse<FgVmCreate> apiV1VmPost(@BeanParam FgVmCreate req) {
-    var r = new RvResponse<FgVmCreate>().withBody(vmSvc.vmBuild(req));
-    return req.errors == null || req.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @GET
+  @Path(FgRoute.apiV1StackId)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackResult> apiV1StackIdGet(@PathParam(FgRoute.StackId) String stackId) {
+    var body = new FgStackResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      r.stack = svc.load(stackId);
+      return r;
+    });
   }
 
-  @POST @Path(apiV1VmStart)
-  public RvResponse<FgVmStart> apiV1VmStartPost(@BeanParam FgVmStart req) {
-    var r = new RvResponse<FgVmStart>().withBody(vmSvc.vmStart(req));
-    return req.errors == null || req.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @POST
+  @Path(FgRoute.apiV1Stack)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackResult> apiV1StackPost(@BeanParam FgStack stack) {
+    var body = new FgStackResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      r.stack = svc.save(stack);
+      return r;
+    });
   }
 
-  @POST @Path(apiV1VmStop)
-  public RvResponse<FgVmStop> apiV1VmStopPost(@BeanParam FgVmStop req) {
-    var r = new RvResponse<FgVmStop>().withBody(vmSvc.vmStop(req));
-    return req.errors == null || req.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @DELETE
+  @Path(FgRoute.apiV1StackId)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackStatusResult> apiV1StackIdDelete(@PathParam(FgRoute.StackId) String stackId) {
+    var body = new FgStackStatusResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      svc.delete(stackId);
+      r.status = FgStackStatus.of(stackId);
+      return r;
+    });
   }
 
-  @POST @Path(apiV1VmLogs)
-  public RvResponse<FgVmLogs> apiV1VmLogsPost(@BeanParam FgVmLogs req) {
-    var r = new RvResponse<FgVmLogs>().withBody(vmSvc.vmLogs(req));
-    return req.errors == null || req.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @PATCH
+  @Path(FgRoute.apiV1StackId)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackStatusResult> apiV1StackIdPatch(@PathParam(FgRoute.StackId) String stackId) {
+    var body = new FgStackStatusResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      r.status = svc.update(stackId);
+      return r;
+    });
   }
 
-  @DELETE @Path(apiV1VmLogs)
-  public RvResponse<FgVmLogs> apiV1VmLogsDelete(@QueryParam(VmId) String vmId) {
-    var r = new RvResponse<FgVmLogs>().withBody(vmSvc.vmLogsDelete(vmId));
-    return r.body.errors == null || r.body.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @POST
+  @Path(FgRoute.apiV1StackStart)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackStatusResult> apiV1StackStartPost(@BeanParam FgStackRef ref) {
+    var body = new FgStackStatusResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      r.status = svc.start(ref.stackId);
+      return r;
+    });
   }
 
-  @GET @Path(apiV1Br)
-  public RvResponse<FgVmResourceList> apiV1BrGet() {
-    var r = new RvResponse<FgVmResourceList>().withBody(vmSvc.brIfList());
-    return r.body.errors == null || r.body.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @POST
+  @Path(FgRoute.apiV1StackStop)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackStatusResult> apiV1StackStopPost(@BeanParam FgStackRef ref) {
+    var body = new FgStackStatusResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      r.status = svc.stop(ref.stackId);
+      return r;
+    });
   }
 
-  @GET @Path(apiV1Krn)
-  public RvResponse<FgVmResourceList> apiV1KrnGet() {
-    var r = new RvResponse<FgVmResourceList>().withBody(vmSvc.krnList());
-    return r.body.errors == null || r.body.errors.isEmpty()
-      ? r.withStatus(Response.Status.OK)
-      : r.withStatus(Response.Status.BAD_REQUEST);
+  @POST
+  @Path(FgRoute.apiV1StackLogs)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgStackLogsResult> apiV1StackLogsPost(@BeanParam FgStackRef ref) {
+    var body = new FgStackLogsResult();
+    return handle(Response.Status.BAD_REQUEST, body, r -> {
+      r.logs = svc.logs(ref.stackId);
+      return r;
+    });
   }
 
+  @GET
+  @Path(FgRoute.apiV1Br)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgBridgesResult> apiV1BrGet() {
+    var body = new FgBridgesResult();
+    return handle(Response.Status.INTERNAL_SERVER_ERROR, body, r -> {
+      r.bridges = FgJni.getLinuxBridgeInterfaces();
+      return r;
+    });
+  }
+
+  @GET
+  @Path(FgRoute.apiV1Host)
+  @Produces(MediaType.APPLICATION_JSON)
+  public RvResponse<FgHostResult> apiV1HostGet() {
+    var body = new FgHostResult();
+    return handle(Response.Status.INTERNAL_SERVER_ERROR, body, r -> {
+      r.name = FgIo.hostName();
+      return r;
+    });
+  }
 }

@@ -1,164 +1,260 @@
 package io.vacco.ff.service;
 
-import am.ik.yavi.builder.ValidatorBuilder;
-import am.ik.yavi.constraint.*;
-import am.ik.yavi.core.*;
-import io.vacco.ff.firecracker.*;
-import io.vacco.ff.schema.*;
-import java.util.*;
+import io.vacco.ff.oci.FgEnvVar;
+import io.vacco.ff.oci.FgImage;
+import io.vacco.ff.schema.FgResources;
+import io.vacco.ff.schema.FgService;
+import io.vacco.ff.schema.FgStack;
+import io.vacco.ff.schema.FgVolume;
+import io.vacco.ronove.util.RvValidation;
 
-import static am.ik.yavi.core.NullAs.VALID;
-import static io.vacco.ff.net.FgJni.macToBytes;
-import static java.util.stream.Collectors.toList;
-import static io.vacco.ff.net.FgJni.getLinuxBridgeInterfaces;
-import static io.vacco.ff.util.FgIo.exists;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.regex.Pattern;
 
+/**
+ * Compose-subset validation for stack/service definitions and extracted image
+ * metadata. Rules produce locale-agnostic {@link RvValidation}s (our
+ * {@code ff.stack.*} / {@code ff.image.*} / {@code ff.volume.*} keys plus
+ * positional params), which the API returns in a {@code RvResult} envelope and
+ * the UI renders through its i18n templates.
+ */
 public class FgValid {
 
-  /**
-   * Not null, not empty, not blank.
-   *
-   * @param c constraint
-   * @return constraint
-   * @param <T> input type
-   */
-  public static <T> CharSequenceConstraint<T, String> nnNeNb(CharSequenceConstraint<T, String> c) {
-    return c.notNull().notBlank().notEmpty();
+  public static final Pattern STACK_ID = Pattern.compile("[A-Za-z0-9-]+");
+  private static final Pattern IMAGE_REF = Pattern.compile(
+    "^(?:[a-zA-Z0-9.-]+(?::[0-9]+)?/)?[a-z0-9]+(?:[._-][a-z0-9]+)*"
+      + "(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*(?::[\\w][\\w.-]{0,127})?(?:@sha256:[a-f0-9]{64})?$"
+  );
+  private static final Pattern ENV_KEY = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+  private static final Pattern EXPOSED_PORT = Pattern.compile("\\d+/(tcp|udp)");
+  private static final List<String> RESTART = List.of("always", "unless-stopped", "on-failure", "no");
+
+  private static RvValidation rv(String key, String name, Object... args) {
+    var v = RvValidation.of(key).withName(name);
+    for (int i = 0; i < args.length; i++) {
+      v.withParam(String.valueOf(i), args[i] == null ? "" : String.valueOf(args[i]));
+    }
+    return v;
   }
 
-  public static <T> CharSequenceConstraint<T, String> file(CharSequenceConstraint<T, String> c) {
-    c.predicates().add(ConstraintPredicate.of(x -> {
-      try {
-        exists(x);
-        return true;
-      } catch (Exception e) {
-        return false;
+  /* ----- image metadata ----------------------------------------------- */
+
+  /** Validates an extracted/persisted {@link FgImage}. */
+  public static List<RvValidation> validateImage(FgImage img) {
+    var out = new ArrayList<RvValidation>();
+    if (img == null) {
+      out.add(rv("ff.image.missing", "image"));
+      return out;
+    }
+    if (img.source == null || img.source.isBlank()) {
+      out.add(rv("ff.image.source.missing", "image.source"));
+    } else if (!IMAGE_REF.matcher(img.source).matches()) {
+      out.add(rv("ff.image.source.invalid", "image.source", img.source));
+    }
+    if (img.rootDir == null || img.rootDir.isBlank()) {
+      out.add(rv("ff.image.rootDir.missing", "image.rootDir"));
+    } else if (!new File(img.rootDir).isDirectory()) {
+      out.add(rv("ff.image.rootDir.missing", "image.rootDir", img.rootDir));
+    }
+    if (img.workingDir != null && !img.workingDir.isBlank() && !img.workingDir.startsWith("/")) {
+      out.add(rv("ff.image.workingDir.relative", "image.workingDir", img.workingDir));
+    }
+    validateCommand("image.entryPoint", img.entryPoint, out);
+    validateCommand("image.cmd", img.cmd, out);
+    if (img.env != null) {
+      var keys = new HashSet<String>();
+      for (int i = 0; i < img.env.size(); i++) {
+        var e = img.env.get(i);
+        var path = "image.env[" + i + "]";
+        if (e == null || e.key == null || e.key.isBlank() || !ENV_KEY.matcher(e.key).matches()) {
+          out.add(rv("ff.image.env.invalid", path, e == null ? null : e.key));
+        } else if (!keys.add(e.key)) {
+          out.add(rv("ff.image.env.duplicate", path, e.key));
+        }
       }
-    }, ViolationMessage.of("file.exists", "[{0}] not found"), () -> new Object[] {}, VALID));
-    return c;
-  }
-
-  public static <T> CharSequenceConstraint<T, String> macAddress(CharSequenceConstraint<T, String> c) {
-    c.predicates().add(ConstraintPredicate.of(x -> {
-      try {
-        var mac = macToBytes(x);
-        return mac.length == 6;
-      } catch (Exception e) {
-        return false;
+    }
+    if (img.exposedPorts != null) {
+      for (int i = 0; i < img.exposedPorts.size(); i++) {
+        var p = img.exposedPorts.get(i);
+        if (p == null || !EXPOSED_PORT.matcher(p).matches()) {
+          out.add(rv("ff.image.exposedPorts.invalid", "image.exposedPorts[" + i + "]", p));
+        }
       }
-    }, ViolationMessage.of("mac.valid", "[{0}] invalid MAC address"), () -> new Object[] {}, VALID));
-    return c;
+    }
+    return out;
   }
 
-  public static <T> CharSequenceConstraint<T, String> bridge(CharSequenceConstraint<T, String> c) {
-    c.predicates().add(ConstraintPredicate.of(brId -> {
-      var bridgeSet = new HashSet<>(getLinuxBridgeInterfaces());
-      return bridgeSet.contains(brId);
-    }, ViolationMessage.of("brId.exists", "[{0}] is not a Linux bridge"), () -> new Object[] {}, VALID));
-    return c;
+  private static void validateCommand(String path, String[] cmd, List<RvValidation> out) {
+    if (cmd == null) {
+      return;
+    }
+    for (int i = 0; i < cmd.length; i++) {
+      if (cmd[i] == null || cmd[i].isBlank()) {
+        out.add(rv("ff.image.command.blank", path + "[" + i + "]", path));
+      }
+    }
   }
 
-  public static final Validator<FgVmTag> FgVmTagVld = ValidatorBuilder.<FgVmTag>of()
-    ._string(t -> t.id, "id", c -> nnNeNb(c).lessThanOrEqual(4))
-    ._string(t -> t.label, "label", c -> nnNeNb(c).lessThanOrEqual(128))
-    ._string(t -> t.description, "description", c -> nnNeNb(c).lessThanOrEqual(2048))
-    .build();
+  /* ----- volumes ------------------------------------------------------ */
 
-  public static final Validator<FgEnvVar> FgEnvVarVld = ValidatorBuilder.<FgEnvVar>of()
-    ._string(v -> v.key, "key", FgValid::nnNeNb)
-    .build();
-
-  public static final Validator<FgImage> FgImageVld = ValidatorBuilder.<FgImage>of()
-    ._string(img -> img.source, "source", c -> nnNeNb(c).lessThanOrEqual(256))
-    .forEachIfPresent(
-      FgImage::entryPointList, "entryPoint",
-      c -> c._string(v -> v, "val", c0 -> nnNeNb(c0).lessThanOrEqual(128))
-    )
-    .forEachIfPresent(
-      FgImage::cmdList, "cmd",
-      c -> c._string(v -> v, "val", c0 -> nnNeNb(c0).lessThanOrEqual(128))
-    )
-    .forEachIfPresent(FgImage::envList, "env", FgEnvVarVld)
-    .forEachIfPresent(FgImage::envUsrList, "envUsr", FgEnvVarVld)
-    .build();
-
-  public static final Validator<Drive> DriveVld = ValidatorBuilder.<Drive>of()
-    ._string(d -> d.drive_id, "drive_id", FgValid::nnNeNb)
-    ._string(d -> d.path_on_host, "path_on_host", FgValid::file)
-    ._object(d -> d.is_root_device, "is_root_device", Constraint::notNull)
-    .build();
-
-  public static final Validator<MachineConfiguration> MachineConfigurationVld =
-    ValidatorBuilder.<MachineConfiguration>of()
-      ._long(mc -> mc.vcpu_count, "vcpu_count", c -> c.notNull().greaterThan(0L))
-      ._long(mc -> mc.mem_size_mib, "mem_size_mib", c -> c.notNull().greaterThan(8L))
-      .build();
-
-  public static final Validator<BootSource> BootSourceVld = ValidatorBuilder.<BootSource>of()
-    ._string(b -> b.kernel_image_path, "kernel_image_path", c -> file(nnNeNb(c)))
-    .build();
-
-  public static final Validator<NetworkInterface> NetworkInterfaceVld = ValidatorBuilder.<NetworkInterface>of()
-    ._string(n -> n.guest_mac, "guest_mac", c -> macAddress(nnNeNb(c)))
-    ._string(n -> n.iface_id, "iface_id", FgValid::nnNeNb)
-    .build();
-
-  public static final Validator<FgConfig> FgConfigVld = ValidatorBuilder.<FgConfig>of()
-    ._object(cfg -> cfg.machineconfig, "machineconfig", Constraint::notNull)
-    ._object(cfg -> cfg.bootsource, "bootsource", Constraint::notNull)
-    .nest(cfg -> cfg.machineconfig, "machineconfig", MachineConfigurationVld)
-    .nest(cfg -> cfg.bootsource, "bootsource", BootSourceVld)
-    .forEachIfPresent(FgConfig::driveList, "drives", DriveVld)
-    .forEachIfPresent(FgConfig::networkInterfaces, "networkinterfaces", NetworkInterfaceVld)
-    .build();
-
-  public static final Validator<FgVm> FgVmVld = ValidatorBuilder.<FgVm>of()
-    ._object(vm -> vm.config, "config", Constraint::notNull)
-    ._object(vm -> vm.tag, "tag", Constraint::notNull)
-    ._object(vm -> vm.image, "image", Constraint::notNull)
-    .nest(vm -> vm.image, "image", FgImageVld)
-    .nest(vm -> vm.tag, "tag", FgVmTagVld)
-    .nest(vm -> vm.config, "config", FgConfigVld)
-    .build();
-
-  public static final Validator<FgIpConfig> FgIpConfigVld = ValidatorBuilder.<FgIpConfig>of()
-    ._string(ipc -> ipc.ipAddress, "ipAddress", FgValid::nnNeNb)
-    ._string(ipc -> ipc.subnetMask, "subnetMask", FgValid::nnNeNb)
-    ._string(ipc -> ipc.gateway, "gateway", FgValid::nnNeNb)
-    .forEachIfPresent(
-      FgIpConfig::getDnsServers, "dnsServers",
-      c -> c._string(dns -> dns, "address", FgValid::nnNeNb)
-    )
-    .build();
-
-  public static final Validator<FgNetConfig> FgNetConfigVld = ValidatorBuilder.<FgNetConfig>of()
-    ._string(net -> net.brIf, "brIf", c ->  bridge(nnNeNb(c)))
-    .nestIfPresent(net -> net.ipConfig, "ipConfig", FgIpConfigVld)
-    .build();
-
-  public static final Validator<FgVmCreate> FgVmCreateVld = ValidatorBuilder.<FgVmCreate>of()
-    ._object(vmc -> vmc.vm, "vm", Constraint::notNull)
-    ._object(vmc -> vmc.network, "network", Constraint::notNull)
-    .nest(vmc -> vmc.vm, "vm", FgVmVld)
-    .nest(vmc -> vmc.network, "network", FgNetConfigVld)
-    .build();
-
-  public static final Validator<FgVmStart> FgVmStartVld = ValidatorBuilder.<FgVmStart>of()
-    ._string(vs -> vs.vmId, "vmId", FgValid::nnNeNb)
-    ._object(vs -> vs.status, "status", Constraint::isNull)
-    ._object(vs -> vs.drives, "drives", Constraint::isNull)
-    ._object(vs -> vs.bootConfig, "bootConfig", Constraint::isNull)
-    ._object(vs -> vs.machineConfig, "machineConfig", Constraint::isNull)
-    ._object(vs -> vs.init, "init", Constraint::isNull)
-    ._object(vs -> vs.errors, "errors", Constraint::isNull)
-    .build();
-
-  public static final Validator<FgVmStop> FgVmStopVld = ValidatorBuilder.<FgVmStop>of()
-    ._string(vs -> vs.vmId, "vmId", FgValid::nnNeNb)
-    .build();
-
-  public static List<String> validationsOf(ConstraintViolations cv) {
-    return cv.stream().map(ConstraintViolation::message).collect(toList());
+  /** Validates a parsed {@link FgVolume}. */
+  public static void validateVolume(FgVolume v, String path, List<RvValidation> out) {
+    if (v == null) {
+      out.add(rv("ff.volume.missing", path));
+      return;
+    }
+    if (v.hostPath == null || v.hostPath.isBlank()) {
+      out.add(rv("ff.volume.host.missing", path + ".hostPath"));
+    } else if (!new File(v.hostPath).exists()) {
+      out.add(rv("ff.volume.host.missing", path + ".hostPath", v.hostPath));
+    }
+    if (v.guestPath == null || v.guestPath.isBlank() || !v.guestPath.startsWith("/")) {
+      out.add(rv("ff.volume.guest.absolute", path + ".guestPath", v.guestPath));
+    }
   }
 
+  /* ----- services ----------------------------------------------------- */
+
+  public static void validateService(String svcName, FgService svc, List<RvValidation> out) {
+    var path = "services." + svcName;
+    if (svc == null) {
+      out.add(rv("ff.stack.service.missing", path, svcName));
+      return;
+    }
+    if (svc.image == null || svc.image.isBlank()) {
+      out.add(rv("ff.stack.service.image.required", path + ".image", svcName));
+    } else if (!IMAGE_REF.matcher(svc.image).matches()) {
+      out.add(rv("ff.stack.service.image.invalid", path + ".image", svc.image));
+    }
+    if (svc.restart != null && !svc.restart.isBlank() && !RESTART.contains(svc.restart)) {
+      out.add(rv("ff.stack.service.restart.invalid", path + ".restart", svc.restart));
+    }
+    if (svc.volumes != null) {
+      var guestPaths = new HashSet<String>();
+      for (int i = 0; i < svc.volumes.size(); i++) {
+        var spec = svc.volumes.get(i);
+        var f = path + ".volumes[" + i + "]";
+        var parts = spec == null ? new String[0] : spec.split(":");
+        if (parts.length < 2 || parts.length > 3) {
+          out.add(rv("ff.stack.service.volumes.invalid", f, String.valueOf(spec)));
+          continue;
+        }
+        if (!parts[1].startsWith("/")) {
+          out.add(rv("ff.stack.service.volumes.guestAbsolute", f, parts[1]));
+        }
+        if (parts.length == 3 && !parts[2].equals("ro")) {
+          out.add(rv("ff.stack.service.volumes.mode", f, parts[2]));
+        }
+        if (!guestPaths.add(parts[1])) {
+          out.add(rv("ff.stack.service.volumes.duplicateGuest", f, parts[1]));
+        }
+        if (!new File(parts[0]).exists()) {
+          out.add(rv("ff.stack.service.volumes.hostMissing", f, parts[0]));
+        }
+      }
+    }
+    if (svc.environment != null) {
+      var keys = new HashSet<String>();
+      for (int i = 0; i < svc.environment.size(); i++) {
+        var entry = svc.environment.get(i);
+        var f = path + ".environment[" + i + "]";
+        var k = entry == null ? "" : (entry.contains("=") ? entry.substring(0, entry.indexOf('=')) : entry);
+        if (k.isEmpty() || !ENV_KEY.matcher(k).matches()) {
+          out.add(rv("ff.stack.service.environment.invalid", f, String.valueOf(entry)));
+        } else if (!keys.add(k)) {
+          out.add(rv("ff.stack.service.environment.duplicate", f, k));
+        }
+      }
+    }
+    var lists = new ArrayList<String[]>();
+    addList(lists, "entrypoint", svc.entrypoint);
+    addList(lists, "command", svc.command);
+    addList(lists, "depends_on", svc.depends_on);
+    for (var e : lists) {
+      for (int i = 0; i < e.length - 1; i++) {
+        var val = e[i + 1];
+        if (val == null || val.isBlank()) {
+          out.add(rv("ff.stack.service.list.blank", path + "." + e[0] + "[" + i + "]", e[0]));
+        }
+      }
+    }
+    if (svc.resources != null) {
+      validateResources(path + ".resources", svc.resources, out);
+    }
+  }
+
+  private static void validateResources(String path, FgResources r, List<RvValidation> out) {
+    if (r.vcpus < 1) {
+      out.add(rv("ff.stack.resources.vcpus", path + ".vcpus", r.vcpus));
+    }
+    if (r.ramMib < 128) {
+      out.add(rv("ff.stack.resources.ramMib", path + ".ramMib", r.ramMib));
+    }
+  }
+
+  /* ----- stacks ------------------------------------------------------- */
+
+  /** Validates a full stack definition. */
+  public static List<RvValidation> validate(FgStack stack) {
+    var out = new ArrayList<RvValidation>();
+    if (stack == null) {
+      out.add(rv("ff.stack.missing", "stack"));
+      return out;
+    }
+    if (stack.id == null || stack.id.isBlank()) {
+      out.add(rv("ff.stack.invalidId", "id", String.valueOf(stack.id)));
+    } else if (!STACK_ID.matcher(stack.id).matches()) {
+      out.add(rv("ff.stack.invalidId", "id", stack.id));
+    }
+    if (stack.services == null || stack.services.isEmpty()) {
+      out.add(rv("ff.stack.services.empty", "services"));
+      return out;
+    }
+    for (var e : stack.services.entrySet()) {
+      validateService(e.getKey(), e.getValue(), out);
+    }
+    validateDependsOn(stack, out);
+    validateNoCycles(stack, out);
+    return out;
+  }
+
+  private static void validateDependsOn(FgStack stack, List<RvValidation> out) {
+    for (var e : stack.services.entrySet()) {
+      var deps = e.getValue() == null ? null : e.getValue().depends_on;
+      if (deps == null) {
+        continue;
+      }
+      for (var d : deps) {
+        if (d != null && !stack.services.containsKey(d)) {
+          out.add(rv("ff.stack.service.dependsOn.unknown", "services." + e.getKey() + ".depends_on", d));
+        }
+      }
+    }
+  }
+
+  private static void validateNoCycles(FgStack stack, List<RvValidation> out) {
+    try {
+      FgStackPlan.startOrder(stack);
+    } catch (Exception e) {
+      out.add(rv("ff.stack.services.cyclic", "services", e.getMessage()));
+    }
+  }
+
+  private static void addList(List<String[]> target, String name, List<String> values) {
+    if (values == null) {
+      return;
+    }
+    var row = new String[values.size() + 1];
+    row[0] = name;
+    for (int i = 0; i < values.size(); i++) {
+      row[i + 1] = values.get(i);
+    }
+    target.add(row);
+  }
+
+  private FgValid() {
+  }
 }

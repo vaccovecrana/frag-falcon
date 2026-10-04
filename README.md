@@ -1,100 +1,133 @@
 # frag-falcon
 
-Firecracker VM management. Run Docker images as micro VMs.
+A libkrun-based microVM hypervisor. It pulls OCI/Docker images and runs them as
+microVMs whose root filesystem is a host directory shared over virtiofs, so
+containers can be given host directories as volumes without raw disk images.
 
-## Quick start
+- **Frameworks**: `murmux` (HTTP), `ronove` (REST + TS codegen), `shax` (logging).
+- **VM backplane**: libkrun 2.0 (with a bounded-log launcher and kernel-confined
+  OCI layer extraction).
+- **Packaging**: a single GraalVM native executable plus the native launcher and
+  libkrun shared objects, shipped as a flat `tar.gz`.
 
-Grab the latest release [here](https://github.com/vaccovecrana/frag-falcon/releases).
+## Build
 
-To run `flc`, you need:
+Toolchain: **Java 25** (with GraalVM native-image) and **Gradle** on `PATH`.
 
-- A `glibc` based Linux distribution with virtualization support. Support for `musl` is being [considered](https://github.com/vaccovecrana/frag-falcon/issues/9).
-- The `tun` and `kvm` (intel or amd) kernel modules loaded.
-- A Linux bridge VMs can attach to. The bridge needs to be attached to a router that can provide DHCP addresses.
-- A Linux kernel. You can grab [this one](https://github.com/vaccovecrana/frag-falcon/raw/main/ff-test/src/test/resources/kernel/vmlinux-6.1.98) we use for testing, or [compile your own](https://github.com/firecracker-microvm/firecracker/tree/main/resources/guest_configs).
-- The latest [firecracker](https://github.com/firecracker-microvm/firecracker/releases) release.
-
-Make a directory to store kernels and virtual machines, and place at least one kernel in the `kernels` directory.
-
-```
-localhost:~/flc# tree
-.
-├── kernels
-└── virtual-machines
-3 directories, 0 files 
+```bash
+gradle build                 # compile + tests
+gradle :flc:distNativeTar    # build the release distribution
 ```
 
-> Note: if you plan to run `flc` as a non-root user, you'll need to `setcap` on the `flc` binary to grant network management capabilities. See [here](https://github.com/vaccovecrana/frag-falcon/blob/main/ff-test/README.md) for details.
-
-Start `flc`:
-
-```
-flc \
-  --api-host=0.0.0.0 \
-  --vm-dir=./virtual-machines \
-  --krn-dir=./kernels \
-  --fc-path=/usr/local/bin/firecracker
-```
-
-Open a browser and go to `http://<your-host>:7070`
-
-Use the integrated UI to create a test VM using your target Linux kernel and network bridge.
-
-<img width="668" alt="Screenshot 2024-08-19 at 10 37 48 PM" src="https://github.com/user-attachments/assets/e0abe564-6605-4902-bf62-84f4e79e43c9">
-
-You can also create a VM with an API call too:
+The distribution lands in `ff-app/build/distributions/frag-falcon-<version>.tar.gz`
+and unpacks to a flat directory:
 
 ```
-curl -i -X POST \
-   -H "Content-Type:application/json" \
-   -d \
-'{
-  "vm": {
-    "tag": {
-      "id": "new",
-      "label": "test-vm-01",
-      "description": "Test VM 01"
-    },
-    "image": { "source": "docker.io/hashicorp/http-echo:latest" },
-    "config": {
-      "bootsource": { "kernel_image_path": "/root/flc/kernels/vmlinux-6.1.98" },
-      "machineconfig": { "vcpu_count": 1, "mem_size_mib": 512 }
-    }
-  },
-  "network": { "dhcp": true, "brIf": "br0" },
-  "rebuildInitRamFs": false
-}' \
- 'http://<your-host>:7070/api/v1/vm'
+frag-falcon-<version>/
+  ff-app              # the hypervisor (GraalVM native executable)
+  fg_vmm              # per-VM native launcher
+  fg_jni.so           # host primitives (JNI)
+  libkrun.so.2
+  libkrun_init.so
+  libkrunfw.so.5
 ```
 
-You will then have a list of VMs that you can start, stop, and inspect logs on.
+Run it from that directory: the executable finds `fg_vmm` and the libkrun
+libraries beside itself.
 
-<img width="562" alt="Screenshot 2024-08-19 at 10 56 55 PM" src="https://github.com/user-attachments/assets/7bdd401e-2f07-49da-8bb0-1afe4116e716">
+### Rootless deployment
 
-The test VM I am running is using the `hashicorp/http-echo:latest` image. So I can `curl` it's IP address, just like any other machine in my internal network:
+frag-falcon is designed to run **unprivileged**. Privilege is delegated to the
+OS once, not reimplemented in the hypervisor:
+
+- a dedicated service user owns the VM storage dir (`--vm-dir`);
+- the `fg_vmm` launcher carries `cap_net_admin` (for TAP devices) — `setcap`, or
+  systemd `AmbientCapabilities=CAP_NET_ADMIN`;
+- the service user is in the **`kvm`** group (for `/dev/kvm`);
+- the VM storage dir is mounted **`nosuid,nodev,noexec`** (host-wide, e.g. via
+  fstab) so files a guest plants in its rootfs (setuid binaries, device nodes,
+  executables) are inert to host-side processes. The hypervisor audits this at
+  startup and logs a warning if it is missing.
+
+`deploy/setup.sh <user> <vm-dir> [install-dir]` performs the one-time setup, and
+`deploy/flc.service` is a sample unit. The hypervisor never needs root.
+
+`flc` **refuses to start** if the launcher lacks `CAP_NET_ADMIN` (checked via
+`setcap`, systemd `AmbientCapabilities`, or the process effective set), since it
+could not create the per-VM TAP devices a stack needs.
 
 ```
-% curl http://172.16.4.107:5678
-hello-world
+--vm-dir=PATH        VM storage directory (required)
+--api-host=HOST      API bind address (default 127.0.0.1)
+--api-port=PORT      API port (default 7070)
+--log-format=FORMAT  text|json (default text)
+--log-level=LEVEL    error|warning|info|debug|trace (default info)
 ```
 
-## Building/Development
+The hypervisor is **not meant to be exposed publicly**: it has no authentication
+and manages privileged networking. Keep it on a private LAN segment or behind a
+VPN.
 
-Requires Gradle 8 or later.
+## API
 
-Besides the usual `gradle clean build`, create a file with the following content at `~/.gsOrgConfig.json`:
+All operations are stack-oriented (a stack is a compose-style set of services,
+stored as JSON). The UI converts YAML to JSON client-side.
 
 ```
-{
-  "orgId": "vacco-oss",
-  "orgConfigUrl": "https://vacco-oss.s3.us-east-2.amazonaws.com/vacco-oss.json"
-}
+GET    /api/v1/stack            list stacks with derived state
+GET    /api/v1/stack/{id}       fetch a stack definition
+POST   /api/v1/stack            create/update a stack
+DELETE /api/v1/stack/{id}       stop and delete a stack
+POST   /api/v1/stack/start      start a stack (topological order)
+POST   /api/v1/stack/stop       stop a stack (reverse order)
+POST   /api/v1/stack/logs       per-service log tails
+GET    /api/v1/br               list Linux bridges
+GET    /api/v1/host             hypervisor host name (browser tab title)
 ```
 
-> Note: there's still a lot of tests with local paths I need to document/refactor.
+## systemd
 
-## Resources/credits
+A rootless sample unit ships in `deploy/flc.service` (service user, `kvm` group,
+`AmbientCapabilities=CAP_NET_ADMIN`). Provision it once with
+`sudo bash deploy/setup.sh <user> <vm-dir> [install-dir]`, which also prints the
+`nosuid,nodev,noexec` mount for the vm-dir.
 
-- [TinyUntar](https://github.com/dsoprea/TinyUntar)
-- [Firecracker API](https://github.com/firecracker-microvm/firecracker/blob/main/src/firecracker/swagger/firecracker.yaml)
-- [Solar Bold Icons](https://www.svgrepo.com/collection/solar-bold-icons/1)
+Note: VMs are **not** killed when the service stops — they are independent
+launcher processes and are re-adopted on the next start.
+
+## UI
+
+The Preact SPA is bundled into `flc` (see `ff-ui/`). Browser E2E tests and a
+visual-audit capture run against a live hypervisor:
+
+```bash
+# one-shot: builds, starts a throwaway backend, runs the suite, tears down
+scripts/e2e.sh
+
+# or, with a hypervisor already running on 127.0.0.1:7070
+npm --prefix ff-ui run test:e2e   # assertions (or: gradle :ff-ui:e2eTest)
+npm --prefix ff-ui run visual     # per-screen screenshots (or: gradle :ff-ui:visual)
+```
+
+The visual capture walks each screen/state at desktop (1440×950) and mobile
+(390×844) viewports and writes full-page PNGs to
+`ff-ui/build/test-artifacts/visual/<state>-<viewport>.png`. For a deterministic
+*empty* landing shot, run the hypervisor with a fresh `--vm-dir`. `FF_UI_URL`
+overrides the target.
+
+Build-only CI can skip the KVM/caps/network tests:
+`gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).
+
+## Layout
+
+```
+ff-jni    Host primitives (JNI): process spawn, kernel-confined tar extraction,
+          bridge discovery; the C VM launcher; vendored libkrun libs.
+ff-api    Domain model, VM lifecycle, stack model + supervisor, the ronove REST
+          API, and the OCI client.
+ff-app    Packaging: the GraalVM native executable and the release distribution.
+ff-test   Integration and security tests.
+```
+
+See `PLAN.md` for the migration roadmap and `CAVEATS.md` for integration caveats
+(host-directory volumes, bounded logs, kernel-confined extraction, and more).

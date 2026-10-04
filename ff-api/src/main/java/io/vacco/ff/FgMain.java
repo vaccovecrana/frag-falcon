@@ -1,26 +1,37 @@
 package io.vacco.ff;
 
-import io.vacco.ff.service.FgOptions;
 import io.vacco.ff.service.FgContext;
-import java.util.Arrays;
+import io.vacco.ff.service.FgOptions;
+import io.vacco.shax.logging.ShLogger;
 
 public class FgMain {
 
   public static void main(String[] args) {
-    if (args == null || args.length == 0 || Arrays.asList(args).contains("--help")) {
+    if (args.length == 0) {
       System.out.println(FgOptions.usage());
       return;
     }
+    for (var a : args) {
+      if (a.equals("--help") || a.equals("-h")) {
+        System.out.println(FgOptions.usage());
+        return;
+      }
+    }
+
+    ShLogger.setPrintStream(System.out);
     FgOptions.setFrom(args);
+
     var ctx = new FgContext();
-    try { // TODO add UNIX SIGTERM handler
+
+    Runtime.getRuntime().addShutdownHook(new Thread(ctx::close, "ff-shutdown"));
+    try {
       ctx.init();
     } catch (Exception e) {
-      System.out.printf("Application error - %s %s%n",
-        e.getClass().getSimpleName(), e.getMessage()
-      );
+      System.err.printf("frag-falcon failed to start: %s%n", e);
       ctx.close();
+      System.exit(1);
     }
+
   }
 
 }

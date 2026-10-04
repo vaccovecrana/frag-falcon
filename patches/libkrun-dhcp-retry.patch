@@ -1,0 +1,105 @@
+--- a/init/init-binary/src/dhcp.rs
++++ b/init/init-binary/src/dhcp.rs
+@@ -5,6 +5,7 @@
+ use std::net::{Ipv4Addr, SocketAddrV4};
+ use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+ use std::slice;
++use std::time::{Duration, Instant};
+ 
+ use anyhow::{Context, bail};
+ use nix::errno::Errno;
+@@ -16,6 +17,12 @@
+ use nix::unistd;
+ 
+ const DHCP_BUFFER_SIZE: usize = 576;
++/// How long to keep retrying DHCP before giving up. A raw TAP/bridge can take
++/// a moment to start forwarding after the VM boots, so a single-shot request
++/// is easily lost; this covers that warm-up window.
++const DHCP_RETRY_WINDOW_MS: u64 = 8000;
++/// Receive timeout (and therefore retransmit interval) for each attempt.
++const DHCP_RETRY_INTERVAL_MS: u64 = 250;
+ /// BOOTP vendor-specific area size (64) - magic cookie (4)
+ const DHCP_OPTIONS_SIZE: usize = 60;
+ const DHCP_OPTIONS_OFFSET: usize = 240;
+@@ -558,25 +565,34 @@
+ 
+     let dest = SockaddrIn::from(SocketAddrV4::new(Ipv4Addr::BROADCAST, DHCP_SERVER_PORT));
+ 
+-    // Keep IPv6-only fast: set receive timeout to 100ms
++    // Each attempt waits DHCP_RETRY_INTERVAL_MS for a reply; keep retransmitting
++    // the DISCOVER until DHCP_RETRY_WINDOW_MS elapses. The first attempt stays
++    // fast so IPv6-only guests are not delayed.
+     socket::setsockopt(
+         &sock,
+         sockopt::ReceiveTimeout,
+-        &TimeVal::microseconds(100_000),
++        &TimeVal::milliseconds(DHCP_RETRY_INTERVAL_MS as i64),
+     )
+     .context("setsockopt(SO_RCVTIMEO)")?;
+ 
+-    // Send DHCP DISCOVER
+     let pkt_bytes = pkt.as_bytes();
+-    socket::sendto(sock.as_raw_fd(), pkt_bytes, &dest, MsgFlags::empty())
+-        .context("sendto(DISCOVER)")?;
+-
+-    // Get response: DHCPACK (Rapid Commit) or DHCPOFFER
+     let mut response = [0u8; DHCP_BUFFER_SIZE];
+-    let (recv_len, from) = match socket::recvfrom::<SockaddrIn>(sock.as_raw_fd(), &mut response) {
+-        Ok(r) => r,
+-        Err(Errno::EAGAIN) => return Ok(()), // timeout — no DHCP server
+-        Err(e) => bail!("recvfrom: {e}"),
++    let deadline = Instant::now() + Duration::from_millis(DHCP_RETRY_WINDOW_MS);
++    let (recv_len, from) = loop {
++        // Send DHCP DISCOVER
++        socket::sendto(sock.as_raw_fd(), pkt_bytes, &dest, MsgFlags::empty())
++            .context("sendto(DISCOVER)")?;
++
++        // Get response: DHCPACK (Rapid Commit) or DHCPOFFER
++        match socket::recvfrom::<SockaddrIn>(sock.as_raw_fd(), &mut response) {
++            Ok(r) => break r,
++            Err(Errno::EAGAIN) => {
++                if Instant::now() >= deadline {
++                    return Ok(()); // no DHCP server answered within the window
++                }
++            }
++            Err(e) => bail!("recvfrom: {e}"),
++        }
+     };
+ 
+     let msg_type = dhcp_msg_type(&response[..recv_len]);
+@@ -604,15 +620,26 @@
+             opts.finish();
+ 
+             let pkt_bytes = pkt.as_bytes();
+-            socket::sendto(sock.as_raw_fd(), pkt_bytes, &dest, MsgFlags::empty())
+-                .context("sendto(REQUEST)")?;
+-
+-            let (recv_len2, _) = socket::recvfrom::<SockaddrIn>(sock.as_raw_fd(), &mut response)
+-                .context("no DHCPACK received")?;
+-            let ack_type = dhcp_msg_type(&response[..recv_len2]);
+-            if ack_type != DHCP_MSG_ACK {
+-                bail!("expected DHCPACK, got type {ack_type}");
+-            }
++            let (recv_len2, _) = loop {
++                socket::sendto(sock.as_raw_fd(), pkt_bytes, &dest, MsgFlags::empty())
++                    .context("sendto(REQUEST)")?;
++
++                match socket::recvfrom::<SockaddrIn>(sock.as_raw_fd(), &mut response) {
++                    Ok(r) => {
++                        // Retransmitted DISCOVERs can leave duplicate OFFERs in
++                        // the socket buffer; only an ACK completes the handshake.
++                        if dhcp_msg_type(&response[..r.0]) == DHCP_MSG_ACK {
++                            break r;
++                        }
++                    }
++                    Err(Errno::EAGAIN) => {
++                        if Instant::now() >= deadline {
++                            bail!("no DHCPACK received");
++                        }
++                    }
++                    Err(e) => bail!("recvfrom(DHCPACK): {e}"),
++                }
++            };
+             handle_dhcp_ack(
+                 nl_sock.as_raw_fd(),
+                 iface_index as i32,

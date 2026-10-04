@@ -1,0 +1,10 @@
+[versions]
+ronove = "4.0.1"
+graalPl = "1.1.13"
+nodePl = "7.0.1"
+gitflowPl = "1.9.0"
+
+[libraries]
+gson = { module = "com.google.code.gson:gson", version = "2.14.0" }
+ronovemx = { module = "io.vacco.ronove:rv-kit-murmux", version.ref = "ronove" }
+shax = { module = "io.vacco.shax:shax", version = "2.0.20.1" }

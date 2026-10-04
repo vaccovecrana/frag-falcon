@@ -1,67 +1,55 @@
 package io.vacco.ff.service;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.stream.Collectors;
+import java.util.HashMap;
 
 public class FgOptions {
 
-  public enum LogLevel { error, warning, info, debug, trace }
-  public enum LogFormat { text, json }
+  public enum LogLevel {error, warning, info, debug, trace}
 
-  public static final String
-    kVmDir      = "--vm-dir",
-    kKrnDir     = "--krn-dir",
-    kFcPath     = "--fc-path",
-    kApiHost    = "--api-host",   kApiPort = "--api-port",
-    kLogFormat  = "--log-format", kLogLevel = "--log-level";
+  public enum LogFormat {text, json}
 
-  public static File      vmDir, krnDir, fcPath;
+  public static File vmDir;
+  public static String host = "127.0.0.1";
+  public static int port = 7070;
   public static LogFormat logFormat = LogFormat.text;
-  public static LogLevel  logLevel  = LogLevel.info;
-  public static String    host = "127.0.0.1";
-  public static int       port = 7070;
+  public static LogLevel logLevel = LogLevel.info;
 
   public static String usage() {
-    // - TODO - clarify in documentation that external VM storage is not managed by the app itself, you configure it.
     return String.join("\n",
-      "Usage:",
-      "  flc [options]",
-      "Options:",
-      "  --vm-dir=string      VM metadata directory. Required.",
-      "                         - Stores VM configs, Firecracker metadata and initramfs images",
-      "  --krn-dir=string     Linux Kernel storage directory. Required.",
-      "                         - Stores Kernel images used to boot VMs.",
-      "  --fc-path=string     Path to the firecracker binary. Required.",
-      "  --api-host=string    API/UI IP address. Default: " + host,
-      "  --api-port=number    API/UI port. Default: " + port,
-      "  --log-format=string  Log output format ('text' or 'json'). Default: " + logFormat,
-      "  --log-level=string   Log level ('error', 'warning', 'info', 'debug', 'trace'). Default: " + logLevel,
-      "  --help               Prints this help message."
+      "frag-falcon - libkrun microVM hypervisor",
+      "",
+      "  --vm-dir=PATH        VM storage directory (required)",
+      "  --api-host=HOST      API bind address (default 127.0.0.1)",
+      "  --api-port=PORT      API port (default 7070)",
+      "  --log-format=FORMAT  text|json (default text)",
+      "  --log-level=LEVEL    error|warning|info|debug|trace (default info)"
     );
   }
 
   public static void setFrom(String[] args) {
-    var argIdx = Arrays.stream(args)
-      .filter(arg -> arg.startsWith("--"))
-      .map(arg -> arg.split("="))
-      .filter(pair -> pair.length == 2)
-      .filter(pair -> pair[0] != null && pair[1] != null)
-      .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
-
-    vmDir   = new File(argIdx.get(kVmDir));
-    krnDir  = new File(argIdx.get(kKrnDir));
-    fcPath  = new File(argIdx.get(kFcPath));
-
-    var vHost = argIdx.get(kApiHost);
-    var vPort = argIdx.get(kApiPort);
-    var vLogFormat = argIdx.get(kLogFormat);
-    var vLogLevel = argIdx.get(kLogLevel);
-
-    host = vHost != null ? vHost : host;
-    port = vPort != null ? Integer.parseInt(vPort) : port;
-    logFormat = vLogFormat != null ? LogFormat.valueOf(vLogFormat) : logFormat;
-    logLevel = vLogLevel != null ? LogLevel.valueOf(vLogLevel) : logLevel;
+    var m = new HashMap<String, String>();
+    for (var a : args) {
+      if (!a.startsWith("--")) {
+        continue;
+      }
+      var kv = a.substring(2).split("=", 2);
+      if (kv.length == 2) {
+        m.put(kv[0], kv[1]);
+      }
+    }
+    var vmDirPath = m.get("vm-dir");
+    if (vmDirPath == null) {
+      throw new IllegalArgumentException("--vm-dir is required");
+    }
+    vmDir = new File(vmDirPath);
+    host = m.getOrDefault("api-host", host);
+    port = Integer.parseInt(m.getOrDefault("api-port", Integer.toString(port)));
+    if (m.containsKey("log-format")) {
+      logFormat = LogFormat.valueOf(m.get("log-format"));
+    }
+    if (m.containsKey("log-level")) {
+      logLevel = LogLevel.valueOf(m.get("log-level"));
+    }
   }
-
 }

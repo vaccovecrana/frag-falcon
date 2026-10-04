@@ -1,7 +1,7 @@
 name: Native Build
 on:
   release:
-    types: [created]
+    types: [ created ]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,7 +10,7 @@ jobs:
       - name: Display release tag
         run: echo ${{ github.event.release.tag_name }}
       - name: Pull Docker Image
-        run: docker pull gradle:jdk21-graal-jammy
+        run: docker pull gradle:jdk25-graal
       - name: Gradle Build
         run: |
           docker run --rm \
@@ -19,12 +19,12 @@ jobs:
             -e PLUGIN_ORGCONFIG=http://56db25d3f6c39937b48e-6eaf716421c53330be45fa9d36560381.r85.cf2.rackcdn.com/org-config/vacco.json \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
-            gradle:jdk21-graal-jammy \
-            gradle clean build nativeCompile
+            gradle:jdk25-graal \
+            gradle clean distNativeTar
       - name: Upload binaries
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
-          file: ff-app/build/native/nativeCompile/flc-*
+          file: ff-app/build/distributions/frag-falcon-*.gz
           file_glob: true

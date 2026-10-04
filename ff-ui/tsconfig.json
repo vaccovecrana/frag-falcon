@@ -3,15 +3,38 @@
     "sourceMap": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
-    "module": "ES2022",
+    "module": "preserve",
     "target": "ES2022",
-    "lib": ["dom", "ES2020"],
-    "moduleResolution": "Node",
-    "jsx": "react",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact/compat",
     "resolveJsonModule": true,
-    "typeRoots": ["node_modules/@types"],
+    "typeRoots": [
+      "node_modules/@types"
+    ],
     "allowJs": false,
-    "baseUrl": "."
+    "paths": {
+      "@ui/*": [
+        "./src/*"
+      ],
+      "react": [
+        "./node_modules/preact/compat"
+      ],
+      "react-dom": [
+        "./node_modules/preact/compat"
+      ]
+    }
   },
-  "exclude": ["./build"]
+  "baseUrl": ".",
+  "include": [
+    "./src"
+  ],
+  "exclude": [
+    "./build"
+  ]
 }

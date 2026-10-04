@@ -1,63 +1,50 @@
 package io.vacco.ff.api;
 
-import io.vacco.murmux.http.*;
+import io.vacco.murmux.http.MxExchange;
+import io.vacco.murmux.http.MxMime;
 import io.vacco.murmux.middleware.MxStatic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
-import java.nio.file.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import static java.lang.String.format;
-import static io.vacco.ff.api.FgRoute.*;
-import static io.vacco.ff.util.FgIo.hostName;
+import static java.util.Objects.requireNonNull;
 
+/**
+ * Serves the Preact SPA from the classpath ({@code /ui}), with an index.html
+ * fallback for client-side routes.
+ */
 public class FgUiHdl extends MxStatic {
 
-  private static final File pkgJson = new File("../ff-ui/package.json");
-  private static final Origin contentOrigin = pkgJson.exists() ? Origin.FileSystem : Origin.Classpath;
-  private static final Path contentRoot = pkgJson.exists()
-    ? Paths.get("../ff-ui/build/resources/main/ui")
+  private static final Logger log = LoggerFactory.getLogger(FgUiHdl.class);
+  private static final String index = "/index.html";
+
+  private static final File projectRoot = resolveCommonPath(new File("."), "frag-falcon");
+  private static final File pkgJson = projectRoot != null && projectRoot.exists()
+    ? new File(projectRoot, "./ff-ui/package.json")
+    : null;
+  private static final Origin origin = pkgJson != null ? Origin.FileSystem : Origin.Classpath;
+  private static final Path root = pkgJson != null
+    ? Paths.get(requireNonNull(projectRoot).toPath().toString(), "./ff-ui/build/resources/main/ui")
     : Paths.get("/ui");
 
-  private static final String indexHtml = String.join("\n", "",
-    "<!DOCTYPE html>",
-    "<html>",
-    "<head>",
-    "  <base href=\"/\" />",
-    "  <meta charset=\"utf-8\" />",
-    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
-    "  <link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\">",
-    "  <link rel=\"stylesheet\" href=\"/index.css\" />",
-    format("  <title>%s</title>", hostName()),
-    "</head>",
-    "<body class=\"dark\">",
-    "  <div id=\"root\"></div>",
-    "  <script src=\"/index.js\"></script>",
-    "  <noscript><!-- Happiness = Reality - Expectations --></noscript>",
-    "</body>",
-    "</html>"
-    );
-
+  @SuppressWarnings("this-escape")
   public FgUiHdl() {
-    super(contentOrigin, contentRoot);
-    this.withNoTypeResolver((p, o) -> p.endsWith(".map") ? MxMime.json.type : MxMime.bin.type);
+    super(origin, root);
+    withNoTypeResolver((p, _) -> p.getFileName().toString().endsWith(".map") ? MxMime.json.type : MxMime.bin.type);
+    log.info("Resources: ({}) - {}", origin, root);
   }
 
-  @Override public void handle(MxExchange xc) {
-    var p = xc.getPath();
-    if (p.startsWith(fgUi)) {
+  @Override
+  public void handle(MxExchange xc) {
+    var path = xc.getPath();
+    if (path.equals("/favicon.svg") || path.equals("/index.css") || path.equals("/index.js")
+      || path.equals("/index.js.map") || path.equals("/index.css.map") || path.equals("/version")) {
       super.handle(xc);
       return;
     }
-    switch (p) {
-      case indexCss:
-      case indexJs:
-      case indexJsMap:
-      case favicon:
-      case version:
-        super.handle(xc);
-        break;
-      default:
-        xc.commitHtml(indexHtml);
-    }
+    handleWithPath(xc, index);
   }
-
 }

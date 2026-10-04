@@ -1,29 +1,27 @@
-CC = zig cc
-CFLAGS =	-Wall -I./include -g \
-					-I/home/jjzazuet/Applications/zulu17.42.21-ca-crac-jdk17.0.7-linux_x64/include \
-					-I/home/jjzazuet/Applications/zulu17.42.21-ca-crac-jdk17.0.7-linux_x64/include/linux
+JAVA_HOME ?= $(shell dirname $$(dirname $$(readlink -f $$(which javac))))
+LIBDIR := src/main/resources/io/vacco/ff
+OUT := out
 
-$(shell mkdir -p ./out)
+FG_SRC := src/fg/fg_proc.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_extract.c
 
-all: compile jni
+all: $(OUT)/fg_jni.so $(OUT)/fg_vmm
 
-compile:
-	$(CC) $(CFLAGS) -c ./src/fg/fg_tap.c -o ./out/fg_tap.o
-	$(CC) $(CFLAGS) -c ./src/fg/fg_raw.c -o ./out/fg_raw.o
-	$(CC) $(CFLAGS) -c ./src/fg/fg_proc.c -o ./out/fg_proc.o
-	$(CC) $(CFLAGS) -c ./src/fg/fg_unix.c -o ./out/fg_unix.o
-	$(CC) $(CFLAGS) -c ./src/fg/fg_vsock.c -o ./out/fg_vsock.o
+$(OUT):
+	mkdir -p $(OUT)
 
-jni:
-	$(CC) $(CFLAGS) -fPIC -c ./src/jni/fg_jni.c -o ./out/fg_jni.o
-	$(CC) -shared -o ./out/fg_jni.so ./out/fg_jni.o \
-		./out/fg_tap.o ./out/fg_raw.o ./out/fg_proc.o ./out/fg_unix.o ./out/fg_vsock.o
+$(OUT)/fg_jni.so: $(FG_SRC) src/jni/fg_jni.c $(FG_SRC:.c=.h) | $(OUT)
+	cc -Wall -O2 -fPIC -shared \
+	  -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux \
+	  -Isrc/fg \
+	  -o $@ src/jni/fg_jni.c $(FG_SRC)
 
-tests: all
-	$(CC) $(CFLAGS) -c ./src/test/fg_tap_test.c -o ./out/fg_tap_test.o
-	$(CC) -o ./out/fg_test \
-		./out/fg_tap.o ./out/fg_tap_test.o
-		sudo setcap 'cap_net_admin,cap_net_bind_service,cap_net_raw+eip' ./out/fg_test
+$(OUT)/fg_vmm: src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_tap.h src/fg/fg_root.h src/vmm/include/libkrun.h src/vmm/include/libkrun_init.h | $(OUT)
+	cc -Wall -O2 -pthread -Isrc/vmm/include -Isrc/fg \
+	  -o $@ src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c \
+	  -L$(LIBDIR) -Wl,--no-as-needed \
+	  -l:libkrun.so.2 -l:libkrun_init.so -l:libkrunfw.so.5 \
+	  -Wl,--as-needed -rdynamic \
+	  -Wl,-rpath,$(abspath $(LIBDIR)) -Wl,-rpath,'$$ORIGIN'
 
 clean:
-	rm -rf ./out
+	rm -rf $(OUT)

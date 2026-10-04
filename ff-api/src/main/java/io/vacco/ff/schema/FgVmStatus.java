@@ -1,26 +1,21 @@
 package io.vacco.ff.schema;
 
-import java.util.Objects;
-
+/**
+ * Runtime status of a VM, including optional provisioning progress.
+ */
 public class FgVmStatus {
 
-  public int fcPid;
+  public int pid;
+  public FgVmState state = FgVmState.pending;
   public FgVm vm;
-  public FgNetConfig network;
+  public FgProvision provision;
+  public String error;
 
-  public FgVmStatus withNetwork(FgNetConfig network) {
-    this.network = Objects.requireNonNull(network);
-    return this;
+  public static FgVmStatus of(FgVm vm, int pid, FgVmState state) {
+    var s = new FgVmStatus();
+    s.vm = vm;
+    s.pid = pid;
+    s.state = state;
+    return s;
   }
-
-  public FgVmStatus withFcPid(int fcPid) {
-    this.fcPid = fcPid;
-    return this;
-  }
-
-  public FgVmStatus withVm(FgVm vm) {
-    this.vm = Objects.requireNonNull(vm);
-    return this;
-  }
-
 }

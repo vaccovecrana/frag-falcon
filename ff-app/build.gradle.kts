@@ -1,10 +1,23 @@
+import java.io.FileOutputStream
+
 plugins {
   application
-  id("org.graalvm.buildtools.native") version "0.10.2"
+  id("org.graalvm.buildtools.native") version libs.versions.graalPl
 }
 
-dependencies { implementation(project(":ff-api")) }
-application { mainClass.set("io.vacco.ff.FgMain") }
+dependencies {
+  implementation(project(":ff-api"))
+}
+
+application {
+  mainClass.set("io.vacco.ff.FgMain")
+}
+
+tasks.named<JavaExec>("run") {
+  environment("FF_NATIVE_DIR", project(":ff-jni").layout.buildDirectory.dir("native").get().asFile.absolutePath)
+  standardOutput = FileOutputStream(file("./out.log"))
+  dependsOn(":ff-jni:installNative", ":ff-jni:setupCaps")
+}
 
 graalvmNative {
   binaries {
@@ -15,3 +28,25 @@ graalvmNative {
     }
   }
 }
+
+/**
+ * Flat, self-contained release distribution: the hypervisor executable plus the
+ * native launcher and libkrun shared objects, all in one directory.
+ */
+val distNativeTar = tasks.register<Tar>("distNativeTar") {
+  group = "distribution"
+  description = "Bundles the native executable and its native runtime into a tar.gz"
+  dependsOn(tasks.named("nativeCompile"), ":ff-jni:installNative")
+  compression = Compression.GZIP
+  archiveFileName.set("frag-falcon-${project.version}.tar.gz")
+  destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+  into("frag-falcon-${project.version}") {
+    from(layout.buildDirectory.dir("native/nativeCompile")) { include("flc") }
+    from(project(":ff-jni").layout.buildDirectory.dir("native")) {
+      include("fg_vmm", "fg_jni.so", "libkrun.so.2", "libkrun_init.so", "libkrunfw.so.5")
+    }
+  }
+  filePermissions { unix("0755") }
+}
+
+// tasks.named("assemble") { dependsOn(distNativeTar) }

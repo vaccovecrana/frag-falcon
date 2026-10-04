@@ -1,5 +1,5 @@
 plugins {
-  id("io.vacco.ronove") version "1.2.6"
+  id("io.vacco.ronove") version libs.versions.ronove
 }
 
 configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
@@ -7,27 +7,19 @@ configure<io.vacco.oss.gitflow.GsPluginProfileExtension> {
 }
 
 configure<io.vacco.ronove.plugin.RvPluginExtension> {
+  optionalFields = true
   controllerClasses = arrayOf("io.vacco.ff.api.FgApiHdl")
-  outFile.set(file("../ff-ui/@ff/rpc.ts"))
+  outFile.set(file("../ff-ui/src/rpc.ts"))
+  reflectConfigFile.set(file("../ff-app/src/main/resources/reflect-config.json"))
+  reachabilityMetadataFile.set(file("../ff-app/src/main/resources/reachability-metadata.json"))
 }
 
 val api by configurations
 
 dependencies {
-  api("io.vacco.shax:shax:2.0.6.0.1.0")
-  api("com.google.code.gson:gson:2.11.0")
-  api("am.ik.yavi:yavi:0.14.1")
-  api("io.vacco.ronove:rv-kit-murmux:1.2.6_2.2.5")
   api(project(":ff-jni"))
   api(project(":ff-ui"))
-}
-
-val copyFfRt = tasks.register<Copy>("copyFfRt") {
-  from("./src/main/go/ffrt")
-  from("./src/main/c/out/fgnet.so")
-  into("./build/resources/main/io/vacco/ff")
-}
-
-tasks.processResources {
-  dependsOn(copyFfRt)
+  api(libs.gson)
+  api(libs.shax)
+  api(libs.ronovemx)
 }

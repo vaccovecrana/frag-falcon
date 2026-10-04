@@ -2,229 +2,190 @@
   {
     "name": "io.vacco.ff.api.FgApiHdl",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.shax.logging.ShLogConfig",
+    "name": "io.vacco.ff.dto.FgBridgesResult",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.shax.logging.ShLogLevel",
+    "name": "io.vacco.ff.dto.FgHostResult",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.firecracker.drive.Cache_type",
+    "name": "io.vacco.ff.dto.FgStackListResult",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.firecracker.drive.Io_engine",
+    "name": "io.vacco.ff.dto.FgStackLogsResult",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.firecracker.instanceactioninfo.Action_type",
+    "name": "io.vacco.ff.dto.FgStackResult",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.firecracker.logger.Level",
+    "name": "io.vacco.ff.dto.FgStackStatusResult",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.firecracker.machineconfiguration.Huge_pages",
+    "name": "io.vacco.ff.oci.FgEnvVar",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.firecracker.mmdsconfig.Version",
+    "name": "io.vacco.ff.oci.FgImage",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.Balloon",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.BootSource",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.CpuTemplate",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.Drive",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.InstanceActionInfo",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.Logger",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.MachineConfiguration",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.Metrics",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.MmdsConfig",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.NetworkInterface",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.RateLimiter",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.TokenBucket",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.firecracker.Vsock",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FcApiResponse",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgConfig",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgEnvVar",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgImage",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgIpConfig",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
     "name": "io.vacco.ff.schema.FgNetConfig",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.schema.FgRequest",
+    "name": "io.vacco.ff.schema.FgProvision",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgResources",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgService",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgServiceStatus",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStack",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStackRef",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStackState",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgStackStatus",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
   },
   {
     "name": "io.vacco.ff.schema.FgVm",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.schema.FgVmCreate",
+    "name": "io.vacco.ff.schema.FgVmMachine",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
-    "name": "io.vacco.ff.schema.FgVmList",
+    "name": "io.vacco.ff.schema.FgVmState",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgVmLogs",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgVmResourceList",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgVmStart",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgVmStatus",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
-  },
-  {
-    "name": "io.vacco.ff.schema.FgVmStop",
-    "allDeclaredConstructors": true,
-    "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
   },
   {
     "name": "io.vacco.ff.schema.FgVmTag",
     "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
     "allDeclaredMethods": true,
-    "allDeclaredFields": true
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ff.schema.FgVolume",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ronove.util.RvResult",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.ronove.util.RvValidation",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.shax.logging.ShLogConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.vacco.shax.logging.ShLogLevel",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "unsafeAllocated": true
   }
 ]

@@ -1,16 +1,19 @@
 package io.vacco.ff.schema;
 
-import java.util.Objects;
-
+/**
+ * Network configuration for a VM on the hypervisor's bridge.
+ */
 public class FgNetConfig {
 
   public String brIf;
-  public FgIpConfig ipConfig;
-  public boolean dhcp;
+  public String tapName;
+  public String guestMac;
 
-  public FgNetConfig withIpConfig(FgIpConfig ipConfig) {
-    this.ipConfig = Objects.requireNonNull(ipConfig);
-    return this;
+  public static FgNetConfig of(String brIf, String tapName, String guestMac) {
+    var n = new FgNetConfig();
+    n.brIf = brIf;
+    n.tapName = tapName;
+    n.guestMac = guestMac;
+    return n;
   }
-
 }
