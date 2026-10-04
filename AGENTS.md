@@ -127,9 +127,10 @@ in M3 (the C launcher owns libkrun).
 6. **Close the extraction `OutputStream` before `execve`** — an unclosed stream makes
    the launcher fail with `ETXTBSY` ("Text file busy").
 7. **TAP/bridge networking** needs `cap_net_admin`. The tap must be pre-created
-   persistent (a tap can only be attached by one process). libkrun's DHCP was patched
-   to retry — see `CAVEATS.md` and `patches/libkrun-dhcp-retry.patch`; reapply the
-   patch after a fresh `build-libkrun.sh` fetch.
+   persistent (a tap can only be attached by one process). libkrun's DHCP is patched
+   to retry — the patch lives in
+   [`libkrun-build`](https://github.com/vaccovecrana/libkrun-build) and is applied
+   automatically by its `build-libkrun.sh`. See `CAVEATS.md` §1.
 8. **A cap'd launcher is non-dumpable**, so `/proc/<pid>/environ` is root-only;
    discovery matches `/proc/<pid>/comm` (`<vmid>`, passed to the launcher as
    `--vm-id`) — the only discovery mechanism. A cap'd binary also

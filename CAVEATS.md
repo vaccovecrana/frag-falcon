@@ -21,31 +21,30 @@ packet is reliably lost. Result: no DHCP lease, and any workload that needs the
 network fails. (This client is designed for passt/gvproxy, which answer
 instantly.)
 
-**Patch.** `patches/libkrun-dhcp-retry.patch` makes the client retransmit
-`DISCOVER` every `250 ms` for a total window of `8000 ms`, and makes the
-`REQUEST`/`ACK` step ignore duplicate `OFFER`s (retransmits can leave several
-queued in the socket buffer) and keep retrying until the same deadline.
+**Patch.** The retry is carried by
+[`libkrun-build`](https://github.com/vaccovecrana/libkrun-build) (patch
+`patches/libkrun-dhcp-retry.patch`), applied automatically during that repo's
+build. It makes the client retransmit `DISCOVER` every `250 ms` for a total
+window of `8000 ms`, and makes the `REQUEST`/`ACK` step ignore duplicate
+`OFFER`s (retransmits can leave several queued in the socket buffer) and keep
+retrying until the same deadline.
 
 **Apply / rebuild / re-vendor.**
 
 ```bash
-# 1. Apply to the fetched libkrun source tree
-cd ../libkrun-build/src/libkrun
-patch -p1 < /path/to/frag-falcon-libkrun/patches/libkrun-dhcp-retry.patch
+# 1. Build patched libkrun (the build script fetches upstream and applies the patch)
+cd ../libkrun-build
+./build-libkrun.sh --skip-fw --no-apt --no-verify
 
-# 2. Rebuild (libkrun only; skip the huge kernel build) and re-vendor
-cd ../../
-./build-libkrun.sh --no-fetch --skip-fw --no-apt --no-verify
-
-# 3. Copy the rebuilt libraries into this repo
+# 2. Copy the rebuilt libraries into this repo
 cp out/lib64/libkrun_init.so.0.1.0 \
-   /path/to/frag-falcon-libkrun/ff-jni/src/main/resources/io/vacco/ff/libkrun_init.so
+   /path/to/frag-falcon/ff-jni/src/main/resources/io/vacco/ff/libkrun_init.so
 cp out/lib64/libkrun.so.2.0.0 \
-   /path/to/frag-falcon-libkrun/ff-jni/src/main/resources/io/vacco/ff/libkrun.so.2
+   /path/to/frag-falcon/ff-jni/src/main/resources/io/vacco/ff/libkrun.so.2
 ```
 
-A fresh `build-libkrun.sh` (without `--no-fetch`) re-downloads `main` and loses
-the patch, so re-apply it.
+The patch is applied by `build-libkrun.sh` after every fetch, so no manual
+`patch` step is needed; a rejected hunk aborts the build.
 
 **Consequence.** If no DHCP server answers, the guest now waits up to 8 s before
 booting the workload. Acceptable for interactive/bridged VMs; revisit if boot

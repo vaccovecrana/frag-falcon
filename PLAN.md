@@ -35,9 +35,10 @@ provides, and track progress with the milestones below.
   module; rewrote the launcher in C (`ff-jni/src/vmm/fg_vmm.c`); host-directory
   volumes via bind mounts; `FgProc` spawns/tags/re-discovers VMs.
 - **M4**: bridged TAP + in-guest DHCP. Patched libkrun's DHCP client to retry
-  (single-shot 100 ms was too aggressive for a TAP/bridge); tab/VM re-discovery
-  now matches `/proc/<pid>/comm` because cap'd launchers are non-dumpable. See
-  `CAVEATS.md` and `patches/libkrun-dhcp-retry.patch`.
+  (single-shot 100 ms was too aggressive for a TAP/bridge) — the patch lives in
+  [`libkrun-build`](https://github.com/vaccovecrana/libkrun-build); tab/VM
+  re-discovery now matches `/proc/<pid>/comm` because cap'd launchers are
+  non-dumpable. See `CAVEATS.md` §1.
 
 ### Key discoveries (folded into implementation)
 
