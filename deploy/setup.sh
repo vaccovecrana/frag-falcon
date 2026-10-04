@@ -29,12 +29,12 @@ fi
 
 if ! id "$user" >/dev/null 2>&1; then
   echo "creating user: $user"
-  useradd --system --create-home --shell /usr/sbin/nologin "$user"
+  /sbin/useradd --system --create-home --shell /usr/sbin/nologin "$user"
 fi
 
 if getent group kvm >/dev/null 2>&1; then
   echo "adding $user to group: kvm"
-  usermod -aG kvm "$user"
+  /sbin/usermod -aG kvm "$user"
 else
   echo "warning: no 'kvm' group; ensure $user can read/write /dev/kvm" >&2
 fi
@@ -52,10 +52,10 @@ chmod 0750 "$oci_dir"
 launcher="$install_dir/fg_vmm"
 if [ -f "$launcher" ]; then
   echo "granting cap_net_admin to: $launcher"
-  setcap 'cap_net_admin+ep' "$launcher"
-  getcap "$launcher"
+  /sbin/setcap 'cap_net_admin+ep' "$launcher"
+  /sbin/getcap "$launcher"
 else
-  echo "warning: $launcher not found; setcap the launched fg_vmm later" >&2
+  echo "warning: $launcher not found; /sbin/setcap the launched fg_vmm later" >&2
 fi
 
 cat <<EOF
