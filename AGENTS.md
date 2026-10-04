@@ -78,6 +78,10 @@ in M3 (the C launcher owns libkrun).
 - **Code commits**: *never* commit code automatically. Human review is a crucial step
   to code quality. This is achieved by having the human reviewer go through the code
   diff, asking for changes, or agreeing to commit.
+- **Docs**: the user-facing guide lives in `docs/` (a static site published to
+  GitHub Pages by the built-in legacy Jekyll build; `docs/index.html` renders the
+  numbered `docs/NN-*.md` chapters at runtime). Keep it in sync when `README.md`
+  or `CAVEATS.md` change — the guide summarizes and links to CAVEATS for depth.
 - **Class naming: every Java class MUST use the `Fg` prefix** (e.g. `FgJni`,
   `FgProc`, `FgDockerIo`, `FgVmBootTest`). C files use the `fg_` prefix
   (e.g. `fg_proc.c`, `fg_vmm.c`). This mirrors the old codebase.

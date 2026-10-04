@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>frag-falcon</title>
+  <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/vaccovecrana/frag-falcon/refs/heads/main/ff-ui/res/favicon.svg">
+  <link rel="stylesheet" href="https://vaccovecrana.github.io/org-config/assets/fonts/maple/index.css">
+  <link rel="stylesheet" href="https://vaccovecrana.github.io/org-config/assets/fonts/poppins/index.css">
+  <link rel="stylesheet" href="https://vaccovecrana.github.io/org-config/assets/docs-onedark-pro.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+</head>
+<body>
+<div id="sidebar">
+  <img src="https://raw.githubusercontent.com/vaccovecrana/frag-falcon/refs/heads/main/ff-ui/res/favicon.svg"
+       alt="frag-falcon" style="height: 96px;" />
+  <h3>Chapters</h3>
+  <ul id="nav-list"></ul>
+</div>
+<div id="content">
+  <h1>Loading...</h1>
+</div>
+
+<script>
+  const REPO_OWNER = 'vaccovecrana';
+  const REPO_NAME = 'frag-falcon';
+  const MD_DIR = 'docs';
+  const CONFIG_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/docs/config.json`;
+
+  const sidebar = document.getElementById('sidebar');
+  const navList = document.getElementById('nav-list');
+  const content = document.getElementById('content');
+  let config = {
+    gsVersion: 'Unknown'
+  };
+
+  async function loadConfig() {
+    try {
+      const response = await fetch(CONFIG_URL);
+      const data = await response.json();
+      config = { ...config, ...data };
+    } catch (error) {
+      console.error('Failed to load config.json:', error);
+    }
+  }
+
+  async function loadFiles() {
+    await loadConfig();
+    const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${MD_DIR}`;
+    const response = await fetch(url);
+    const files = await response.json();
+    const mdFiles = files.filter(file => file.name.endsWith('.md')).sort((a, b) => a.name.localeCompare(b.name));
+
+    mdFiles.forEach(file => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = `#${file.name}`;
+      a.textContent = file.name
+        .replace('.md', '')
+        .replace(/^\d{2}\.\d{2}-/, '')
+        .replace(/^\d{2}-/, '')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        loadMarkdown(file.download_url);
+      });
+      if (file.name.match(/^\d{2}\.\d{2}-/)) {
+        li.classList.add('section');
+      }
+      li.appendChild(a);
+      navList.appendChild(li);
+    });
+
+    // Only load the first Markdown file if there is no hash in the URL
+    const hash = window.location.hash.slice(1);
+    if (!hash && mdFiles.length > 0) {
+      loadMarkdown(mdFiles[0].download_url);
+    }
+  }
+
+  async function loadMarkdown(rawUrl) {
+    const response = await fetch(rawUrl);
+    let markdown = await response.text();
+    // Replace all placeholders (e.g., {{version}}, {{author}}) with config values
+    for (const [key, value] of Object.entries(config)) {
+      const placeholder = `{{${key}}}`;
+      markdown = markdown.replace(new RegExp(placeholder, 'g'), value);
+    }
+    content.innerHTML = marked.parse(markdown);
+    window.location.hash = rawUrl.split('/').pop(); // Update URL hash for sharing
+  }
+
+  function handleHash() {
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const rawUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${MD_DIR}/${hash}`;
+      loadMarkdown(rawUrl);
+    }
+  }
+
+  loadFiles();
+  window.addEventListener('hashchange', handleHash);
+  handleHash();
+</script>
+</body>
+</html>

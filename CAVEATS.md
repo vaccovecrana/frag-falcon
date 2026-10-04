@@ -4,6 +4,10 @@ Non-obvious behaviours we had to work around while wiring frag-falcon to
 libkrun 2.0. Each entry says what the constraint is, why it exists, and what we
 do about it.
 
+> The **user-facing guide** lives in `docs/` (published to GitHub Pages). It
+> summarizes and links here for depth — keep it in sync when this file or
+> `README.md` changes.
+
 ---
 
 ## 1. libkrun's guest DHCP was single-shot (100 ms) — **locally patched**
