@@ -37,7 +37,7 @@ public class FgTest {
     }
     if (rootfs == null) {
       var r = new File(WORK, "rootfs");
-      FgDockerIo.extract("alpine:latest", r, new FgOciStore(new File(WORK, "oci")));
+      FgDockerIo.extract("alpine:latest", r, new FgOciStore(new File(WORK, "oci"), new File(WORK, "oci")));
       rootfs = r;
     }
     return rootfs;
@@ -55,7 +55,7 @@ public class FgTest {
     }
     if (cowsayRootfs == null) {
       var r = new File(WORK, "cowsay-rootfs");
-      FgDockerIo.extract("docker.io/grycap/cowsay:latest", r, new FgOciStore(new File(WORK, "oci")));
+      FgDockerIo.extract("docker.io/grycap/cowsay:latest", r, new FgOciStore(new File(WORK, "oci"), new File(WORK, "oci")));
       cowsayRootfs = r;
     }
     return cowsayRootfs;

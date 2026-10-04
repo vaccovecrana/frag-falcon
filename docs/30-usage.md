@@ -19,11 +19,17 @@ The distribution lands in `ff-app/build/distributions/frag-falcon-<version>.tar.
 
 ```
 --vm-dir=PATH        VM storage directory (required)
+--oci-dir=PATH       OCI blob cache directory (required)
 --api-host=HOST      API bind address (default 127.0.0.1)
 --api-port=PORT      API port (default 7070)
 --log-format=FORMAT  text|json (default text)
 --log-level=LEVEL    error|warning|info|debug|trace (default info)
 ```
+
+`--vm-dir` holds the working set (extracted rootfs, stack definitions, logs);
+`--oci-dir` holds the downloaded layer blob cache. They can live on different
+disks — the blob cache is read-mostly bulk storage and may sit on slower media.
+The transient extraction temp lives under `<vm-dir>/oci-tmp`.
 
 ## REST API
 

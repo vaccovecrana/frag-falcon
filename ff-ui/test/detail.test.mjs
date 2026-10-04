@@ -72,7 +72,8 @@ test("rejects a second concurrent action with 409", async () => {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({stackId: ID}),
-  }).catch(() => {})
+  }).catch(() => {
+  })
   await new Promise((r) => setTimeout(r, 2000))
 })
 

@@ -42,7 +42,7 @@ public class FgVmSvc {
     if (!ref.contains("/")) {
       ref = "docker.io/library/" + ref;
     } else if (!ref.substring(0, ref.indexOf('/')).contains(".")
-        && !ref.substring(0, ref.indexOf('/')).contains(":")) {
+      && !ref.substring(0, ref.indexOf('/')).contains(":")) {
       ref = "docker.io/" + ref;
     }
     var last = ref.substring(ref.lastIndexOf('/') + 1);

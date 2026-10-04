@@ -19,7 +19,9 @@ import java.util.List;
  */
 public class FgNetCap {
 
-  /** CAP_NET_ADMIN is bit 12 in the capabilities bitmask. */
+  /**
+   * CAP_NET_ADMIN is bit 12 in the capabilities bitmask.
+   */
   private static final long CAP_NET_ADMIN = 1L << 12;
 
   public record Result(boolean ok, String source) {
@@ -56,12 +58,16 @@ public class FgNetCap {
     return false;
   }
 
-  /** Resolves whether CAP_NET_ADMIN is available, and from where. */
+  /**
+   * Resolves whether CAP_NET_ADMIN is available, and from where.
+   */
   public static Result check() {
     return check(FgProc.launcherPath());
   }
 
-  /** Same as {@link #check()}, against an explicit launcher binary (testable). */
+  /**
+   * Same as {@link #check()}, against an explicit launcher binary (testable).
+   */
   public static Result check(Path launcher) {
     if (processHasCap()) {
       return new Result(true, "process effective set");

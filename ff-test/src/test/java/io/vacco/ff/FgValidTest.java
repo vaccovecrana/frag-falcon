@@ -8,7 +8,6 @@ import j8spec.annotation.DefinedOrder;
 import j8spec.junit.J8SpecRunner;
 import org.junit.runner.RunWith;
 
-import java.io.File;
 import java.util.List;
 
 import static j8spec.J8Spec.it;

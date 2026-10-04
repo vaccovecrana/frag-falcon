@@ -364,7 +364,7 @@ missing:
 Build-only CI (no KVM/caps/bridge) can exclude the privileged tests with
 `gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).
 
-`scripts/e2e.sh` automates the browser suite: it builds the bundle + app,
+`ff-test/e2e.sh` automates the browser suite: it builds the bundle + app,
 applies the launcher capability, starts a backend on a throwaway `--vm-dir`,
 runs `npm run test:e2e`, and tears the backend down on exit. Override the port,
 vm-dir or bridge via `FF_E2E_PORT`, `FF_E2E_VM_DIR`, `FF_E2E_BRIDGE`; set
@@ -419,4 +419,19 @@ supervisor and its teardown semantics are not a supported VM lifecycle. **Use
 The Java boot tests (`FgTest.runVm`, `FgVmBootTest`) deliberately **do not** use
 the daemonizing `spawn`: they launch `fg_vmm` directly via `ProcessBuilder` so
 the test process stays the parent and can `waitFor()` the guest exit code.
+
+## 20. OCI blob cache is split from the VM storage dir
+
+The OCI layer blob cache (`blobs/`, keyed by registry digest, reused across VM
+builds) is a **read-mostly bulk store** and can sit on slower media, while the
+working set — the extracted rootfs, stack definitions, logs, and the transient
+extraction temp — belongs on fast storage. `flc` therefore takes two required
+paths: `--oci-dir` (the `FgOciStore` cache root, holding `blobs/`) and `--vm-dir`
+(the working set, holding `<vm-dir>/oci-tmp/` for transient expanded layers).
+
+Both are required and validated at startup. Only `--vm-dir` needs the
+`nosuid,nodev,noexec` hardening (§14); the blob cache holds nothing executable and
+is never exposed to guests. Extraction temp dirs are removed in a `finally`, and
+`FgOciStore.sweepTmp()` clears any orphaned ones at startup.
+
 

@@ -23,17 +23,20 @@ libkrun libraries beside itself. Download the latest archive from the
 `flc` is designed to run **unprivileged**. Privilege is delegated to the OS once,
 not reimplemented in the hypervisor:
 
-- a dedicated service user owns the VM storage dir (`--vm-dir`);
+- a dedicated service user owns the VM storage dir (`--vm-dir`) and the OCI cache
+  dir (`--oci-dir`);
 - the `fg_vmm` launcher carries `cap_net_admin` (for TAP devices) — via `setcap`,
   or systemd `AmbientCapabilities=CAP_NET_ADMIN`;
 - the service user is in the **`kvm`** group (for `/dev/kvm`);
 - the VM storage dir is mounted **`nosuid,nodev,noexec`** (host-wide, e.g. via
   fstab) so files a guest plants in its rootfs — setuid binaries, device nodes,
   executables — are inert to host-side processes. The hypervisor audits this at
-  startup and logs a warning if it is missing.
+  startup and logs a warning if it is missing. (The `--oci-dir` blob cache holds
+  only downloaded layers and needs no such hardening.)
 
-`deploy/setup.sh <user> <vm-dir> [install-dir]` performs the one-time setup, and
-`deploy/flc.service` is a sample systemd unit. The hypervisor never needs root.
+`deploy/setup.sh <user> <vm-dir> [install-dir] [oci-dir]` performs the one-time
+setup, and `deploy/flc.service` is a sample systemd unit. The hypervisor never
+needs root.
 
 `flc` **refuses to start** if the launcher lacks `CAP_NET_ADMIN` (checked via
 `setcap`, systemd `AmbientCapabilities`, or the process effective set), since it
@@ -46,8 +49,8 @@ could not create the per-VM TAP devices a stack needs.
 sudo mkdir -p /opt/frag-falcon
 sudo tar -xzf frag-falcon-{{gsVersion}}.tar.gz -C /opt/frag-falcon --strip-components=1
 
-# 2. One-time root setup: service user, kvm group, vm-dir, cap_net_admin
-sudo bash /opt/frag-falcon/deploy/setup.sh flc /var/lib/flc /opt/frag-falcon
+# 2. One-time root setup: service user, kvm group, vm-dir + oci-dir, cap_net_admin
+sudo bash /opt/frag-falcon/deploy/setup.sh flc /var/lib/flc /opt/frag-falcon /var/lib/flc-oci
 
 # 3. Harden the vm-dir (host-wide, so a private mount namespace is not enough)
 sudo mount --bind /var/lib/flc /var/lib/flc
@@ -67,6 +70,7 @@ Using the sample `deploy/flc.service` directly (service user, `kvm` group,
 
 ```
 --vm-dir=PATH        VM storage directory (required)
+--oci-dir=PATH       OCI blob cache directory (required)
 --api-host=HOST      API bind address (default 127.0.0.1)
 --api-port=PORT      API port (default 7070)
 --log-format=FORMAT  text|json (default text)

@@ -34,7 +34,7 @@ public class FgOciConcurrencyTest {
 
   static {
     it("extracts the same image concurrently into two rootfs dirs", () -> {
-      var store = new FgOciStore(new File(FgTest.WORK, "oci"));
+      var store = new FgOciStore(new File(FgTest.WORK, "oci"), new File(FgTest.WORK, "oci"));
       var rootA = FgTest.freshDir("conc-a");
       var rootB = FgTest.freshDir("conc-b");
 

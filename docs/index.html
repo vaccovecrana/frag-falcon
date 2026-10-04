@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>frag-falcon</title>
-  <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/vaccovecrana/frag-falcon/refs/heads/main/ff-ui/res/favicon.svg">
+  <link rel="icon" type="image/svg+xml"
+        href="https://raw.githubusercontent.com/vaccovecrana/frag-falcon/refs/heads/main/ff-ui/res/favicon.svg">
   <link rel="stylesheet" href="https://vaccovecrana.github.io/org-config/assets/fonts/maple/index.css">
   <link rel="stylesheet" href="https://vaccovecrana.github.io/org-config/assets/fonts/poppins/index.css">
   <link rel="stylesheet" href="https://vaccovecrana.github.io/org-config/assets/docs-onedark-pro.css">
@@ -13,7 +14,7 @@
 <body>
 <div id="sidebar">
   <img src="https://raw.githubusercontent.com/vaccovecrana/frag-falcon/refs/heads/main/ff-ui/res/favicon.svg"
-       alt="frag-falcon" style="height: 96px;" />
+       alt="frag-falcon" style="height: 96px;"/>
   <h3>Chapters</h3>
   <ul id="nav-list"></ul>
 </div>
@@ -38,7 +39,7 @@
     try {
       const response = await fetch(CONFIG_URL);
       const data = await response.json();
-      config = { ...config, ...data };
+      config = {...config, ...data};
     } catch (error) {
       console.error('Failed to load config.json:', error);
     }

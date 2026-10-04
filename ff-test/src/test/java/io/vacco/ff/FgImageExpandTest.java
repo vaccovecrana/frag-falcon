@@ -47,7 +47,7 @@ public class FgImageExpandTest {
 
   static {
     it("expands every image in the problematic catalog", () -> {
-      var store = new FgOciStore(new File(FgTest.WORK, "oci"));
+      var store = new FgOciStore(new File(FgTest.WORK, "oci"), new File(FgTest.WORK, "oci"));
       for (var ref : PROBLEMATIC_IMAGES) {
         var rootfs = FgTest.freshDir("expand-" + safeName(ref));
         try {
