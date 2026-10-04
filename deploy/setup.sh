@@ -7,10 +7,14 @@
 # It:
 #   1. creates the service user (if missing) and adds it to the `kvm` group,
 #   2. creates the VM storage dir and the OCI blob cache dir, owned by that user,
-#   3. grants cap_net_admin to the fg_vmm launcher (needed for TAP devices),
-#   4. prints the mount command that hardens the VM storage dir.
+#   3. prints the mount command that hardens the VM storage dir.
 #
-# frag-falcon itself never runs as root. Step 4 (mounting the vm-dir
+# cap_net_admin (needed for TAP devices) is granted by the systemd unit via
+# AmbientCapabilities=CAP_NET_ADMIN; do NOT `setcap` the launcher. A file-capped
+# binary runs in the loader's secure-execution mode, which ignores $ORIGIN, so it
+# cannot resolve the libkrun shared objects sitting beside it.
+#
+# frag-falcon itself never runs as root. Step 3 (mounting the vm-dir
 # nosuid,nodev,noexec) is what makes guest-planted setuid files, device nodes
 # and executables inert to host-side processes; the hypervisor only *audits* it
 # at startup (reading /proc/self/mountinfo) and logs a warning otherwise. The
@@ -49,18 +53,12 @@ mkdir -p "$oci_dir"
 chown "$user":"$user" "$oci_dir"
 chmod 0750 "$oci_dir"
 
-launcher="$install_dir/fg_vmm"
-if [ -f "$launcher" ]; then
-  echo "granting cap_net_admin to: $launcher"
-  /sbin/setcap 'cap_net_admin+ep' "$launcher"
-  /sbin/getcap "$launcher"
-else
-  echo "warning: $launcher not found; /sbin/setcap the launched fg_vmm later" >&2
-fi
-
 cat <<EOF
 
-Setup complete. Hardening the VM storage dir is the operator's responsibility
+Setup complete. cap_net_admin is granted by the systemd unit
+(AmbientCapabilities=CAP_NET_ADMIN) — do NOT setcap $install_dir/fg_vmm.
+
+Hardening the VM storage dir is the operator's responsibility
 (it must be host-wide, so a private mount namespace is not enough):
 
   # one-time, host-wide (fstab):

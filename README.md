@@ -42,8 +42,8 @@ OS once, not reimplemented in the hypervisor:
 
 - a dedicated service user owns the VM storage dir (`--vm-dir`) and OCI cache dir
   (`--oci-dir`);
-- the `fg_vmm` launcher carries `cap_net_admin` (for TAP devices) — `setcap`, or
-  systemd `AmbientCapabilities=CAP_NET_ADMIN`;
+- the `fg_vmm` launcher receives `cap_net_admin` (for TAP devices) from the
+  systemd unit's `AmbientCapabilities=CAP_NET_ADMIN`;
 - the service user is in the **`kvm`** group (for `/dev/kvm`);
 - the VM storage dir is mounted **`nosuid,nodev,noexec`** (host-wide, e.g. via
   fstab) so files a guest plants in its rootfs (setuid binaries, device nodes,
@@ -53,9 +53,11 @@ OS once, not reimplemented in the hypervisor:
 `deploy/setup.sh <user> <vm-dir> [install-dir]` performs the one-time setup, and
 `deploy/flc.service` is a sample unit. The hypervisor never needs root.
 
-`flc` **refuses to start** if the launcher lacks `CAP_NET_ADMIN` (checked via
-`setcap`, systemd `AmbientCapabilities`, or the process effective set), since it
-could not create the per-VM TAP devices a stack needs.
+`flc` **refuses to start** if it lacks `CAP_NET_ADMIN` (the systemd unit grants it
+via `AmbientCapabilities`), since it could not create the per-VM TAP devices a
+stack needs. Do **not** `setcap` the deployed `fg_vmm`: a file-capped binary runs
+in the loader's secure-execution mode and cannot resolve the `libkrun*.so` files
+beside it.
 
 ```
 --vm-dir=PATH        VM storage directory (required)

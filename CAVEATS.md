@@ -85,27 +85,27 @@ device before creating), so a restart never trips over a lingering TAP.
 
 A binary with file capabilities (e.g. `cap_net_admin+ep` on `fg_vmm`) runs in the
 loader's **secure-execution mode**, where `LD_LIBRARY_PATH`/`LD_PRELOAD` are
-ignored **and `$ORIGIN` in `RPATH`/`RUNPATH` is ignored too**. To make the
-launcher work in both modes, it:
+ignored **and `$ORIGIN` in `RPATH`/`RUNPATH` is ignored too**. The launcher:
 
 - links `libkrunfw.so.5` **directly** (a `DT_NEEDED` entry, via
   `-Wl,--no-as-needed`) so libkrun's `dlopen("libkrunfw.so.5")` finds the
   already-loaded soname, and
 - builds with **both** an absolute `RUNPATH` to the vendored lib dir
-  (`$(abspath $(LIBDIR))`, honoured in secure mode) **and** `$ORIGIN` (for the
-  flat distribution run as root).
+  (`$(abspath $(LIBDIR))`) **and** `$ORIGIN`.
 
-This split exists because there are two supported modes:
+The absolute entry only helps where that path exists — i.e. the build machine, for
+the dev/test flow. It does **not** make a file-capped binary relocatable:
 
-- **Production**: operators untar a flat distribution and run `flc` as root. No
-  capabilities are involved, so `$ORIGIN` resolves the sibling libs.
+- **Production** (systemd, rootless): the unit grants the capability via
+  `AmbientCapabilities=CAP_NET_ADMIN`, which does **not** trigger secure-execution
+  mode. `$ORIGIN` then resolves the sibling `libkrun*.so` files, so the flat
+  distribution works from any directory. **Never `setcap` the deployed `fg_vmm`**:
+  the file cap forces secure mode and the launcher fails to load `libkrun.so.2`.
+  (Running as root also works: no capabilities are involved, so `$ORIGIN` is used.)
 - **Development/tests** (`gradle run`, `gradle :ff-test:test`, `npm run
-  test:e2e`): the hypervisor runs as the developer's user and the launcher needs
-  `cap_net_admin`. Secure-execution mode then makes `$ORIGIN` useless, which is
-  why the launcher carries the absolute vendored-lib `RUNPATH`.
-
-`FgProc` also honours `FF_VMM_BIN` / `FF_VMM_LIBDIR` so dev/tests run the
-setcap'd built launcher instead of the temp extraction.
+  test:e2e`): the launcher is `setcap`'d and run from the build tree, so secure
+  mode ignores `$ORIGIN` and the absolute vendored-lib `RUNPATH` is what resolves
+  the libs.
 
 **Gradle copies silently drop the capability.** Any `Sync`/`copy` (e.g.
 `installNative`, `processResources`) overwrites `fg_vmm` and strips its caps, so
@@ -297,15 +297,11 @@ resource extraction.
 The hypervisor runs **unprivileged**. Privilege is delegated to the OS once
 (see `deploy/setup.sh` and `deploy/flc.service`):
 
-- the `fg_vmm` launcher carries `cap_net_admin` — via `setcap` or systemd
-  `AmbientCapabilities=CAP_NET_ADMIN` — for TAP create/attach/open;
+- the `fg_vmm` launcher receives `cap_net_admin` for TAP create/attach/open from
+  the systemd unit's `AmbientCapabilities=CAP_NET_ADMIN` — never `setcap`, which
+  forces the loader's secure-execution mode and breaks `$ORIGIN` (see §4);
 - the service user is in the **`kvm`** group (`/dev/kvm`);
 - the VM storage dir is mounted `nosuid,nodev,noexec` host-wide (fstab/.mount).
-
-`cap_net_admin` is a secure-execution context, so the launcher links an absolute
-vendored-lib `RUNPATH` (a cap'd binary ignores `$ORIGIN`/`LD_LIBRARY_PATH`; see
-§4). File capabilities are silently ignored on `nosuid` filesystems such as
-`/tmp`.
 
 **The hypervisor refuses to start without it.** `FgContext.init()` checks
 `CAP_NET_ADMIN` up front (via `FgNetCap`: the process effective set, or the

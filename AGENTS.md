@@ -134,9 +134,12 @@ in M3 (the C launcher owns libkrun).
    automatically by its `build-libkrun.sh`. See `CAVEATS.md` §1 and §3.
 8. **A cap'd launcher is non-dumpable**, so `/proc/<pid>/environ` is root-only;
    discovery matches `/proc/<pid>/comm` (`<vmid>`, passed to the launcher as
-   `--vm-id`) — the only discovery mechanism. A cap'd binary also
-   ignores `LD_LIBRARY_PATH` (secure-execution mode), hence the launcher's absolute
-   `RUNPATH` and direct `libkrunfw` `DT_NEEDED`.
+   `--vm-id`) — the only discovery mechanism. File caps also force the loader's
+   secure-execution mode (ignoring `$ORIGIN`/`LD_LIBRARY_PATH`), so **never
+   `setcap` the deployed launcher**: production grants the cap via systemd
+   `AmbientCapabilities` (no secure mode, so `$ORIGIN` resolves the sibling
+   libs). The launcher links `libkrunfw` directly (`DT_NEEDED`) and the dev build
+   carries an absolute `RUNPATH` for the `setcap`'d dev/test flow. See CAVEATS §4.
 9. **Logs are bounded by the launcher.** The launcher keeps the last `--log-lines`
    (default 4096) console lines and rewrites `vm.log` atomically; `FgVmLaunch` passes
    `--log-file`/`--log-lines`. The API returns (at most) that tail.
@@ -177,11 +180,11 @@ their directory from `/proc/self/exe` (override `FF_NATIVE_DIR`; no resource
 extraction).
 
 The deployment is **rootless**: a service user owns the vm dir and runs `ff-app`;
-`fg_vmm` carries `cap_net_admin` (setcap or systemd `AmbientCapabilities`); the
-user is in the `kvm` group; the vm dir is mounted `nosuid,nodev,noexec` host-wide.
-A `setcap`'d launcher ignores both `LD_LIBRARY_PATH` and `$ORIGIN` (hence the
-absolute RUNPATH), and caps are ignored entirely on `nosuid` fs. See
-`deploy/setup.sh`, `deploy/flc.service`, and CAVEATS §14–§15.
+the systemd unit grants `fg_vmm` `cap_net_admin` via `AmbientCapabilities`
+(**never `setcap`** — a file cap forces secure-execution mode and breaks
+`$ORIGIN`); the user is in the `kvm` group; the vm dir is mounted
+`nosuid,nodev,noexec` host-wide. See `deploy/setup.sh`, `deploy/flc.service`, and
+CAVEATS §4 and §14–§15.
 
 ## UI direction (when the UI milestone starts)
 

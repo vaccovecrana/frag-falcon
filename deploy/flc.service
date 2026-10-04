@@ -6,9 +6,8 @@
 # mounted nosuid,nodev,noexec (host-wide) so guest-planted special files are
 # inert to host-side processes — see deploy/setup.sh.
 #
-# If you instead rely on `setcap cap_net_admin+ep fg_vmm`, drop the
-# AmbientCapabilities/CapabilityBoundingSet lines (a file-capped binary is
-# suppressed under NoNewPrivileges).
+# Do NOT also `setcap` fg_vmm: a file-capped binary runs in the loader's
+# secure-execution mode and cannot resolve the libkrun libraries beside it.
 
 [Unit]
 Description=frag-falcon libkrun microVM hypervisor
@@ -19,11 +18,14 @@ Wants=network-online.target
 Type=simple
 User=flc
 Group=flc
-WorkingDirectory=/opt/frag-falcon
-ExecStart=/opt/frag-falcon/flc --vm-dir=/var/lib/flc --oci-dir=/var/lib/flc-oci --api-host=127.0.0.1 --api-port=7070
+WorkingDirectory=/opt/flc
+ExecStart=/opt/flc/flc --vm-dir=/var/lib/flc --oci-dir=/var/lib/flc-oci --api-host=127.0.0.1 --api-port=7070
 AmbientCapabilities=CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_ADMIN
 Restart=on-failure
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=flc
 
 # NOTE: do not set PrivateMounts=yes if you want the vm-dir's nosuid,nodev,noexec
 # (a system mount) to be visible to host-side tools; a private namespace would
