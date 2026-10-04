@@ -127,10 +127,11 @@ in M3 (the C launcher owns libkrun).
 6. **Close the extraction `OutputStream` before `execve`** — an unclosed stream makes
    the launcher fail with `ETXTBSY` ("Text file busy").
 7. **TAP/bridge networking** needs `cap_net_admin`. The tap must be pre-created
-   persistent (a tap can only be attached by one process). libkrun's DHCP is patched
-   to retry — the patch lives in
+   persistent (a tap can only be attached by one process). `fg_vmm` cleans up its
+   TAP on exit via a forked watcher (deletes by ifindex), and `--tap-up` is
+   idempotent. libkrun's DHCP is patched to retry — the patch lives in
    [`libkrun-build`](https://github.com/vaccovecrana/libkrun-build) and is applied
-   automatically by its `build-libkrun.sh`. See `CAVEATS.md` §1.
+   automatically by its `build-libkrun.sh`. See `CAVEATS.md` §1 and §3.
 8. **A cap'd launcher is non-dumpable**, so `/proc/<pid>/environ` is root-only;
    discovery matches `/proc/<pid>/comm` (`<vmid>`, passed to the launcher as
    `--vm-id`) — the only discovery mechanism. A cap'd binary also
@@ -139,14 +140,20 @@ in M3 (the C launcher owns libkrun).
 9. **Logs are bounded by the launcher.** The launcher keeps the last `--log-lines`
    (default 4096) console lines and rewrites `vm.log` atomically; `FgVmLaunch` passes
    `--log-file`/`--log-lines`. The API returns (at most) that tail.
-10. **The launcher is daemonized.** `spawn_process` double-forks it (reparented to
-    init/subreaper), so it is not a descendant of the hypervisor and survives a
-    restart; a new `flc` re-adopts it via `/proc/<pid>/comm` in `reconcile()`. The
-    host therefore **can't `waitpid()`** on a launcher — there is no `waitProcess`;
-    liveness is `pidOf`. When launching via `gradle run`, Ctrl-C tears down the app
-    JVM's process tree (dev-only); use `flc`/systemd to test restart survival. Java
-    boot tests bypass the daemonizing spawn and launch `fg_vmm` directly so they can
-    `waitFor()` the exit code. See `CAVEATS.md` §19.
+10. **The launcher daemonizes itself; never `fork()` the JVM.** `fg_vmm`'s
+    single-threaded `main()` `setsid()`s and double-forks (reparented to
+    init/subreaper), so a launcher is not a descendant of the hypervisor and
+    survives a restart; a new `flc` re-adopts it via `/proc/<pid>/comm` in
+    `reconcile()`. The host JVM only `posix_spawn`s it (`FgProc.spawn`) — it must
+    **never** `fork()` (a fork in the multithreaded JVM can corrupt JVM state and
+    crash unrelated threads; this caused a real `SIGSEGV`). The host therefore
+    **can't `waitpid()`** on a launcher; liveness is `pidOf`, and `FgVmSvc.start`
+    waits (bounded poll) for `pidOf(vmid)` to appear. The posix_spawn *intermediate*
+    is a JVM child and is reaped on a detached native thread. When launching
+    via `gradle run`, Ctrl-C tears down the app JVM's process tree (dev-only); use
+    `flc`/systemd to test restart survival. Java boot tests launch `fg_vmm` with
+    `--foreground` so it stays in the foreground and they can `waitFor()` the exit
+    code. See `CAVEATS.md` §19.
 11. Read `CAVEATS.md` before touching libkrun integration, the launcher, or networking.
 
 ## Technology choices

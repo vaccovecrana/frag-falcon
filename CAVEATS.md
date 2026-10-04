@@ -69,6 +69,16 @@ created **persistent** by a separate privileged step, with its fd closed, before
 the VM starts. That's why the launcher has `--tap-up`/`--tap-down` utility modes
 and production lets the (root) hypervisor own the tap lifecycle.
 
+The launcher also cleans up its own TAP on exit, because it cannot otherwise:
+libkrun `_exit()`s the process on guest exit (§2), so no `atexit` handler runs.
+Before `setup_namespaces()` (while it still holds host-netns `CAP_NET_ADMIN`)
+`fg_vmm` forks a **TAP watcher** that holds a pipe whose write end stays open in
+the launcher; when the launcher dies for any reason — guest exit, SIGTERM,
+crash — the pipe hits EOF and the watcher deletes **exactly that TAP by ifindex**.
+Scoping by ifindex means a TAP recreated for a restarted VM (new ifindex) is
+never deleted by a stale watcher. `--tap-up` is idempotent (it clears any stale
+device before creating), so a restart never trips over a lingering TAP.
+
 ---
 
 ## 4. File capabilities break `LD_LIBRARY_PATH` and `$ORIGIN`
@@ -151,19 +161,31 @@ DHCP server and is unsuitable. Tests require `cap_net_admin` on the launcher
 
 ---
 
-## 9. Zombie children must be reaped
+## 9. VM discovery is by process name; the spawn intermediate is reaped
 
-The hypervisor spawns each VM launcher as a child of its JVM. When a launcher
-exits, the JVM does not reap it automatically, so `/proc/<pid>` lingers as a
-zombie and naive pid discovery would keep reporting the VM as "running".
-`FgProc.pidOf` therefore ignores zombie processes (reads `/proc/<pid>/stat`),
-and `FgProc.reap()` (native `waitpid(-1, WNOHANG)` loop) is available for the
-supervisor to drain exited children. libkrun `_exit()`s the launcher on guest
-shutdown, so this matters for every VM exit.
+The hypervisor spawns each VM launcher via `posix_spawn`; the launcher then
+**detaches itself** (see §19), so it is reparented to init/subreaper and is
+**never** a child of the JVM. Because it is reparented, the host cannot
+`waitpid()` on the launcher and needs no reaping loop for it.
+
+There is, however, a short-lived **posix_spawn intermediate** that *is* a child
+of the JVM: the process that execs `fg_vmm`, then double-forks and `_exit()`s.
+The JDK sets `SIGCHLD` to `SIG_DFL` and only `waitpid()`s the pids it tracks via
+`ProcessHandleImpl`, so this intermediate would otherwise linger as a zombie for
+the JVM's lifetime. `spawn_process` reaps it on a **detached native thread**
+(`waitpid(pid)`), leaving the JDK's own children untouched. (The old
+`waitpid(-1)`-based `FgProc.reap()`/`reapChildren()` was removed because it could
+steal the JDK's children.)
+
+The child also closes every inherited fd ≥ 3
+(`posix_spawn_file_actions_addclosefrom_np`), so a detached launcher never holds
+host sockets — notably the API listening port — after the JVM exits.
 
 VM discovery uses **only** the process name: the launcher sets
 `/proc/<pid>/comm` to exactly the VM id (passed as `--vm-id`); there is no
-environment-based fallback.
+environment-based fallback. `FgProc.pidOf` still filters zombie entries
+defensively (reads `/proc/<pid>/stat`), so a transient zombie of *any* origin
+is not mistaken for a running VM.
 
 ---
 
@@ -394,30 +416,64 @@ both launch the same service, and the two extractions clobbered the shared
 
 ## 19. VM launchers are daemonized (survive a hypervisor restart)
 
-`FgProc.spawn` → `spawn_process` **double-forks** the launcher: an intermediate
-child `setsid()`s, forks the real launcher, reports its pid back over a pipe,
-and exits at once. The launcher is therefore reparented to init/subreaper and is
-**not** a descendant of the hypervisor process. This is what lets VMs survive the
-hypervisor going away: a restarted `flc` re-adopts running VMs from `/proc` by
-process name (`/proc/<pid>/comm` == the VM id; see `FgProc.pidOf`) in
-`FgStackSvc.reconcile()`, and reports them `running`.
+The launcher **daemonizes itself inside `fg_vmm`'s `main()`**: it `setsid()`s and
+**double-forks** there, while the process is still **single-threaded**. The
+intermediate and original processes `_exit(0)`, so the real launcher is
+reparented to init/subreaper and is **not** a descendant of the hypervisor. This
+is what lets VMs survive the hypervisor going away: a restarted `flc` re-adopts
+running VMs from `/proc` by process name (`/proc/<pid>/comm` == the VM id; see
+`FgProc.pidOf`) in `FgStackSvc.reconcile()`, and reports them `running`.
+
+The host JVM only **spawns** the launcher (`posix_spawn` via
+`FgProc.spawn`/`FgProcess.spawnProcess`); it never forks and never daemonizes.
+It does not learn the launcher pid from the spawn call (there is no pid
+handshake) — discovery is always `/proc` by name. `FgVmSvc.start` waits (bounded
+poll) for `FgProc.pidOf(vmid)` to appear, since `/proc` is not populated until
+the launcher has entered its namespaces and set its `comm`.
 
 Because the launcher is reparented, the host **cannot `waitpid()` on it** — guest
-exit is observed only through `comm` discovery. There is no `waitProcess`; a
-supervisor tick sees the process gone and restarts per `restart:` policy.
+exit is observed only through `comm` discovery. There is no `waitProcess` for the
+launcher; a supervisor tick sees the process gone and restarts per `restart:`
+policy. The posix_spawn *intermediate* is a JVM child and is reaped on a detached
+native thread — see §9.
+
+**Never `fork()` the JVM.** A raw `fork()` in a multithreaded process may only be
+followed by async-signal-safe calls before `exec()`, and forking a running JVM
+(JIT/GC/JVMCI) can corrupt JVM-internal state and crash **unrelated** threads.
+This was observed for real: a former `spawn_process` double-forked from the JVM;
+a concurrent launcher spawn during OCI layer expansion produced a `SIGSEGV` in
+`FgJni.reapChildren` on the `ff-supervisor` thread (`RIP` in low memory, no
+native frame — JVM native-entry corruption). The fix is architectural: the JVM
+uses `posix_spawn` (`vfork`/`clone`-based, safe) and the daemonizing fork lives
+in single-threaded `fg_vmm`.
 
 **Development caveat — `gradle run`.** When the backend is launched via
 `gradle run` and stopped with Ctrl-C, the **Gradle daemon tears down the app
 JVM's process tree** (`ProcessHandle.descendants()`-style reaping on
-cancellation) rather than just the JVM. The double fork reparents the launcher
-out of that tree, so it **should** survive — but a build tool is not a VM
-supervisor and its teardown semantics are not a supported VM lifecycle. **Use
-`flc` (the installed launcher) or systemd to verify restart survival**, not
+cancellation) rather than just the JVM. The launcher's self-daemonization
+reparents it out of that tree, so it **should** survive — but a build tool is not
+a VM supervisor and its teardown semantics are not a supported VM lifecycle.
+**Use `flc` (the installed launcher) or systemd to verify restart survival**, not
 `gradle run`. Treat child VMs under `gradle run` as tied to the build session.
 
-The Java boot tests (`FgTest.runVm`, `FgVmBootTest`) deliberately **do not** use
-the daemonizing `spawn`: they launch `fg_vmm` directly via `ProcessBuilder` so
-the test process stays the parent and can `waitFor()` the guest exit code.
+The Java boot tests (`FgTest.runVm`, `FgVmBootTest`) launch `fg_vmm` directly via
+`ProcessBuilder` with `--foreground`, so it does **not** daemonize: the test
+process stays the parent and can `waitFor()` the guest exit code.
+
+## 20. OCI blob cache is split from the VM storage dir
+
+The OCI layer blob cache (`blobs/`, keyed by registry digest, reused across VM
+builds) is a **read-mostly bulk store** and can sit on slower media, while the
+working set — the extracted rootfs, stack definitions, logs, and the transient
+extraction temp — belongs on fast storage. `flc` therefore takes two required
+paths: `--oci-dir` (the `FgOciStore` cache root, holding `blobs/`) and `--vm-dir`
+(the working set, holding `<vm-dir>/oci-tmp/` for transient expanded layers).
+
+Both are required and validated at startup. Only `--vm-dir` needs the
+`nosuid,nodev,noexec` hardening (§14); the blob cache holds nothing executable and
+is never exposed to guests. Extraction temp dirs are removed in a `finally`, and
+`FgOciStore.sweepTmp()` clears any orphaned ones at startup.
+
 
 ## 20. OCI blob cache is split from the VM storage dir
 

@@ -30,6 +30,9 @@ public class FgVmSvc {
   private static final Gson GSON = new Gson();
   private static final Logger log = LoggerFactory.getLogger(FgVmSvc.class);
 
+  private static final long SPAWN_DISCOVERY_TIMEOUT_MS = 2000;
+  private static final long SPAWN_DISCOVERY_POLL_MS = 50;
+
   /**
    * Serializes provisioning per image reference. Two services pulling the same
    * image (or a double-launch of the same service) share the blob store and can
@@ -148,7 +151,35 @@ public class FgVmSvc {
     if (vm.network != null && vm.network.tapName != null) {
       FgTap.up(vm.network.tapName, vm.network.brIf);
     }
-    return FgProc.spawn(vmid, FgVmLaunch.args(vm, vmRoot), logOf(vmRoot).toPath());
+    var rc = FgProc.spawn(vmid, FgVmLaunch.args(vm, vmRoot), logOf(vmRoot).toPath());
+    if (rc != 0) {
+      throw new IllegalStateException("failed to spawn launcher for " + vmid);
+    }
+    return awaitPid(vmid);
+  }
+
+  /**
+   * Waits for the reparented launcher to publish its process name so {@link FgProc#pidOf}
+   * can discover it. The launcher double-forks and only sets {@code /proc/<pid>/comm}
+   * after entering its namespaces and log ring, so discovery is not instantaneous.
+   *
+   * @return the launcher pid, or -1 if it is not found within the timeout
+   */
+  private static int awaitPid(String vmid) {
+    var deadline = System.currentTimeMillis() + SPAWN_DISCOVERY_TIMEOUT_MS;
+    int pid;
+    while ((pid = FgProc.pidOf(vmid)) <= 0) {
+      if (System.currentTimeMillis() >= deadline) {
+        return -1;
+      }
+      try {
+        Thread.sleep(SPAWN_DISCOVERY_POLL_MS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return FgProc.pidOf(vmid);
+      }
+    }
+    return pid;
   }
 
   /**

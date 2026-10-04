@@ -38,11 +38,16 @@ public class FgProc {
   /**
    * Spawns the native launcher for a VM.
    *
+   * <p>The launcher detaches (double-forks) itself in its own single-threaded
+   * {@code main}, so this call only starts it; it returns {@code 0} on success
+   * or {@code -1} on failure. No pid is available here — the reparented launcher
+   * is discovered via {@link #pidOf}.
+   *
    * @param vmId VM identifier, passed to the child as {@code --vm-id} and used
    *             as its process name for discovery
    * @param args launcher arguments (rootfs, vcpus, ram, volumes, command, ...)
    * @param log  guest console log file (stdout/stderr of the launcher)
-   * @return the child pid, or -1 on failure
+   * @return 0 on success, -1 on failure
    */
   public static int spawn(String vmId, List<String> args, Path log) {
     var cmd = launcherPath().toAbsolutePath().toString();
@@ -92,13 +97,6 @@ public class FgProc {
     } catch (IOException e) {
       return false;
     }
-  }
-
-  /**
-   * Reaps any exited child launchers (avoids zombies in the hypervisor).
-   */
-  public static int reap() {
-    return FgJni.reapChildren();
   }
 
   private static boolean matchesVm(Path procDir, String vmId) {

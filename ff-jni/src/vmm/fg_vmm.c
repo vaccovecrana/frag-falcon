@@ -44,6 +44,7 @@ static const char *vm_id_arg = NULL;
 static int tap_up = 0;
 static int tap_down = 0;
 static int dhcp_enabled = 1;
+static int foreground = 0;
 static const char *log_file = NULL;
 static int log_lines = 4096;
 static unsigned char guest_mac[6];
@@ -352,6 +353,7 @@ static void run_tap_utility(void) {
         die("--tap-up/--tap-down require --tap NAME");
     }
     if (tap_up) {
+        delete_tap_device(tap_name);
         int rc = create_tap_device(tap_name);
         if (rc < 0) {
             fprintf(stderr, "[fg-vmm] unable to create tap %s: %s\n", tap_name, strerror(-rc));
@@ -413,6 +415,8 @@ static void parse_args(int argc, char **argv) {
             tap_down = 1;
         } else if (strcmp(a, "--no-dhcp") == 0) {
             dhcp_enabled = 0;
+        } else if (strcmp(a, "--foreground") == 0) {
+            foreground = 1;
         } else if (strcmp(a, "--log-file") == 0 && i + 1 < argc) {
             log_file = argv[++i];
         } else if (strcmp(a, "--log-lines") == 0 && i + 1 < argc) {
@@ -459,12 +463,89 @@ static void parse_args(int argc, char **argv) {
     }
 }
 
+/*
+ * Detach the launcher from any controlling terminal / parent process tree.
+ *
+ * This runs in main() while the process is still single-threaded, so a raw
+ * fork() is safe here. It intentionally does NOT happen in the host JVM: a
+ * fork() in a multithreaded process may only be followed by async-signal-safe
+ * calls before exec(), and forking a running JVM (JIT/GC/JVMCI) can corrupt
+ * JVM-internal state and crash unrelated threads. The JVM therefore spawns
+ * this binary with posix_spawn and never forks itself.
+ *
+ * Double fork reparents the launcher to init/subreaper so it leaves the host's
+ * descendant tree and survives the hypervisor restarting. No pid is reported;
+ * discovery is /proc/<pid>/comm (the process name is set to the VM id).
+ */
+static void daemonize(void) {
+    pid_t mid = fork();
+    if (mid < 0) {
+        die("fork failed");
+    }
+    if (mid > 0) {
+        _exit(0);
+    }
+    if (setsid() == -1) {
+        _exit(125);
+    }
+    pid_t child = fork();
+    if (child < 0) {
+        _exit(125);
+    }
+    if (child > 0) {
+        _exit(0);
+    }
+}
+
+/*
+ * TAPs are persistent and the launcher cannot clean up after itself: libkrun
+ * _exit()s the process on guest exit, so no atexit handler runs. This watcher
+ * is forked before setup_namespaces() (so it keeps host-netns CAP_NET_ADMIN)
+ * and holds the read end of a pipe whose write end stays open in the launcher;
+ * when the launcher dies for any reason the pipe hits EOF and the watcher
+ * deletes exactly the TAP it was started with (by ifindex, so a recreated TAP
+ * for a restarted VM is never touched).
+ */
+static void spawn_tap_watcher(int ifindex) {
+    int p[2];
+    if (pipe(p) != 0) {
+        return;
+    }
+    pid_t w = fork();
+    if (w < 0) {
+        close(p[0]);
+        close(p[1]);
+        return;
+    }
+    if (w == 0) {
+        close(p[1]);
+        char buf[1];
+        while (read(p[0], buf, 1) > 0) {
+        }
+        close(p[0]);
+        delete_tap_device_index(ifindex);
+        _exit(0);
+    }
+    close(p[0]);
+}
+
 int main(int argc, char **argv) {
     parse_args(argc, argv);
 
     if (tap_up || tap_down) {
         run_tap_utility();
         return 0;
+    }
+
+    if (!foreground) {
+        daemonize();
+    }
+
+    if (tap_name != NULL) {
+        int idx = tap_ifindex(tap_name);
+        if (idx > 0) {
+            spawn_tap_watcher(idx);
+        }
     }
 
     setup_namespaces();

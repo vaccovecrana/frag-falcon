@@ -1,7 +1,6 @@
 #include <jni.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "../fg/fg_proc.h"
@@ -55,12 +54,6 @@ JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_spawnProcess(
 JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_terminate(JNIEnv *env, jclass cls, jint pid) {
     (void) env;
     return terminate_process((pid_t) pid);
-}
-
-JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_reapChildren(JNIEnv *env, jclass cls) {
-    (void) env;
-    (void) cls;
-    return reap_children();
 }
 
 JNIEXPORT jint JNICALL Java_io_vacco_ff_net_FgJni_extractTar(

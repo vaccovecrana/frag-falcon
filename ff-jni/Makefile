@@ -10,7 +10,7 @@ $(OUT):
 	mkdir -p $(OUT)
 
 $(OUT)/fg_jni.so: $(FG_SRC) src/jni/fg_jni.c $(FG_SRC:.c=.h) | $(OUT)
-	cc -Wall -O2 -fPIC -shared \
+	cc -Wall -O2 -fPIC -pthread -shared \
 	  -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux \
 	  -Isrc/fg \
 	  -o $@ src/jni/fg_jni.c $(FG_SRC)

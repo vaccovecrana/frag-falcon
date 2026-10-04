@@ -90,6 +90,7 @@ public class FgTest {
     // daemonizing spawn; tests deliberately keep a controllable child.
     var pb = new ProcessBuilder();
     pb.command().add(FgProc.launcherPath().toAbsolutePath().toString());
+    pb.command().add("--foreground");
     pb.command().add("--vm-id");
     pb.command().add(vmId);
     pb.command().addAll(args);

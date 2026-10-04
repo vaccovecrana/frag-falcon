@@ -63,9 +63,11 @@ public class FgVmBootTest {
       args.addAll(List.of("--", "/bin/sh", "-c", "sleep 3; echo done"));
 
       var log = new File(FgTest.WORK, "it-disc.log");
-      // Launch directly so this process stays the parent and can waitFor().
+      // Launch directly (foreground) so this process stays the parent and can
+      // waitFor(); --foreground disables the launcher's self-daemonization.
       var pb = new ProcessBuilder();
       pb.command().add(FgProc.launcherPath().toAbsolutePath().toString());
+      pb.command().add("--foreground");
       pb.command().add("--vm-id");
       pb.command().add("it-disc");
       pb.command().addAll(args);

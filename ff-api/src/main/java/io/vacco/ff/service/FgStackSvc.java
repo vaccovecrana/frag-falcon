@@ -424,7 +424,6 @@ public final class FgStackSvc implements AutoCloseable {
   }
 
   private void tick() {
-    FgProc.reap();
     long now = System.currentTimeMillis();
     for (var mon : monitored.values()) {
       if (!mon.desired || !restartEnabled(mon.policy)) {

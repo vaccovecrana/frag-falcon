@@ -134,9 +134,12 @@ struct nl_req {
     char buffer[1024];
 };
 
-int delete_tap_device(const char *if_name) {
-    int ifindex = if_nametoindex(if_name);
-    if (ifindex == 0) {
+int tap_ifindex(const char *if_name) {
+    return (int) if_nametoindex(if_name);
+}
+
+int delete_tap_device_index(int ifindex) {
+    if (ifindex <= 0) {
         return -2;
     }
     int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -169,6 +172,10 @@ int delete_tap_device(const char *if_name) {
     int result = sendmsg(fd, &msg, 0);
     close(fd);
     return (result >= 0) ? 0 : -4;
+}
+
+int delete_tap_device(const char *if_name) {
+    return delete_tap_device_index(tap_ifindex(if_name));
 }
 
 #define SIOCBRADDIF 0x89a2

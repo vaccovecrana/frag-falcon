@@ -1,7 +1,11 @@
+#define _GNU_SOURCE
+
 #include <unistd.h>
 #include <fcntl.h>
+#include <spawn.h>
+#include <stdint.h>
+#include <pthread.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -12,127 +16,131 @@
 
 extern char **environ;
 
-/* Static storage so no allocation happens between fork() and execve() in a
- * multi-threaded host process. */
-static char ff_ld_env[8192];
+/*
+ * Reaps the posix_spawn intermediate once it exits. The launcher double-forks
+ * and the intermediate _exit()s almost immediately, so it would otherwise
+ * linger as a zombie of the host JVM (the JDK only waitpid()s its own tracked
+ * children). Runs detached, on its own stack, so the caller never blocks.
+ */
+static void *reap_child(void *arg) {
+    pid_t pid = (pid_t)(intptr_t) arg;
+    int status;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+    }
+    return NULL;
+}
 
 /*
- * Forks a detached VM launcher process (double-fork / daemonize).
+ * Spawns a VM launcher process.
  *
- * A single fork() + setsid() leaves the launcher a *descendant* of the host
- * JVM, so a process-tree teardown on the caller side (e.g. Gradle's `run` task
- * killing the app JVM and ProcessHandle.descendants() on cancellation) also
- * reaps the launcher — even though setsid() moved it to its own session. A
- * double fork reparents the launcher to init/subreaper immediately, removing it
- * from the host's descendant tree so it survives the host going away.
+ * Uses posix_spawn (which the C library implements with vfork/clone) rather
+ * than a hand-rolled fork(). A raw fork() in the multithreaded host JVM may be
+ * followed only by async-signal-safe calls and can corrupt JVM-internal state;
+ * posix_spawn performs the process creation and exec atomically on our behalf.
  *
- * The intermediate child reports the grandchild's real pid back over a pipe and
- * then exits at once, so the grandchild (the launcher) is reparented. The
- * returned pid is therefore the launcher's, not the intermediate's.
+ * The launcher detaches itself (double fork) in its own main(), which is
+ * single-threaded and therefore safe. This function builds argv/envp entirely
+ * in the parent, redirects stdin from /dev/null and stdout/stderr to log_path,
+ * and injects LD_LIBRARY_PATH through the child environment. No pid is
+ * returned: the launcher is reparented to init and is discovered via
+ * /proc/<pid>/comm. The posix_spawn intermediate is reaped by a detached
+ * native thread.
  *
- * The launcher has stdin from /dev/null, stdout/stderr redirected to log_path,
- * and gets LD_LIBRARY_PATH set so it can resolve the vendored libkrun shared
- * objects. The VM id is passed to the launcher as a command-line argument, not
- * via the environment.
- *
- * Note: because the launcher is reparented, the host cannot waitpid() on it.
- * Guest exit is observed through /proc/<pid>/comm discovery (FgProc.pidOf); the
- * host never blocks on a launcher.
+ * Returns 0 on success, -1 on failure.
  */
 int spawn_process(const char *cmd, char **argv,
                   const char *log_path, const char *ld_library_path) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
+    posix_spawn_file_actions_t actions;
+    int log_fd = -1;
+    if (posix_spawn_file_actions_init(&actions) != 0) {
         return -1;
     }
-
-    pid_t mid = fork();
-    if (mid == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return -1;
-    }
-
-    if (mid > 0) {
-        /* Parent: read the launcher pid, then reap the intermediate. */
-        close(pipefd[1]);
-        pid_t child_pid = -1;
-        ssize_t n = read(pipefd[0], &child_pid, sizeof(child_pid));
-        close(pipefd[0]);
-        waitpid(mid, NULL, 0);
-        if (n != (ssize_t) sizeof(child_pid)) {
-            return -1;
-        }
-        return child_pid;
-    }
-
-    /* Intermediate child. */
-    close(pipefd[0]);
-    if (setsid() == -1) {
-        perror("setsid");
-        _exit(EXIT_FAILURE);
-    }
-
-    pid_t child = fork();
-    if (child == -1) {
-        _exit(EXIT_FAILURE);
-    } else if (child > 0) {
-        /* Report the grandchild pid, then exit so the grandchild is reparented. */
-        ssize_t ignored = write(pipefd[1], &child, sizeof(child));
-        (void) ignored;
-        close(pipefd[1]);
-        _exit(EXIT_SUCCESS);
-    }
-
-    /* Grandchild: becomes the detached launcher. */
-    close(pipefd[1]);
 
     int devnull = open("/dev/null", O_RDONLY);
-    if (devnull != -1) {
-        dup2(devnull, STDIN_FILENO);
+    if (devnull < 0) {
+        posix_spawn_file_actions_destroy(&actions);
+        return -1;
     }
+    posix_spawn_file_actions_adddup2(&actions, devnull, STDIN_FILENO);
+    posix_spawn_file_actions_addclose(&actions, devnull);
 
     if (log_path != NULL) {
-        int log_fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
-        if (log_fd != -1) {
-            dup2(log_fd, STDOUT_FILENO);
-            dup2(log_fd, STDERR_FILENO);
-            if (log_fd > STDERR_FILENO) {
+        log_fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (log_fd < 0) {
+            close(devnull);
+            posix_spawn_file_actions_destroy(&actions);
+            return -1;
+        }
+        posix_spawn_file_actions_adddup2(&actions, log_fd, STDOUT_FILENO);
+        posix_spawn_file_actions_adddup2(&actions, log_fd, STDERR_FILENO);
+        posix_spawn_file_actions_addclose(&actions, log_fd);
+    }
+
+    posix_spawn_file_actions_addclosefrom_np(&actions, 3);
+
+    int i;
+    int env_n = 0;
+    while (environ[env_n] != NULL) {
+        env_n++;
+    }
+    int env_cap = env_n + 2;
+    char **envp = calloc((size_t) env_cap, sizeof(char *));
+    if (envp == NULL) {
+        if (log_fd >= 0) {
+            close(log_fd);
+        }
+        close(devnull);
+        posix_spawn_file_actions_destroy(&actions);
+        return -1;
+    }
+    int env_i = 0;
+    for (i = 0; i < env_n; i++) {
+        if (ld_library_path != NULL && strncmp(environ[i], "LD_LIBRARY_PATH=", 16) == 0) {
+            continue;
+        }
+        envp[env_i++] = environ[i];
+    }
+    char *ld_env = NULL;
+    if (ld_library_path != NULL) {
+        size_t n = strlen("LD_LIBRARY_PATH=") + strlen(ld_library_path) + 1;
+        ld_env = malloc(n);
+        if (ld_env == NULL) {
+            free(envp);
+            if (log_fd >= 0) {
                 close(log_fd);
             }
+            close(devnull);
+            posix_spawn_file_actions_destroy(&actions);
+            return -1;
+        }
+        snprintf(ld_env, n, "LD_LIBRARY_PATH=%s", ld_library_path);
+        envp[env_i++] = ld_env;
+    }
+    envp[env_i] = NULL;
+
+    pid_t pid;
+    int rc = posix_spawn(&pid, cmd, &actions, NULL, argv, envp);
+
+    free(ld_env);
+    free(envp);
+    if (log_fd >= 0) {
+        close(log_fd);
+    }
+    close(devnull);
+    posix_spawn_file_actions_destroy(&actions);
+
+    if (rc == 0) {
+        pthread_t reaper;
+        if (pthread_create(&reaper, NULL, reap_child, (void *)(intptr_t) pid) == 0) {
+            pthread_detach(reaper);
         } else {
-            perror("Failed to open log file");
-            _exit(EXIT_FAILURE);
+            waitpid(pid, NULL, WNOHANG);
         }
     }
 
-    struct rlimit rlim;
-    if (getrlimit(RLIMIT_NOFILE, &rlim) == 0) {
-        for (int fd = 3; fd < (int) rlim.rlim_max; fd++) {
-            close(fd);
-        }
-    }
-
-    if (ld_library_path != NULL) {
-        snprintf(ff_ld_env, sizeof(ff_ld_env), "LD_LIBRARY_PATH=%s", ld_library_path);
-        putenv(ff_ld_env);
-    }
-
-    execve(cmd, argv, environ);
-    perror("execve");
-    _exit(EXIT_FAILURE);
+    return rc == 0 ? 0 : -1;
 }
 
 int terminate_process(pid_t pid) {
     return kill(pid, SIGTERM);
-}
-
-/* Reaps any exited children (non-blocking). Returns the number reaped. */
-int reap_children(void) {
-    int status;
-    int reaped = 0;
-    while (waitpid(-1, &status, WNOHANG) > 0) {
-        reaped++;
-    }
-    return reaped;
 }

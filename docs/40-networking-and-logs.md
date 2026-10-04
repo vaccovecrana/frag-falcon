@@ -12,6 +12,10 @@ Requirements and constraints:
   without it (see [Deployment](20-deployment.md)).
 - A TAP can be **attached by one process only** (`EBUSY`). `flc` creates the tap
   persistently and hands it to the launcher.
+- TAPs are cleaned up automatically: the launcher forks a watcher that deletes
+  exactly its own TAP (by ifindex) when the launcher exits, and `--tap-up` clears
+  any stale device first. A stopped or exited VM therefore leaves no `ff*`
+  interface behind, even if `flc` was down when the guest exited.
 - The bridge must forward traffic; on a plain bridge the tap only gains carrier
   when the VM starts, so DHCP may take a moment. libkrun's guest DHCP client is
   patched to retry (see
