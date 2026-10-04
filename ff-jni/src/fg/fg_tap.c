@@ -20,81 +20,40 @@
 
 #define SIOCBRADDIF	0x89a2
 
-void generate_mac_address(char *mac) {
-    mac[0] = 0x02; // Locally administered, unicast
-    for (int i = 1; i < 6; i++) {
-        mac[i] = (char) (rand() % 256);
-    }
-}
-
 int create_tap_device(const char *if_name) {
     struct ifreq ifr;
-    int fd = -1;
     int sock;
     int err;
-    int device_exists = 0;
 
-    fd = open("/dev/net/tun", O_RDWR);
+    int fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
-        if (errno == EEXIST) {
-            printf("TAP device %s already exists, bringing it up...\n", if_name);
-            device_exists = 1;
-        } else {
-            perror("Failed to open /dev/net/tun");
-            return -errno;
-        }
+        perror("Failed to open /dev/net/tun");
+        return -errno;
     }
 
-    if (!device_exists) {
-        memset(&ifr, 0, sizeof(ifr));
-        ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
-        strncpy(ifr.ifr_name, if_name, IFNAMSIZ - 1);
-        ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+    memset(&ifr, 0, sizeof(ifr));
+    ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
+    strncpy(ifr.ifr_name, if_name, IFNAMSIZ - 1);
+    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
 
-        err = ioctl(fd, TUNSETIFF, &ifr);
-        if (err < 0) {
-            perror("Failed to set TUNSETIFF");
-            close(fd);
-            return -errno;
-        }
+    err = ioctl(fd, TUNSETIFF, &ifr);
+    if (err < 0) {
+        perror("Failed to set TUNSETIFF");
+        close(fd);
+        return -errno;
+    }
 
-        err = ioctl(fd, TUNSETPERSIST, 1);
-        if (err < 0) {
-            perror("Failed to set TUNSETPERSIST");
-            close(fd);
-            return -errno;
-        }
-
-        char mac[6];
-        generate_mac_address(mac);
-        memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, if_name, IFNAMSIZ - 1);
-        ifr.ifr_name[IFNAMSIZ - 1] = '\0';
-        memcpy(ifr.ifr_hwaddr.sa_data, mac, 6);
-        ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sock < 0) {
-            perror("Failed to open control socket");
-            close(fd);
-            return -errno;
-        }
-
-        err = ioctl(sock, SIOCSIFHWADDR, &ifr);
-        if (err < 0) {
-            perror("Failed to set MAC address");
-            close(sock);
-            close(fd);
-            return -errno;
-        }
-
-        close(sock);
+    err = ioctl(fd, TUNSETPERSIST, 1);
+    if (err < 0) {
+        perror("Failed to set TUNSETPERSIST");
+        close(fd);
+        return -errno;
     }
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         perror("Failed to open control socket");
-        if (fd >= 0 && !device_exists) close(fd);
+        close(fd);
         return -errno;
     }
 
@@ -106,7 +65,7 @@ int create_tap_device(const char *if_name) {
     if (err < 0) {
         perror("Failed to get interface flags");
         close(sock);
-        if (fd >= 0 && !device_exists) close(fd);
+        close(fd);
         return -errno;
     }
 
@@ -116,16 +75,14 @@ int create_tap_device(const char *if_name) {
     if (err < 0) {
         perror("Failed to set interface flags");
         close(sock);
-        if (fd >= 0 && !device_exists) close(fd);
+        close(fd);
         return -errno;
     }
 
     close(sock);
-    if (fd >= 0 && !device_exists) {
-        close(fd);
-    }
+    close(fd);
 
-    return fd;
+    return 0;
 }
 
 struct nl_req {
@@ -177,9 +134,6 @@ int delete_tap_device_index(int ifindex) {
 int delete_tap_device(const char *if_name) {
     return delete_tap_device_index(tap_ifindex(if_name));
 }
-
-#define SIOCBRADDIF 0x89a2
-#define BRIDGE_PORT_LIST_MAX 64
 
 int is_tap_attached_to_bridge(const char *if_name, const char *br_name) {
     char path[256];
@@ -252,83 +206,3 @@ int attach_tap_to_bridge(const char *if_name, const char *br_name) {
     return 0;
 }
 
-#define BUFFER_SIZE 1024
-
-struct nl_req_detach {
-    struct nlmsghdr nlh;
-    struct ifinfomsg ifi;
-    char buffer[BUFFER_SIZE];
-};
-
-int detach_tap_from_bridge(const char *if_name, const char *br_name) {
-    struct nl_req_detach req;
-    struct rtattr *rta;
-    int sockfd, ret;
-    char ifNameCopy[IFNAMSIZ];
-    char brIdCopy[IFNAMSIZ];
-
-    strncpy(ifNameCopy, if_name, IFNAMSIZ - 1);
-    ifNameCopy[IFNAMSIZ - 1] = '\0';
-    strncpy(brIdCopy, br_name, IFNAMSIZ - 1);
-    brIdCopy[IFNAMSIZ - 1] = '\0';
-
-    int ifIndex = if_nametoindex(if_name);
-
-    if (ifIndex == 0) {
-        fprintf(stderr, "Interface %s not found\n", ifNameCopy);
-        return -ENODEV;
-    }
-
-    memset(&req, 0, sizeof(req));
-    req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-    req.nlh.nlmsg_flags = NLM_F_REQUEST;
-    req.nlh.nlmsg_type = RTM_SETLINK;
-    req.ifi.ifi_family = AF_UNSPEC;
-    req.ifi.ifi_index = ifIndex;
-
-    rta = (struct rtattr *)((char *)&req + NLMSG_ALIGN(req.nlh.nlmsg_len));
-    rta->rta_type = IFLA_MASTER;
-    rta->rta_len = RTA_LENGTH(4);
-    *((int *)RTA_DATA(rta)) = 0;
-    req.nlh.nlmsg_len = NLMSG_ALIGN(req.nlh.nlmsg_len) + RTA_LENGTH(4);
-
-    sockfd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-    if (sockfd < 0) {
-        fprintf(stderr, "Socket creation failed: %s\n", strerror(errno));
-        return -errno;
-    }
-
-    struct sockaddr_nl sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.nl_family = AF_NETLINK;
-
-    ret = sendto(sockfd, &req, req.nlh.nlmsg_len, 0, (struct sockaddr *)&sa, sizeof(sa));
-    if (ret < 0) {
-        fprintf(stderr, "Sendto failed: %s\n", strerror(errno));
-        close(sockfd);
-        return -errno;
-    }
-
-    close(sockfd);
-    printf("Successfully detached %s from %s\n", ifNameCopy, brIdCopy);
-    return 0;
-}
-
-int get_mac_address(const char *if_name, unsigned char *mac) {
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        return -1;
-    }
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, if_name, IFNAMSIZ - 1);
-    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
-
-    if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-        close(fd);
-        return -1;
-    }
-    close(fd);
-    memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
-    return 0;
-}
