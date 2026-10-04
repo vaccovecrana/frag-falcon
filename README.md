@@ -24,7 +24,7 @@ and unpacks to a flat directory:
 
 ```
 frag-falcon-<version>/
-  ff-app              # the hypervisor (GraalVM native executable)
+  flc                 # the hypervisor (GraalVM native executable)
   fg_vmm              # per-VM native launcher
   fg_jni.so           # host primitives (JNI)
   libkrun.so.2
@@ -40,7 +40,8 @@ libraries beside itself.
 frag-falcon is designed to run **unprivileged**. Privilege is delegated to the
 OS once, not reimplemented in the hypervisor:
 
-- a dedicated service user owns the VM storage dir (`--vm-dir`);
+- a dedicated service user owns the VM storage dir (`--vm-dir`) and OCI cache dir
+  (`--oci-dir`);
 - the `fg_vmm` launcher carries `cap_net_admin` (for TAP devices) — `setcap`, or
   systemd `AmbientCapabilities=CAP_NET_ADMIN`;
 - the service user is in the **`kvm`** group (for `/dev/kvm`);
@@ -58,11 +59,18 @@ could not create the per-VM TAP devices a stack needs.
 
 ```
 --vm-dir=PATH        VM storage directory (required)
+--oci-dir=PATH       OCI blob cache directory (required)
 --api-host=HOST      API bind address (default 127.0.0.1)
 --api-port=PORT      API port (default 7070)
 --log-format=FORMAT  text|json (default text)
 --log-level=LEVEL    error|warning|info|debug|trace (default info)
 ```
+
+`--vm-dir` holds the extracted rootfs, stack definitions and logs (the working
+set, on fast storage). `--oci-dir` holds the downloaded layer blob cache
+(read-mostly bulk storage — a slower disk is fine); the transient extraction temp
+lives under `<vm-dir>/oci-tmp`. Only `--vm-dir` needs the `nosuid,nodev,noexec`
+hardening.
 
 The hypervisor is **not meant to be exposed publicly**: it has no authentication
 and manages privileged networking. Keep it on a private LAN segment or behind a
@@ -102,7 +110,7 @@ visual-audit capture run against a live hypervisor:
 
 ```bash
 # one-shot: builds, starts a throwaway backend, runs the suite, tears down
-scripts/e2e.sh
+ff-test/e2e.sh
 
 # or, with a hypervisor already running on 127.0.0.1:7070
 npm --prefix ff-ui run test:e2e   # assertions (or: gradle :ff-ui:e2eTest)

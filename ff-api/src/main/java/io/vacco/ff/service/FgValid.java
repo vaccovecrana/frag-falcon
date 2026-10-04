@@ -1,6 +1,5 @@
 package io.vacco.ff.service;
 
-import io.vacco.ff.oci.FgEnvVar;
 import io.vacco.ff.oci.FgImage;
 import io.vacco.ff.schema.FgResources;
 import io.vacco.ff.schema.FgService;
@@ -42,7 +41,9 @@ public class FgValid {
 
   /* ----- image metadata ----------------------------------------------- */
 
-  /** Validates an extracted/persisted {@link FgImage}. */
+  /**
+   * Validates an extracted/persisted {@link FgImage}.
+   */
   public static List<RvValidation> validateImage(FgImage img) {
     var out = new ArrayList<RvValidation>();
     if (img == null) {
@@ -100,7 +101,9 @@ public class FgValid {
 
   /* ----- volumes ------------------------------------------------------ */
 
-  /** Validates a parsed {@link FgVolume}. */
+  /**
+   * Validates a parsed {@link FgVolume}.
+   */
   public static void validateVolume(FgVolume v, String path, List<RvValidation> out) {
     if (v == null) {
       out.add(rv("ff.volume.missing", path));
@@ -197,7 +200,9 @@ public class FgValid {
 
   /* ----- stacks ------------------------------------------------------- */
 
-  /** Validates a full stack definition. */
+  /**
+   * Validates a full stack definition.
+   */
   public static List<RvValidation> validate(FgStack stack) {
     var out = new ArrayList<RvValidation>();
     if (stack == null) {

@@ -14,11 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -65,11 +61,12 @@ public final class FgStackSvc implements AutoCloseable {
   private final ExecutorService supervisor = Executors.newSingleThreadExecutor(r ->
     new Thread(r, "ff-supervisor"));
 
-  public FgStackSvc(File vmDir, Gson gson) {
+  public FgStackSvc(File vmDir, File ociDir, Gson gson) {
     this.vmDir = vmDir;
     this.gson = gson;
-    this.store = new FgOciStore(new File(vmDir, "oci"));
+    this.store = new FgOciStore(ociDir, new File(vmDir, "oci-tmp"));
     FgIo.mkDirs(vmDir);
+    store.sweepTmp();
     reconcile();
     supervisor.submit(() -> {
       while (!Thread.currentThread().isInterrupted()) {
@@ -120,7 +117,9 @@ public final class FgStackSvc implements AutoCloseable {
     return stack;
   }
 
-  /** Runs the validation rules and throws a validation error listing every violation. */
+  /**
+   * Runs the validation rules and throws a validation error listing every violation.
+   */
   private static void validate(FgStack stack) {
     var violations = FgValid.validate(stack);
     if (!violations.isEmpty()) {
@@ -154,7 +153,9 @@ public final class FgStackSvc implements AutoCloseable {
 
   /* ----- lifecycle ---------------------------------------------------- */
 
-  /** Thrown when an operation is already in flight for a stack service. */
+  /**
+   * Thrown when an operation is already in flight for a stack service.
+   */
   public static class FgBusyException extends RuntimeException {
     private static final long serialVersionUID = 1L;
     public final String stackId, service;

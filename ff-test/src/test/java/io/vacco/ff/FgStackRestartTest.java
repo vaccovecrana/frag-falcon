@@ -29,7 +29,7 @@ public class FgStackRestartTest {
     it("restarts a service per its restart policy", () -> {
       var vmDir = FgTest.freshDir("m5restart");
       var stackId = "m5restart";
-      var svc = new FgStackSvc(vmDir, new Gson());
+      var svc = new FgStackSvc(vmDir, FgTest.freshDir("m5restart-oci"), new Gson());
       try {
         var stack = new FgStack().id(stackId);
         var s = new FgService();

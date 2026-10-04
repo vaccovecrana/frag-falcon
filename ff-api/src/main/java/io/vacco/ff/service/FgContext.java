@@ -26,7 +26,8 @@ public class FgContext implements Closeable {
 
     log.info("frag-falcon hypervisor starting");
     FgIo.mkDirs(FgOptions.vmDir);
-    log.info("vm-dir: {}, api: {}:{}", FgOptions.vmDir, FgOptions.host, FgOptions.port);
+    FgIo.mkDirs(FgOptions.ociDir);
+    log.info("vm-dir: {}, oci-dir: {}, api: {}:{}", FgOptions.vmDir, FgOptions.ociDir, FgOptions.host, FgOptions.port);
 
     var mount = FgMounts.check(FgOptions.vmDir);
     if (mount.hardened()) {
@@ -54,7 +55,7 @@ public class FgContext implements Closeable {
     }
     log.info("vm launcher capability ok ({})", cap.source());
 
-    svc = new FgStackSvc(FgOptions.vmDir, new Gson());
+    svc = new FgStackSvc(FgOptions.vmDir, FgOptions.ociDir, new Gson());
     api = new FgApi(svc, new Gson(), FgOptions.host, FgOptions.port);
   }
 

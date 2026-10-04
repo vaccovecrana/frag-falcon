@@ -49,7 +49,7 @@ public class FgVmLifecycleTest {
       vm.command = List.of("/bin/sh", "-c", "echo m5a-ok; sleep 5");
       vm.network = null;
 
-      var store = new FgOciStore(new File(FgTest.WORK, "m5a-oci"));
+      var store = new FgOciStore(new File(FgTest.WORK, "m5a-oci"), new File(FgTest.WORK, "m5a-oci"));
       try {
         var pid = FgVmSvc.start(vm, vmRoot, store, FgOciProgress.NOOP);
         assertTrue("expected a launcher pid", pid > 0);

@@ -12,7 +12,7 @@ import java.io.File;
 import java.util.List;
 
 import static j8spec.J8Spec.it;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Validation of extracted image metadata ({@code image.json}) and parsed

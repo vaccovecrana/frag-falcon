@@ -15,7 +15,8 @@ VPN.
 - **Hardened VM storage.** The `--vm-dir` must be mounted `nosuid,nodev,noexec`
   host-wide, so files a guest plants in its rootfs (setuid binaries, device nodes,
   executables) are inert to host-side processes. The hypervisor audits this at
-  startup and warns if it is missing.
+  startup and warns if it is missing. The `--oci-dir` holds only downloaded blobs
+  and needs no such hardening.
 - **Writable but ephemeral rootfs.** The extracted rootfs is writable, so a guest
   can modify its own filesystem — but it is *eventually ephemeral*: deleting and
   re-provisioning a service discards it.

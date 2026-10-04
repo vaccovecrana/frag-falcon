@@ -21,31 +21,30 @@ packet is reliably lost. Result: no DHCP lease, and any workload that needs the
 network fails. (This client is designed for passt/gvproxy, which answer
 instantly.)
 
-**Patch.** `patches/libkrun-dhcp-retry.patch` makes the client retransmit
-`DISCOVER` every `250 ms` for a total window of `8000 ms`, and makes the
-`REQUEST`/`ACK` step ignore duplicate `OFFER`s (retransmits can leave several
-queued in the socket buffer) and keep retrying until the same deadline.
+**Patch.** The retry is carried by
+[`libkrun-build`](https://github.com/vaccovecrana/libkrun-build) (patch
+`patches/libkrun-dhcp-retry.patch`), applied automatically during that repo's
+build. It makes the client retransmit `DISCOVER` every `250 ms` for a total
+window of `8000 ms`, and makes the `REQUEST`/`ACK` step ignore duplicate
+`OFFER`s (retransmits can leave several queued in the socket buffer) and keep
+retrying until the same deadline.
 
 **Apply / rebuild / re-vendor.**
 
 ```bash
-# 1. Apply to the fetched libkrun source tree
-cd ../libkrun-build/src/libkrun
-patch -p1 < /path/to/frag-falcon-libkrun/patches/libkrun-dhcp-retry.patch
+# 1. Build patched libkrun (the build script fetches upstream and applies the patch)
+cd ../libkrun-build
+./build-libkrun.sh --skip-fw --no-apt --no-verify
 
-# 2. Rebuild (libkrun only; skip the huge kernel build) and re-vendor
-cd ../../
-./build-libkrun.sh --no-fetch --skip-fw --no-apt --no-verify
-
-# 3. Copy the rebuilt libraries into this repo
+# 2. Copy the rebuilt libraries into this repo
 cp out/lib64/libkrun_init.so.0.1.0 \
-   /path/to/frag-falcon-libkrun/ff-jni/src/main/resources/io/vacco/ff/libkrun_init.so
+   /path/to/frag-falcon/ff-jni/src/main/resources/io/vacco/ff/libkrun_init.so
 cp out/lib64/libkrun.so.2.0.0 \
-   /path/to/frag-falcon-libkrun/ff-jni/src/main/resources/io/vacco/ff/libkrun.so.2
+   /path/to/frag-falcon/ff-jni/src/main/resources/io/vacco/ff/libkrun.so.2
 ```
 
-A fresh `build-libkrun.sh` (without `--no-fetch`) re-downloads `main` and loses
-the patch, so re-apply it.
+The patch is applied by `build-libkrun.sh` after every fetch, so no manual
+`patch` step is needed; a rejected hunk aborts the build.
 
 **Consequence.** If no DHCP server answers, the guest now waits up to 8 s before
 booting the workload. Acceptable for interactive/bridged VMs; revisit if boot
@@ -364,7 +363,7 @@ missing:
 Build-only CI (no KVM/caps/bridge) can exclude the privileged tests with
 `gradle :ff-test:test -PskipPrivilegedTests` (or `FF_SKIP_PRIVILEGED_TESTS=1`).
 
-`scripts/e2e.sh` automates the browser suite: it builds the bundle + app,
+`ff-test/e2e.sh` automates the browser suite: it builds the bundle + app,
 applies the launcher capability, starts a backend on a throwaway `--vm-dir`,
 runs `npm run test:e2e`, and tears the backend down on exit. Override the port,
 vm-dir or bridge via `FF_E2E_PORT`, `FF_E2E_VM_DIR`, `FF_E2E_BRIDGE`; set
@@ -419,4 +418,19 @@ supervisor and its teardown semantics are not a supported VM lifecycle. **Use
 The Java boot tests (`FgTest.runVm`, `FgVmBootTest`) deliberately **do not** use
 the daemonizing `spawn`: they launch `fg_vmm` directly via `ProcessBuilder` so
 the test process stays the parent and can `waitFor()` the guest exit code.
+
+## 20. OCI blob cache is split from the VM storage dir
+
+The OCI layer blob cache (`blobs/`, keyed by registry digest, reused across VM
+builds) is a **read-mostly bulk store** and can sit on slower media, while the
+working set — the extracted rootfs, stack definitions, logs, and the transient
+extraction temp — belongs on fast storage. `flc` therefore takes two required
+paths: `--oci-dir` (the `FgOciStore` cache root, holding `blobs/`) and `--vm-dir`
+(the working set, holding `<vm-dir>/oci-tmp/` for transient expanded layers).
+
+Both are required and validated at startup. Only `--vm-dir` needs the
+`nosuid,nodev,noexec` hardening (§14); the blob cache holds nothing executable and
+is never exposed to guests. Extraction temp dirs are removed in a `finally`, and
+`FgOciStore.sweepTmp()` clears any orphaned ones at startup.
+
 

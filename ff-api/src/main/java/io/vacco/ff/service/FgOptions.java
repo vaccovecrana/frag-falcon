@@ -10,6 +10,7 @@ public class FgOptions {
   public enum LogFormat {text, json}
 
   public static File vmDir;
+  public static File ociDir;
   public static String host = "127.0.0.1";
   public static int port = 7070;
   public static LogFormat logFormat = LogFormat.text;
@@ -20,6 +21,7 @@ public class FgOptions {
       "frag-falcon - libkrun microVM hypervisor",
       "",
       "  --vm-dir=PATH        VM storage directory (required)",
+      "  --oci-dir=PATH       OCI blob cache directory (required)",
       "  --api-host=HOST      API bind address (default 127.0.0.1)",
       "  --api-port=PORT      API port (default 7070)",
       "  --log-format=FORMAT  text|json (default text)",
@@ -42,7 +44,12 @@ public class FgOptions {
     if (vmDirPath == null) {
       throw new IllegalArgumentException("--vm-dir is required");
     }
+    var ociDirPath = m.get("oci-dir");
+    if (ociDirPath == null) {
+      throw new IllegalArgumentException("--oci-dir is required");
+    }
     vmDir = new File(vmDirPath);
+    ociDir = new File(ociDirPath);
     host = m.getOrDefault("api-host", host);
     port = Integer.parseInt(m.getOrDefault("api-port", Integer.toString(port)));
     if (m.containsKey("log-format")) {

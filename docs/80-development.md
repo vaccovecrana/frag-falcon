@@ -30,7 +30,7 @@ visual-audit capture run against a live hypervisor:
 
 ```bash
 # one-shot: builds, starts a throwaway backend, runs the suite, tears down
-scripts/e2e.sh
+ff-test/e2e.sh
 
 # or, with a hypervisor already running on 127.0.0.1:7070
 npm --prefix ff-ui run test:e2e   # assertions (or: gradle :ff-ui:e2eTest)

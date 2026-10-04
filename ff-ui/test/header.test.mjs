@@ -36,7 +36,8 @@ test("renders the host name in the browser tab title", async () => {
   if (!page) return
   await goto(page, "/")
   await page.waitForFunction(() => document.title.startsWith("frag-falcon · "), {timeout: 5000})
-    .catch(() => {})
+    .catch(() => {
+    })
   const title = await page.title()
   assert.match(title, /^frag-falcon · \S+/)
 })

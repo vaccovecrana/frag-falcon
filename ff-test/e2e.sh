@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
 # Runs the ff-ui browser E2E suite against a freshly built, unprivileged
-# hypervisor on a throwaway --vm-dir. Builds the UI bundle + app, applies the
-# launcher capability, starts the backend, runs `npm run test:e2e`, and stops
-# the backend on exit.
+# hypervisor on a throwaway --vm-dir + --oci-dir. Builds the UI bundle + app,
+# applies the launcher capability, starts the backend, runs `npm run test:e2e`,
+# and stops the backend on exit.
 #
-#   scripts/e2e.sh                 # full suite (requires virbr0 + /dev/kvm + cap)
-#   FF_E2E_BRIDGE=virbr0 scripts/e2e.sh
-#   SHOW_LOG=1 scripts/e2e.sh      # stream the backend log while running
+#   ff-test/e2e.sh                 # full suite (requires virbr0 + /dev/kvm + cap)
+#   FF_E2E_BRIDGE=virbr0 ff-test/e2e.sh
+#   SHOW_LOG=1 ff-test/e2e.sh      # stream the backend log while running
+#   FF_E2E_VM_DIR=... FF_E2E_OCI_DIR=... ff-test/e2e.sh
 #
 # Prerequisites (see CAVEATS §17): virbr0, /dev/kvm access, and cap_net_admin on
 # fg_vmm (`sudo bash ff-jni/setup-caps.sh`). Set SUDOPW to auto-apply caps.
@@ -18,6 +19,7 @@ cd "$root"
 
 port="${FF_E2E_PORT:-7070}"
 vm_dir="${FF_E2E_VM_DIR:-$(mktemp -d /tmp/ff-e2e-XXXXXX)}"
+oci_dir="${FF_E2E_OCI_DIR:-$(mktemp -d /tmp/ff-e2e-oci-XXXXXX)}"
 export FF_UI_URL="http://127.0.0.1:${port}"
 export FF_E2E_BRIDGE="${FF_E2E_BRIDGE:-virbr0}"
 native_dir="$root/ff-jni/build/native"
@@ -30,9 +32,9 @@ cleanup() {
     wait "$backend_pid" 2>/dev/null || true
   fi
   if [ "${KEEP_VM_DIR:-0}" != "1" ]; then
-    rm -rf "$vm_dir"
+    rm -rf "$vm_dir" "$oci_dir"
   else
-    echo "keeping VM dir: $vm_dir"
+    echo "keeping VM dir: $vm_dir (oci dir: $oci_dir)"
   fi
 }
 trap cleanup EXIT
@@ -59,8 +61,8 @@ if [ ! -x "$app" ]; then
   exit 1
 fi
 
-echo "==> starting backend on :$port (vm-dir=$vm_dir)"
-FF_NATIVE_DIR="$native_dir" "$app" --vm-dir="$vm_dir" --api-port="$port" >"$backend_log" 2>&1 &
+echo "==> starting backend on :$port (vm-dir=$vm_dir, oci-dir=$oci_dir)"
+FF_NATIVE_DIR="$native_dir" "$app" --vm-dir="$vm_dir" --oci-dir="$oci_dir" --api-port="$port" >"$backend_log" 2>&1 &
 backend_pid=$!
 
 for _ in $(seq 1 50); do
