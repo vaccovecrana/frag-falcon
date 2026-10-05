@@ -299,8 +299,6 @@ ExecStart=$install_dir/flc --vm-dir=$vm_dir --oci-dir=$oci_dir --api-host=$api_h
 AmbientCapabilities=CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_SETUID CAP_SETGID
 Restart=on-failure
-StandardOutput=syslog
-StandardError=inherit
 SyslogIdentifier=flc
 
 [Install]

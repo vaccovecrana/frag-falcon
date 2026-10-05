@@ -31,8 +31,6 @@ ExecStart=/opt/flc/flc --vm-dir=/var/lib/flc/vm --oci-dir=/var/lib/flc/oci --api
 AmbientCapabilities=CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_SETUID CAP_SETGID
 Restart=on-failure
-StandardOutput=syslog
-StandardError=inherit
 SyslogIdentifier=flc
 
 # NOTE: do not set PrivateMounts=yes if you want the vm-dir's nosuid,nodev,noexec
