@@ -4,7 +4,7 @@ OUT := out
 
 FG_SRC := src/fg/fg_proc.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_extract.c
 
-all: $(OUT)/fg_jni.so $(OUT)/fg_vmm
+all: $(OUT)/fg_jni.so $(OUT)/fg_vmm $(OUT)/fg_usermap
 
 $(OUT):
 	mkdir -p $(OUT)
@@ -14,6 +14,9 @@ $(OUT)/fg_jni.so: $(FG_SRC) src/jni/fg_jni.c $(FG_SRC:.c=.h) | $(OUT)
 	  -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux \
 	  -Isrc/fg \
 	  -o $@ src/jni/fg_jni.c $(FG_SRC)
+
+$(OUT)/fg_usermap: src/fg/fg_usermap.c | $(OUT)
+	cc -Wall -O2 -o $@ src/fg/fg_usermap.c
 
 $(OUT)/fg_vmm: src/vmm/fg_vmm.c src/fg/fg_tap.c src/fg/fg_root.c src/fg/fg_tap.h src/fg/fg_root.h src/vmm/include/libkrun.h src/vmm/include/libkrun_init.h | $(OUT)
 	cc -Wall -O2 -pthread -Isrc/vmm/include -Isrc/fg \

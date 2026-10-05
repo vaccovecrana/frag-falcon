@@ -15,7 +15,7 @@ val nativeBuild = tasks.register<Exec>("nativeBuild") {
 val installNative = tasks.register<Sync>("installNative") {
   dependsOn(nativeBuild)
   into(layout.buildDirectory.dir("native"))
-  from("out") { include("fg_jni.so", "fg_vmm") }
+  from("out") { include("fg_jni.so", "fg_vmm", "fg_usermap") }
   from(libDir) { include("libkrun.so.2", "libkrun_init.so", "libkrunfw.so.5") }
   filePermissions { unix("0755") }
 }
@@ -54,7 +54,7 @@ val setupCaps = tasks.register<Exec>("setupCaps") {
 tasks.processResources {
   dependsOn(nativeBuild)
   from("out") {
-    include("fg_jni.so", "fg_vmm")
+    include("fg_jni.so", "fg_vmm", "fg_usermap")
     into("io/vacco/ff")
   }
 }

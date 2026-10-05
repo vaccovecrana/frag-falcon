@@ -116,7 +116,11 @@ in M3 (the C launcher owns libkrun).
    The namespace is entered **before any thread is spawned** (`setup_namespaces()`
    runs before the log-ring thread): `unshare(CLONE_NEWUSER)` fails in a
    multithreaded process, which used to break `--volume` + `--log-file`.
-   Verified: userns + KVM + a pre-created persistent TAP all coexist.
+   Verified: userns + KVM + a pre-created persistent TAP all coexist. The launcher
+   then maps the service user's `/etc/subuid`/`/etc/subgid` range via the
+   `fg_usermap` helper (`cap_setuid,cap_setgid`, root-owned `0750`) so guest images
+   can run as arbitrary uids; without a configured range it falls back to a
+   single-uid map and logs a warning. See `CAVEATS.md` §6.
 3. **Console ports must be named** `krun-stdin` / `krun-stdout` / `krun-stderr` —
    use `krun_console_builder_add_default_console`. Custom-named inout ports yield no
    workload stdout.

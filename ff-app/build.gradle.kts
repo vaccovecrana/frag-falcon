@@ -43,7 +43,7 @@ val distNativeTar = tasks.register<Tar>("distNativeTar") {
   into("frag-falcon-${project.version}") {
     from(layout.buildDirectory.dir("native/nativeCompile")) { include("flc") }
     from(project(":ff-jni").layout.buildDirectory.dir("native")) {
-      include("fg_vmm", "fg_jni.so", "libkrun.so.2", "libkrun_init.so", "libkrunfw.so.5")
+      include("fg_vmm", "fg_usermap", "fg_jni.so", "libkrun.so.2", "libkrun_init.so", "libkrunfw.so.5")
     }
   }
   filePermissions { unix("0755") }

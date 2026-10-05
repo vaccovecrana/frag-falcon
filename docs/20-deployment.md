@@ -8,6 +8,7 @@ directory.
 frag-falcon-{{gsVersion}}/
   flc                 # the hypervisor (GraalVM native executable)
   fg_vmm              # per-VM native launcher
+  fg_usermap          # subuid/subgid -> user-namespace mapping helper
   fg_jni.so           # host primitives (JNI)
   libkrun.so.2
   libkrun_init.so
@@ -27,6 +28,9 @@ not reimplemented in the hypervisor:
   dir (`--oci-dir`);
 - the `fg_vmm` launcher receives `cap_net_admin` (for TAP devices) from the
   systemd unit's `AmbientCapabilities=CAP_NET_ADMIN`;
+- the `fg_usermap` helper carries `cap_setuid,cap_setgid` (root-owned, mode
+  `0750`) and maps the service user's `/etc/subuid`/`/etc/subgid` range into each
+  VM's user namespace, so guest images can run as arbitrary uids (not just root);
 - the service user is in the **`kvm`** group (for `/dev/kvm`);
 - the VM storage dir is mounted **`nosuid,nodev,noexec`** (host-wide, e.g. via
   fstab) so files a guest plants in its rootfs — setuid binaries, device nodes,
@@ -35,8 +39,9 @@ not reimplemented in the hypervisor:
   only downloaded layers and needs no such hardening.)
 
 `deploy/setup.sh <user> <vm-dir> [install-dir] [oci-dir]` performs the one-time
-setup, and `deploy/flc.service` is a sample systemd unit. The hypervisor never
-needs root.
+setup (it allocates a free subuid/subgid block for the user and installs
+`fg_usermap`), and `deploy/flc.service` is a sample systemd unit. The hypervisor
+never needs root.
 
 `flc` **refuses to start** if it lacks `CAP_NET_ADMIN` (the systemd unit grants it
 via `AmbientCapabilities`), since it could not create the per-VM TAP devices a

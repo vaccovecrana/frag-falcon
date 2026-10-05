@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <libkrun.h>
@@ -89,6 +91,104 @@ static void write_file(const char *path, const char *data) {
     }
 }
 
+static void write_single_line_map(void) {
+    char map[64];
+    write_file("/proc/self/setgroups", "deny");
+    snprintf(map, sizeof(map), "0 %d 1\n", getuid());
+    write_file("/proc/self/uid_map", map);
+    snprintf(map, sizeof(map), "0 %d 1\n", getgid());
+    write_file("/proc/self/gid_map", map);
+}
+
+static int uid_map_empty(void) {
+    char buf[8];
+    int fd = open("/proc/self/uid_map", O_RDONLY);
+    if (fd < 0) {
+        return 0;
+    }
+    ssize_t n = read(fd, buf, sizeof(buf));
+    close(fd);
+    return n <= 0;
+}
+
+static int userns_helper_path(char *out, size_t len) {
+    char exe[4096];
+    ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+    if (n < 0) {
+        return -1;
+    }
+    exe[n] = '\0';
+    char *slash = strrchr(exe, '/');
+    if (slash == NULL) {
+        return -1;
+    }
+    *slash = '\0';
+    if (snprintf(out, len, "%s/fg_usermap", exe) >= (int) len) {
+        return -1;
+    }
+    return 0;
+}
+
+/*
+ * Maps a subuid/subgid range into the launcher's user namespace so the guest
+ * can run as arbitrary uids (libkrun's virtiofs switches euid/egid per request).
+ * An unprivileged process may only write a single-line uid_map; a range must be
+ * written by a helper holding CAP_SETUID/CAP_SETGID in the parent namespace.
+ *
+ * Returns 0 when mapped, 1 when the helper is unavailable (namespace not yet
+ * created), 2 when the helper ran but failed (namespace already created).
+ */
+static int run_usermap_helper(void) {
+    char helper[4096];
+    if (userns_helper_path(helper, sizeof(helper)) != 0 || access(helper, X_OK) != 0) {
+        return 1;
+    }
+
+    int p[2];
+    if (pipe(p) != 0) {
+        return 1;
+    }
+    signal(SIGPIPE, SIG_IGN);
+    /* A cap'd launcher is non-dumpable, which makes its /proc/<pid>/uid_map
+     * unopenable by the same-uid helper (the proc inode owner is the overflow
+     * uid). Make it dumpable for the helper's brief run so it can open the map,
+     * then restore the hardened default. Also clear ambient caps so the helper
+     * does not inherit the launcher's cap_net_admin. */
+    prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
+    prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
+    pid_t me = getpid();
+    pid_t h = fork();
+    if (h < 0) {
+        close(p[0]);
+        close(p[1]);
+        return 1;
+    }
+    if (h == 0) {
+        close(p[1]);
+        char pidstr[16], fdstr[16];
+        snprintf(pidstr, sizeof(pidstr), "%d", me);
+        snprintf(fdstr, sizeof(fdstr), "%d", p[0]);
+        execl(helper, "fg_usermap", pidstr, fdstr, (char *) NULL);
+        _exit(127);
+    }
+    close(p[0]);
+
+    if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+        fprintf(stderr, "[fg-vmm] unshare(user+mount): %s\n", strerror(errno));
+        close(p[1]);
+        waitpid(h, NULL, 0);
+        exit(125);
+    }
+    char c = 'x';
+    (void) write(p[1], &c, 1);
+    close(p[1]);
+
+    int st;
+    waitpid(h, &st, 0);
+    prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+    return (WIFEXITED(st) && WEXITSTATUS(st) == 0) ? 0 : 2;
+}
+
 /* Enters a private mount namespace (plus a user namespace when unprivileged)
  * so the volume bind mounts below are isolated from the host. Must run while
  * the process is still single-threaded: unshare(CLONE_NEWUSER) is rejected once
@@ -103,16 +203,23 @@ static void setup_namespaces(void) {
             exit(125);
         }
     } else {
-        if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
-            fprintf(stderr, "[fg-vmm] unshare(user+mount): %s\n", strerror(errno));
-            exit(125);
+        int r = run_usermap_helper();
+        if (r != 0) {
+            if (r == 2 && !uid_map_empty()) {
+                fprintf(stderr, "[fg-vmm] user namespace mapping failed\n");
+                exit(125);
+            }
+            fprintf(stderr,
+                    "[fg-vmm] WARNING: no subuid/subgid range for uid %d (or fg_usermap "
+                    "missing); using a single-uid mapping. Images that run as non-root "
+                    "uids will fail to chown; add a range in /etc/subuid and /etc/subgid.\n",
+                    getuid());
+            if (r == 1 && unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+                fprintf(stderr, "[fg-vmm] unshare(user+mount): %s\n", strerror(errno));
+                exit(125);
+            }
+            write_single_line_map();
         }
-        char map[64];
-        write_file("/proc/self/setgroups", "deny");
-        snprintf(map, sizeof(map), "0 %d 1\n", getuid());
-        write_file("/proc/self/uid_map", map);
-        snprintf(map, sizeof(map), "0 %d 1\n", getgid());
-        write_file("/proc/self/gid_map", map);
     }
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0) {
         fprintf(stderr, "[fg-vmm] make / private: %s\n", strerror(errno));

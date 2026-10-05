@@ -140,6 +140,17 @@ guest sees them with no guest-side mount. Notes:
   set up before the user namespace is created (not yet exercised).
 - Read-only volumes are remounted RO at the top level; nested submounts inside a
   volume stay writable (would need `mount_setattr(2)`/`AT_RECURSIVE`).
+- libkrun's virtiofs switches its effective uid/gid to the guest's per request,
+  so an image that `chown`s to a non-root uid (most Docker images) needs a
+  **subuid/subgid range** mapped into the launcher's user namespace. The launcher
+  does this with `fg_usermap` — a small helper carrying `cap_setuid,cap_setgid`
+  (installed `root:<service-user>`, mode `0750`) that reads the user's range from
+  `/etc/subuid`/`/etc/subgid` and writes the launcher's `uid_map`/`gid_map`. An
+  unprivileged process cannot write a *range* itself (the kernel requires
+  `CAP_SETUID` in the parent user namespace), which is why the helper exists.
+  Without a configured range the launcher falls back to a **single-uid map**
+  (guest uid 0 only) and logs a warning; images running as non-root uids then
+  fail with `chown: Invalid argument`. See `deploy/setup.sh`.
 
 ---
 
@@ -300,6 +311,9 @@ The hypervisor runs **unprivileged**. Privilege is delegated to the OS once
 - the `fg_vmm` launcher receives `cap_net_admin` for TAP create/attach/open from
   the systemd unit's `AmbientCapabilities=CAP_NET_ADMIN` — never `setcap`, which
   forces the loader's secure-execution mode and breaks `$ORIGIN` (see §4);
+- the `fg_usermap` helper carries `cap_setuid,cap_setgid` (root-owned, mode
+  `0750`) and maps the service user's `/etc/subuid`/`/etc/subgid` range into each
+  launcher's user namespace so guest images can run as arbitrary uids (§6);
 - the service user is in the **`kvm`** group (`/dev/kvm`);
 - the VM storage dir is mounted `nosuid,nodev,noexec` host-wide (fstab/.mount).
 
@@ -313,14 +327,17 @@ monitor, so `restart:` governs post-success exits only.
 
 **Volumes + namespaces + KVM.** The launcher isolates per-VM volume bind mounts
 by entering a user+mount namespace (`unshare(CLONE_NEWUSER|CLONE_NEWNS)`) when
-unprivileged. This works with KVM and with pre-created TAP devices (verified),
-provided the namespace is created **before any threads** — the log-ring thread
-starts after `setup_namespaces()` for exactly this reason (previously
-`--volume` together with `--log-file` failed with `EPERM`).
+unprivileged, and immediately maps the service user's subuid/subgid range via
+`fg_usermap` so the guest can run as arbitrary uids (see §6). This works with KVM
+and with pre-created TAP devices (verified), provided the namespace is created
+**before any threads** — the log-ring thread starts after `setup_namespaces()`
+for exactly this reason (previously `--volume` together with `--log-file` failed
+with `EPERM`).
 
 **Development** uses the same unprivileged model: run
 `sudo bash ff-jni/setup-caps.sh` after each launcher rebuild to re-apply
-`cap_net_admin` (Gradle copies strip file capabilities).
+`cap_net_admin` to `fg_vmm` and `cap_setuid,cap_setgid` to `fg_usermap` (Gradle
+copies strip file capabilities).
 
 ## 15. Container rootfs is writable but "eventually ephemeral"
 

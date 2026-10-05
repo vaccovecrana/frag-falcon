@@ -44,6 +44,9 @@ OS once, not reimplemented in the hypervisor:
   (`--oci-dir`);
 - the `fg_vmm` launcher receives `cap_net_admin` (for TAP devices) from the
   systemd unit's `AmbientCapabilities=CAP_NET_ADMIN`;
+- the `fg_usermap` helper carries `cap_setuid,cap_setgid` (root-owned, mode
+  `0750`) and maps the service user's `/etc/subuid`/`/etc/subgid` range into each
+  VM's user namespace, so guest images can run as arbitrary uids;
 - the service user is in the **`kvm`** group (for `/dev/kvm`);
 - the VM storage dir is mounted **`nosuid,nodev,noexec`** (host-wide, e.g. via
   fstab) so files a guest plants in its rootfs (setuid binaries, device nodes,
