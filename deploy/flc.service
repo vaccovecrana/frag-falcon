@@ -1,10 +1,14 @@
-# Sample systemd unit for a rootless frag-falcon deployment.
+# Reference systemd unit for a rootless frag-falcon deployment.
+#
+# `deploy/setup.sh` generates the real /etc/systemd/system/flc.service from the
+# values it is given; this file mirrors that template (with the default values)
+# for manual installs and review. Keep the two in sync.
 #
 # frag-falcon runs as an unprivileged user; the fg_vmm launcher receives
 # CAP_NET_ADMIN (for TAP devices) via AmbientCapabilities, and the service user
-# must be in the `kvm` group to access /dev/kvm. The VM storage dir must be
-# mounted nosuid,nodev,noexec (host-wide) so guest-planted special files are
-# inert to host-side processes — see deploy/setup.sh.
+# must be in the `kvm` group to access /dev/kvm. The vm-dir is mounted
+# nosuid,nodev,noexec (host-wide) so guest-planted special files are inert to
+# host-side processes.
 #
 # CAP_SETUID/CAP_SETGID are in the bounding set so the fg_usermap helper's file
 # capabilities take effect (a bounded set that omits them strips the helper's
@@ -23,7 +27,7 @@ Type=simple
 User=flc
 Group=flc
 WorkingDirectory=/opt/flc
-ExecStart=/opt/flc/flc --vm-dir=/var/lib/flc --oci-dir=/var/lib/flc-oci --api-host=127.0.0.1 --api-port=7070
+ExecStart=/opt/flc/flc --vm-dir=/var/lib/flc/vm --oci-dir=/var/lib/flc/oci --api-host=127.0.0.1 --api-port=7070
 AmbientCapabilities=CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_SETUID CAP_SETGID
 Restart=on-failure

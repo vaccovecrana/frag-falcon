@@ -38,10 +38,10 @@ not reimplemented in the hypervisor:
   startup and logs a warning if it is missing. (The `--oci-dir` blob cache holds
   only downloaded layers and needs no such hardening.)
 
-`deploy/setup.sh <user> <vm-dir> [install-dir] [oci-dir]` performs the one-time
-setup (it allocates a free subuid/subgid block for the user and installs
-`fg_usermap`), and `deploy/flc.service` is a sample systemd unit. The hypervisor
-never needs root.
+`deploy/setup.sh` is a standalone installer/upgrader: it downloads the latest
+release tarball, provisions the service user and directories, installs the
+binaries and their capabilities, hardens the vm-dir, and installs a customized
+`flc.service`. Re-run it to upgrade. The hypervisor never needs root.
 
 `flc` **refuses to start** if it lacks `CAP_NET_ADMIN` (the systemd unit grants it
 via `AmbientCapabilities`), since it could not create the per-VM TAP devices a
@@ -57,26 +57,38 @@ stack needs.
 ## Quick start (Debian/systemd)
 
 ```bash
-# 1. Unpack the release somewhere persistent
-sudo mkdir -p /opt/flc
-sudo tar -xzf frag-falcon-{{gsVersion}}.tar.gz -C /opt/flc --strip-components=1
+# 1. Download and run the installer (as root). It prompts for the service user,
+#    vm-dir, oci-dir and API host; press Enter to accept the defaults.
+curl -fsSL https://raw.githubusercontent.com/vaccovecrana/frag-falcon/main/deploy/setup.sh -o /tmp/ff-setup.sh
+sudo bash /tmp/ff-setup.sh
 
-# 2. One-time root setup: service user, kvm group, vm-dir + oci-dir
-sudo bash /opt/flc/deploy/setup.sh flc /var/lib/flc /opt/flc /var/lib/flc-oci
+# 2. Apply the vm-dir hardening the installer added to /etc/fstab
+sudo systemctl daemon-reload && sudo mount -a
 
-# 3. Harden the vm-dir (host-wide, so a private mount namespace is not enough)
-sudo mount --bind /var/lib/flc /var/lib/flc
-sudo mount -o remount,bind,nosuid,nodev,noexec /var/lib/flc
-
-# 4. Install and start the service (grants CAP_NET_ADMIN via AmbientCapabilities)
-sudo cp /opt/flc/deploy/flc.service /etc/systemd/system/
-sudo systemctl daemon-reload
+# 3. Enable and start the service
 sudo systemctl enable --now flc
 ```
 
-The sample `deploy/flc.service` runs as the service user with the `kvm` group and
-`AmbientCapabilities=CAP_NET_ADMIN`. The `nosuid,nodev,noexec` mount should be
-made permanent in `/etc/fstab`.
+Defaults: user `flc`, `--vm-dir=/var/lib/flc/vm`, `--oci-dir=/var/lib/flc/oci`,
+`--install-dir=/opt/flc`, `--api-host=127.0.0.1`, `--api-port=7070`.
+
+The installer writes `/etc/systemd/system/flc.service` with the values you chose
+and grants `fg_vmm` `CAP_NET_ADMIN` via `AmbientCapabilities`. `deploy/flc.service`
+mirrors that template for reference.
+
+Non-interactive / multi-host (e.g. Ansible):
+
+```bash
+sudo bash /tmp/ff-setup.sh --yes \
+  --user flc --vm-dir /var/lib/flc/vm --oci-dir /var/lib/flc/oci \
+  --api-host 127.0.0.1 --api-port 7070
+```
+
+Re-running the script upgrades in place: it reuses the user/dirs/API settings
+from the installed unit, replaces the binaries, and re-applies capabilities. It
+does **not** start or restart the service — that is left to the operator. To
+install a specific release or a local tarball, pass `--version TAG` or
+`--url URL` (including `file:///path/to/frag-falcon.tar.gz`).
 
 ## Command-line options
 

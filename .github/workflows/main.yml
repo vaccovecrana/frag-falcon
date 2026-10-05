@@ -21,10 +21,13 @@ jobs:
             -w /workspace \
             gradle:jdk25-graal \
             gradle clean distNativeTar
-      - name: Upload binaries
+      - name: Stage stable-named artifact
+        run: cp ff-app/build/distributions/frag-falcon-*.tar.gz /tmp/frag-falcon.tar.gz
+      - name: Upload stable-named asset
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
-          file: ff-app/build/distributions/frag-falcon-*.gz
-          file_glob: true
+          file: /tmp/frag-falcon.tar.gz
+          asset_name: frag-falcon.tar.gz
+          overwrite: true

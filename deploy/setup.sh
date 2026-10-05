@@ -1,68 +1,206 @@
 #!/usr/bin/env bash
 #
-# One-time root setup for a *rootless* frag-falcon deployment.
+# frag-falcon installer / upgrader for a rootless, systemd-based deployment.
 #
-#   sudo bash deploy/setup.sh <user> <vm-dir> [install-dir] [oci-dir]
+#   curl -fsSL https://raw.githubusercontent.com/vaccovecrana/frag-falcon/main/deploy/setup.sh -o /tmp/ff-setup.sh
+#   sudo bash /tmp/ff-setup.sh
 #
-# It:
-#   1. creates the service user (if missing) and adds it to the `kvm` group,
-#   2. creates the VM storage dir and the OCI blob cache dir, owned by that user,
-#   3. allocates a subuid/subgid range for the user and installs fg_usermap
-#      (root:user, 0750, cap_setuid+cap_setgid) so guest images can run as
-#      arbitrary uids inside the launcher's user namespace,
-#   4. prints the mount command that hardens the VM storage dir.
+# It downloads the latest release tarball from GitHub, provisions the service
+# user and directories, installs the binaries (with fg_usermap's file caps),
+# hardens the vm-dir in /etc/fstab, installs a customized flc.service, and prints
+# the commands to enable and start the service. Re-run it to upgrade: it reads
+# the existing unit to reuse the user/dirs/API settings.
 #
-# cap_net_admin (needed for TAP devices) is granted by the systemd unit via
-# AmbientCapabilities=CAP_NET_ADMIN; do NOT `setcap` the launcher. A file-capped
-# binary runs in the loader's secure-execution mode, which ignores $ORIGIN, so it
-# cannot resolve the libkrun shared objects sitting beside it.
+# Everything can be answered non-interactively with flags (for Ansible etc.):
 #
-# frag-falcon itself never runs as root. Step 4 (mounting the vm-dir
-# nosuid,nodev,noexec) is what makes guest-planted setuid files, device nodes
-# and executables inert to host-side processes; the hypervisor only *audits* it
-# at startup (reading /proc/self/mountinfo) and logs a warning otherwise. The
-# oci-dir only holds downloaded blobs and needs no such hardening.
+#   --user NAME          service user                 (default flc)
+#   --vm-dir PATH        VM working set              (default /var/lib/flc/vm)
+#   --oci-dir PATH       OCI blob cache              (default /var/lib/flc/oci)
+#   --install-dir PATH   binaries location           (default /opt/flc)
+#   --api-host HOST      API bind address            (default 127.0.0.1)
+#   --api-port PORT      API port                    (default 7070)
+#   --version TAG        install a specific release tag instead of latest
+#   --url URL            use an explicit tarball URL (http(s):// or file://)
+#   --yes                do not prompt; use flags/defaults
+#
+# frag-falcon itself never runs as root: cap_net_admin comes from the unit's
+# AmbientCapabilities, and the subuid/subgid range is mapped by fg_usermap.
 set -euo pipefail
 
-user="${1:?usage: setup.sh <user> <vm-dir> [install-dir] [oci-dir]}"
-vm_dir="${2:?usage: setup.sh <user> <vm-dir> [install-dir] [oci-dir]}"
-install_dir="${3:-$(pwd)}"
-oci_dir="${4:-${vm_dir}-oci}"
+repo_slug="vaccovecrana/frag-falcon"
+repo_url="https://github.com/${repo_slug}"
+stable_asset="frag-falcon.tar.gz"
+unit_path="/etc/systemd/system/flc.service"
 
-if [ "$(id -u)" -ne 0 ]; then
-  echo "error: run as root (sudo bash deploy/setup.sh ...)" >&2
+user="flc"
+install_dir="/opt/flc"
+vm_dir="/var/lib/flc/vm"
+oci_dir="/var/lib/flc/oci"
+api_host="127.0.0.1"
+api_port="7070"
+version=""
+url=""
+assume_yes=0
+
+set_user=0
+set_vm_dir=0
+set_oci_dir=0
+set_install_dir=0
+set_api_host=0
+set_api_port=0
+
+usage() {
+  awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"
+}
+
+die() {
+  echo "error: $*" >&2
   exit 1
+}
+
+# Accept both --flag=value and --flag value.
+argv=()
+for a in "$@"; do
+  case "$a" in
+    --*=*) argv+=("${a%%=*}" "${a#*=}") ;;
+    *) argv+=("$a") ;;
+  esac
+done
+set -- "${argv[@]}"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --user) user="$2"; set_user=1; shift 2 ;;
+    --vm-dir) vm_dir="$2"; set_vm_dir=1; shift 2 ;;
+    --oci-dir) oci_dir="$2"; set_oci_dir=1; shift 2 ;;
+    --install-dir) install_dir="$2"; set_install_dir=1; shift 2 ;;
+    --api-host) api_host="$2"; set_api_host=1; shift 2 ;;
+    --api-port) api_port="$2"; set_api_port=1; shift 2 ;;
+    --version) version="$2"; shift 2 ;;
+    --url) url="$2"; shift 2 ;;
+    --yes|-y) assume_yes=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1 (try --help)" ;;
+  esac
+done
+
+[ "$(id -u)" -eq 0 ] || die "run as root (sudo bash $0 ...)"
+for t in tar setcap systemctl useradd usermod getent awk sed grep mktemp; do
+  command -v "$t" >/dev/null 2>&1 || die "$t is required"
+done
+command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || die "curl or wget is required"
+
+# --- reuse the existing deployment's settings on upgrade --------------------
+if [ -f "$unit_path" ]; then
+  echo "existing install detected: $unit_path"
+  existing_exec="$(sed -n 's/^ExecStart=//p' "$unit_path" | head -1)"
+  existing_user="$(sed -n 's/^User=//p' "$unit_path" | head -1)"
+  existing_workdir="$(sed -n 's/^WorkingDirectory=//p' "$unit_path" | head -1)"
+  existing_vm="$(printf '%s\n' "$existing_exec" | grep -oE -- '--vm-dir=[^ ]+' | head -1 | cut -d= -f2-)"
+  existing_oci="$(printf '%s\n' "$existing_exec" | grep -oE -- '--oci-dir=[^ ]+' | head -1 | cut -d= -f2-)"
+  existing_host="$(printf '%s\n' "$existing_exec" | grep -oE -- '--api-host=[^ ]+' | head -1 | cut -d= -f2-)"
+  existing_port="$(printf '%s\n' "$existing_exec" | grep -oE -- '--api-port=[^ ]+' | head -1 | cut -d= -f2-)"
+  [ "$set_user" = 1 ] || user="${existing_user:-$user}"
+  [ "$set_vm_dir" = 1 ] || vm_dir="${existing_vm:-$vm_dir}"
+  [ "$set_oci_dir" = 1 ] || oci_dir="${existing_oci:-$oci_dir}"
+  [ "$set_install_dir" = 1 ] || install_dir="${existing_workdir:-$install_dir}"
+  [ "$set_api_host" = 1 ] || api_host="${existing_host:-$api_host}"
+  [ "$set_api_port" = 1 ] || api_port="${existing_port:-$api_port}"
 fi
 
+# --- interactive prompts (read from the tty, so `curl | bash` still works) ---
+prompt() {
+  local __var="$1" __label="$2" __def="$3" __ans=""
+  if [ "$assume_yes" = 1 ] || [ ! -r /dev/tty ]; then
+    printf -v "$__var" '%s' "$__def"
+    return
+  fi
+  read -r -p "$__label [$__def]: " __ans < /dev/tty || __ans=""
+  printf -v "$__var" '%s' "${__ans:-$__def}"
+}
+
+prompt user        "Service user to create/use" "$user"
+prompt vm_dir      "VM storage dir (working set)" "$vm_dir"
+prompt oci_dir     "OCI blob cache dir" "$oci_dir"
+prompt api_host    "API bind host" "$api_host"
+
+[ -n "$user" ] || die "user must not be empty"
+case "$api_port" in
+  ''|*[!0-9]*) die "api-port must be a number: $api_port" ;;
+esac
+
+# --- resolve the release tarball URL ----------------------------------------
+resolve_url() {
+  if [ -n "$url" ]; then
+    printf '%s\n' "$url"
+    return 0
+  fi
+  local stable="$repo_url/releases/latest/download/$stable_asset"
+  if curl -fsIL "$stable" >/dev/null 2>&1; then
+    printf '%s\n' "$stable"
+    return 0
+  fi
+  local api
+  if [ -n "$version" ]; then
+    api="https://api.github.com/repos/$repo_slug/releases/tags/$version"
+  else
+    api="https://api.github.com/repos/$repo_slug/releases/latest"
+  fi
+  curl -fsSL "$api" 2>/dev/null \
+    | grep -o '"browser_download_url": *"[^"]*\.tar\.gz"' \
+    | head -1 \
+    | sed 's/.*"\(https[^"]*\)".*/\1/'
+}
+
+echo "resolving release..."
+tarball_url="$(resolve_url || true)"
+[ -n "$tarball_url" ] || die "could not resolve a release tarball; pass --url or --version"
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+tarball="$tmp_dir/frag-falcon.tar.gz"
+
+echo "downloading: $tarball_url"
+if command -v curl >/dev/null 2>&1; then
+  curl -fL --retry 3 -o "$tarball" "$tarball_url"
+else
+  wget -O "$tarball" "$tarball_url"
+fi
+tar -tzf "$tarball" >/dev/null 2>&1 || die "downloaded file is not a gzip tarball"
+
+# --- stop the running service before replacing its binary -------------------
+if [ -f "$unit_path" ] && systemctl is-active --quiet flc 2>/dev/null; then
+  echo "stopping flc (upgrade)"
+  systemctl stop flc
+fi
+
+# --- service user, kvm group ------------------------------------------------
 if ! id "$user" >/dev/null 2>&1; then
   echo "creating user: $user"
-  /sbin/useradd --system --create-home --shell /usr/sbin/nologin "$user"
+  useradd --system --create-home --shell /usr/sbin/nologin "$user"
 fi
 
 if getent group kvm >/dev/null 2>&1; then
-  echo "adding $user to group: kvm"
-  /sbin/usermod -aG kvm "$user"
+  usermod -aG kvm "$user"
 else
   echo "warning: no 'kvm' group; ensure $user can read/write /dev/kvm" >&2
 fi
 
-echo "creating VM storage dir: $vm_dir"
-mkdir -p "$vm_dir"
-chown "$user":"$user" "$vm_dir"
-chmod 0750 "$vm_dir"
+# --- directories ------------------------------------------------------------
+for d in "$vm_dir" "$oci_dir"; do
+  echo "creating dir: $d"
+  mkdir -p "$d"
+  chown "$user":"$user" "$d"
+  chmod 0750 "$d"
+done
 
-echo "creating OCI cache dir: $oci_dir"
-mkdir -p "$oci_dir"
-chown "$user":"$user" "$oci_dir"
-chmod 0750 "$oci_dir"
-
-# --- subuid/subgid range (for arbitrary guest uids) -------------------------
+# --- subuid/subgid range (arbitrary guest uids via fg_usermap) --------------
 subid_min="$(awk '/^SUB_UID_MIN/{print $2}' /etc/login.defs 2>/dev/null || true)"
 subid_count="$(awk '/^SUB_UID_COUNT/{print $2}' /etc/login.defs 2>/dev/null || true)"
 subid_min="${subid_min:-100000}"
 subid_count="${subid_count:-65536}"
 
-block_free() { # file start end -> 0 if no range in file overlaps
+block_free() {
   local file="$1" start="$2" end="$3" _n s c e
   [ -f "$file" ] || return 0
   while IFS=: read -r _n s c; do
@@ -87,40 +225,93 @@ else
     start=$((end + 1))
   done
   echo "allocating subuid/subgid range ${start}-${end} for $user"
-  /sbin/usermod --add-subuids "${start}-${end}" --add-subgids "${start}-${end}" "$user"
+  usermod --add-subuids "${start}-${end}" --add-subgids "${start}-${end}" "$user"
 fi
 
-# --- fg_usermap helper (writes the launcher's uid_map/gid_map range) --------
+# --- install binaries -------------------------------------------------------
+echo "installing binaries into: $install_dir"
+mkdir -p "$install_dir"
+tar -xzf "$tarball" -C "$install_dir" --strip-components=1
+
 helper="$install_dir/fg_usermap"
 if [ -f "$helper" ]; then
-  echo "installing fg_usermap with cap_setuid,cap_setgid: $helper"
+  echo "setting fg_usermap capabilities"
   chown root:"$user" "$helper"
   chmod 0750 "$helper"
   setcap 'cap_setuid,cap_setgid+ep' "$helper"
-  getcap "$helper"
 else
   echo "warning: $helper not found; the launcher will fall back to a single-uid map" >&2
 fi
 
+# --- harden the vm-dir in /etc/fstab ----------------------------------------
+fstab_changed=0
+if ! awk -v d="$vm_dir" '$1==d && $2==d {found=1} END{exit !found}' /etc/fstab 2>/dev/null; then
+  echo "adding vm-dir hardening to /etc/fstab"
+  printf '%s %s none bind,nosuid,nodev,noexec 0 0\n' "$vm_dir" "$vm_dir" >> /etc/fstab
+  fstab_changed=1
+fi
+
+# --- install the systemd unit -----------------------------------------------
+echo "writing $unit_path"
+cat > "$unit_path" <<EOF
+[Unit]
+Description=frag-falcon libkrun microVM hypervisor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$user
+Group=$user
+WorkingDirectory=$install_dir
+ExecStart=$install_dir/flc --vm-dir=$vm_dir --oci-dir=$oci_dir --api-host=$api_host --api-port=$api_port
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SETUID CAP_SETGID
+Restart=on-failure
+StandardOutput=syslog
+StandardError=inherit
+SyslogIdentifier=flc
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+
+# --- final instructions -----------------------------------------------------
 cat <<EOF
 
-Setup complete. cap_net_admin is granted by the systemd unit
-(AmbientCapabilities=CAP_NET_ADMIN) — do NOT setcap $install_dir/fg_vmm.
+Setup complete.
 
-The launcher maps the subuid/subgid range above into its user namespace via
-$install_dir/fg_usermap, so guest images can run as arbitrary uids (e.g. a
-container's 'bitcoin' user) instead of only root.
+  service user : $user (group $user, member of kvm)
+  install dir  : $install_dir
+  vm-dir       : $vm_dir
+  oci-dir      : $oci_dir
+  api          : $api_host:$api_port
+  unit         : $unit_path
 
-Hardening the VM storage dir is the operator's responsibility
-(it must be host-wide, so a private mount namespace is not enough):
+Next steps (run as root):
 
-  # one-time, host-wide (fstab):
-  $vm_dir $vm_dir none bind,nosuid,nodev,noexec 0 0
+EOF
 
-  # or immediately, for the running system:
-  mount --bind $vm_dir $vm_dir
-  mount -o remount,bind,nosuid,nodev,noexec $vm_dir
+if [ "$fstab_changed" = 1 ]; then
+  cat <<EOF
+  1. Apply the vm-dir hardening added to /etc/fstab:
+       systemctl daemon-reload && mount -a
 
-frag-falcon will log a warning at startup if the vm-dir is not hardened.
-See deploy/flc.service for a sample systemd unit.
+EOF
+  step=2
+else
+  step=1
+fi
+
+cat <<EOF
+  $step. Enable and start the service:
+       systemctl enable --now flc
+
+Then open http://$api_host:$api_port/ (no authentication: keep it on a private
+LAN segment or behind a VPN). Logs: journalctl -u flc -f.
+
+To upgrade later, re-run this script; it reuses the settings above and leaves
+starting the new binary to you.
 EOF

@@ -53,8 +53,11 @@ OS once, not reimplemented in the hypervisor:
   executables) are inert to host-side processes. The hypervisor audits this at
   startup and logs a warning if it is missing.
 
-`deploy/setup.sh <user> <vm-dir> [install-dir]` performs the one-time setup, and
-`deploy/flc.service` is a sample unit. The hypervisor never needs root.
+`deploy/setup.sh` is a standalone installer/upgrader: it downloads the latest
+release, provisions the user and dirs, installs the binaries with their
+capabilities, hardens the vm-dir, and installs a customized `flc.service`.
+`deploy/flc.service` mirrors the generated unit for reference. The hypervisor
+never needs root.
 
 `flc` **refuses to start** if it lacks `CAP_NET_ADMIN` (the systemd unit grants it
 via `AmbientCapabilities`), since it could not create the per-VM TAP devices a
@@ -100,10 +103,18 @@ GET    /api/v1/host             hypervisor host name (browser tab title)
 
 ## systemd
 
-A rootless sample unit ships in `deploy/flc.service` (service user, `kvm` group,
-`AmbientCapabilities=CAP_NET_ADMIN`). Provision it once with
-`sudo bash deploy/setup.sh <user> <vm-dir> [install-dir]`, which also prints the
-`nosuid,nodev,noexec` mount for the vm-dir.
+Install with the standalone installer (it downloads the latest release and
+prompts for the service user, dirs and API host, then writes
+`/etc/systemd/system/flc.service`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vaccovecrana/frag-falcon/main/deploy/setup.sh -o /tmp/ff-setup.sh
+sudo bash /tmp/ff-setup.sh
+sudo systemctl enable --now flc
+```
+
+Re-run it to upgrade; it reuses the settings from the installed unit. See
+[docs/20-deployment.md](docs/20-deployment.md) for the flags and defaults.
 
 Note: VMs are **not** killed when the service stops — they are independent
 launcher processes and are re-adopted on the next start.
