@@ -35,7 +35,7 @@ export PATH="/usr/local/sbin:/usr/sbin:/sbin:${PATH:-/usr/bin:/bin}"
 repo_slug="vaccovecrana/frag-falcon"
 repo_url="https://github.com/${repo_slug}"
 stable_asset="frag-falcon.tar.gz"
-unit_path="/etc/systemd/system/flc.service"
+target_unit="/etc/systemd/system/flc.service"
 
 user="flc"
 install_dir="/opt/flc"
@@ -61,6 +61,28 @@ usage() {
 die() {
   echo "error: $*" >&2
   exit 1
+}
+
+# Locate an installed flc.service anywhere in systemd's search path (a unit may
+# live in the vendor dir /usr/lib/systemd/system, not only /etc). Empty when not
+# installed.
+find_unit() {
+  local p
+  p="$(systemctl show -p FragmentPath --value flc.service 2>/dev/null || true)"
+  if [ -n "$p" ] && [ -f "$p" ]; then
+    printf '%s\n' "$p"
+    return 0
+  fi
+  for p in /etc/systemd/system/flc.service \
+           /run/systemd/system/flc.service \
+           /usr/local/lib/systemd/system/flc.service \
+           /usr/lib/systemd/system/flc.service; do
+    if [ -f "$p" ]; then
+      printf '%s\n' "$p"
+      return 0
+    fi
+  done
+  return 1
 }
 
 # Accept both --flag=value and --flag value.
@@ -96,11 +118,15 @@ done
 command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || die "curl or wget is required"
 
 # --- reuse the existing deployment's settings on upgrade --------------------
-if [ -f "$unit_path" ]; then
-  echo "existing install detected: $unit_path"
-  existing_exec="$(sed -n 's/^ExecStart=//p' "$unit_path" | head -1)"
-  existing_user="$(sed -n 's/^User=//p' "$unit_path" | head -1)"
-  existing_workdir="$(sed -n 's/^WorkingDirectory=//p' "$unit_path" | head -1)"
+existing_unit="$(find_unit || true)"
+if [ -n "$existing_unit" ]; then
+  echo "existing install detected: $existing_unit"
+  if [ "$existing_unit" != "$target_unit" ]; then
+    echo "note: $existing_unit is shadowed by $target_unit"
+  fi
+  existing_exec="$(sed -n 's/^ExecStart=//p' "$existing_unit" | head -1)"
+  existing_user="$(sed -n 's/^User=//p' "$existing_unit" | head -1)"
+  existing_workdir="$(sed -n 's/^WorkingDirectory=//p' "$existing_unit" | head -1)"
   existing_vm="$(printf '%s\n' "$existing_exec" | grep -oE -- '--vm-dir=[^ ]+' | head -1 | cut -d= -f2-)"
   existing_oci="$(printf '%s\n' "$existing_exec" | grep -oE -- '--oci-dir=[^ ]+' | head -1 | cut -d= -f2-)"
   existing_host="$(printf '%s\n' "$existing_exec" | grep -oE -- '--api-host=[^ ]+' | head -1 | cut -d= -f2-)"
@@ -174,7 +200,7 @@ fi
 tar -tzf "$tarball" >/dev/null 2>&1 || die "downloaded file is not a gzip tarball"
 
 # --- stop the running service before replacing its binary -------------------
-if [ -f "$unit_path" ] && systemctl is-active --quiet flc 2>/dev/null; then
+if [ -n "$existing_unit" ] && systemctl is-active --quiet flc 2>/dev/null; then
   echo "stopping flc (upgrade)"
   systemctl stop flc
 fi
@@ -257,8 +283,8 @@ if ! awk -v d="$vm_dir" '$1==d && $2==d {found=1} END{exit !found}' /etc/fstab 2
 fi
 
 # --- install the systemd unit -----------------------------------------------
-echo "writing $unit_path"
-cat > "$unit_path" <<EOF
+echo "writing $target_unit"
+cat > "$target_unit" <<EOF
 [Unit]
 Description=frag-falcon libkrun microVM hypervisor
 After=network-online.target
@@ -293,7 +319,7 @@ Setup complete.
   vm-dir       : $vm_dir
   oci-dir      : $oci_dir
   api          : $api_host:$api_port
-  unit         : $unit_path
+  unit         : $target_unit
 
 Next steps (run as root):
 
