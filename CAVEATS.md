@@ -79,6 +79,11 @@ Scoping by ifindex means a TAP recreated for a restarted VM (new ifindex) is
 never deleted by a stale watcher. `--tap-up` is idempotent (it clears any stale
 device before creating), so a restart never trips over a lingering TAP.
 
+The watcher is a fork (no exec) of the launcher, so it shares the launcher's
+command line; it sets its own process name to `<vmid>-watch` (`prctl(PR_SET_NAME)`)
+so `ps` does not show two identical `fg_vmm` entries. VM discovery still matches
+the launcher's exact `comm` (the VM id), so the watcher is ignored.
+
 ---
 
 ## 4. File capabilities break `LD_LIBRARY_PATH` and `$ORIGIN`

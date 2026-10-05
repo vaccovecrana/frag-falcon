@@ -626,6 +626,11 @@ static void spawn_tap_watcher(int ifindex) {
     }
     if (w == 0) {
         close(p[1]);
+        if (vm_id_arg != NULL) {
+            char comm[16];
+            snprintf(comm, sizeof(comm), "%s-watch", vm_id_arg);
+            prctl(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
+        }
         char buf[1];
         while (read(p[0], buf, 1) > 0) {
         }
