@@ -57,8 +57,9 @@ stack needs.
 ## Quick start (Debian/systemd)
 
 ```bash
-# 1. Download and run the installer (as root). It prompts for the service user,
-#    vm-dir, oci-dir and API host; press Enter to accept the defaults.
+# 1. Download and run the installer as root (sudo or su). It prompts for the
+#    service user, vm-dir, oci-dir and API host; press Enter to accept the
+#    defaults.
 curl -fsSL https://raw.githubusercontent.com/vaccovecrana/frag-falcon/main/deploy/setup.sh -o /tmp/ff-setup.sh
 sudo bash /tmp/ff-setup.sh
 

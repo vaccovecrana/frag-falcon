@@ -27,6 +27,11 @@
 # AmbientCapabilities, and the subuid/subgid range is mapped by fg_usermap.
 set -euo pipefail
 
+# `su` (without a login shell) can leave the sbin dirs out of PATH, so setcap,
+# useradd, usermod and getent are not found. Add them so the script works the
+# same whether invoked via `sudo` or `su`.
+export PATH="/usr/local/sbin:/usr/sbin:/sbin:${PATH:-/usr/bin:/bin}"
+
 repo_slug="vaccovecrana/frag-falcon"
 repo_url="https://github.com/${repo_slug}"
 stable_asset="frag-falcon.tar.gz"
